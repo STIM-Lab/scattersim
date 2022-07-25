@@ -62,7 +62,7 @@ float real_max = 100;                                   // maximum real value in
 float real_low = real_min;
 float real_high = real_max;
 bool fix_low_high = false;
-ImVec4 real_color = ImVec4(255.0f / 255.0f, 0.0f / 255.0f, 0.0f / 255.0f, 255.0f / 255.0f);
+ImVec4 real_color = ImVec4(0.0f / 255.0f, 255.0f / 255.0f, 0.0f / 255.0f, 255.0f / 255.0f);
 
 bool show_imag = true;
 float imag_min = -100;                                  // minimum real value in the field

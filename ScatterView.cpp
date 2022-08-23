@@ -663,7 +663,7 @@ int main(int argc, char** argv)
 
     EvaluateVectorSlices();    
 
-    SliceGeometry = tira::glGenerateRectangle<float>();
+    SliceGeometry = tira::glGeometry::GenerateRectangle<float>();
     
 
     // Main loop

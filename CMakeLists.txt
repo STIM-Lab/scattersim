@@ -60,6 +60,10 @@ add_executable(scatterlayer
 					CoupledWaveStructure.h
 					ScatterLayer.cpp)
 
+add_executable(scattervolume
+					CoupledWaveStructure.h
+					ScatterVolume.cpp)
+
 add_executable(scatterview
 					CoupledWaveStructure.h
 					cpuEvaluator.cpp
@@ -67,6 +71,7 @@ add_executable(scatterview
 					gpuEvaluator.cu
 					gpuEvaluator.h
 					ScatterView.cpp)
+
 target_link_libraries(scatterplane
 			ZLIB::ZLIB
 			glm::glm
@@ -74,6 +79,13 @@ target_link_libraries(scatterplane
 )
 
 target_link_libraries(scatterlayer
+			ZLIB::ZLIB
+			glm::glm
+			Boost::program_options
+			Eigen3::Eigen
+)
+
+target_link_libraries(scattervolume
 			ZLIB::ZLIB
 			glm::glm
 			Boost::program_options
@@ -89,14 +101,3 @@ target_link_libraries(scatterview
 			imgui::imgui
 			Boost::program_options
 )
-
-#target_compile_features(planescatter cxx_std_20)
-
-#add_executable(SampleField 
-#                    SampleField.cu
-#                    ScatterIO.h
-#)
-#target_link_libraries(SampleField
-#			ZLIB::ZLIB
-#			Boost::program_options
-#)

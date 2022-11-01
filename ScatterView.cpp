@@ -617,7 +617,7 @@ int main(int argc, char** argv)
 
     boost::program_options::options_description desc("Allowed options");
 	desc.add_options()
-        ("input", boost::program_options::value<std::string>(&in_filename)->default_value("a.cw"), "output filename for the coupled wave structure")
+        ("input", boost::program_options::value<std::string>(&in_filename), "output filename for the coupled wave structure")
 		("help", "produce help message")
         ("cuda,c", boost::program_options::value<int>(&in_device)->default_value(0), "cuda device number (-1 is CPU-only)")
 		("verbose,v", "produce verbose output")
@@ -641,7 +641,9 @@ int main(int argc, char** argv)
     }
     
     if(!vm.count("input")){
-        throw "ERROR: no input file specified";
+        std::cout << "ERROR: No input file provided." << std::endl << std::endl;
+        std::cout << desc << std::endl;
+        return 1;
     }
     AllocateImageArrays();                                              // allocate space to store the evaluated fields
 

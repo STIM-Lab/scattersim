@@ -27,6 +27,37 @@
 #include <complex>
 #include <chrono>
 
+std::string vertex_shader(
+    "# version 330 core\n"
+
+    "layout(location = 0) in vec3 vertices;\n"
+    "layout(location = 2) in vec2 texcoords;\n"
+
+    "uniform mat4 MVP;\n"
+
+    "out vec4 vertex_color;\n"
+    "out vec2 vertex_texcoord;\n"
+
+    "void main() {\n"
+    "gl_Position = MVP * vec4(vertices.x, vertices.y, vertices.z, 1.0f);\n"
+    "vertex_texcoord = texcoords;\n"
+    "};\n"
+);
+
+std::string fragment_shader(
+    "# version 330 core\n"
+
+    "layout(location = 0) out vec4 color;\n"
+
+    "in vec4 vertex_color;\n"
+    "in vec2 vertex_texcoord;\n"
+    "uniform sampler2D texmap;\n"
+
+    "void main() {\n"
+    "color = texture(texmap, vertex_texcoord);\n"
+    "};\n"
+);
+
 
 GLFWwindow* window;                                     // pointer to the GLFW window that will be created (used in GLFW calls to request properties)
 const char* glsl_version = "#version 130";              // specify the version of GLSL
@@ -657,9 +688,10 @@ int main(int argc, char** argv)
 
     
 
-    Material_xy.LoadShader("simple_texturemap.shader");          // create a material    
-    Material_xz.LoadShader("simple_texturemap.shader");
-    Material_yz.LoadShader("simple_texturemap.shader");
+    //Material_xy.LoadShader("simple_texturemap.shader");          // create a material    
+    Material_xy.CreateShader(vertex_shader, fragment_shader);
+    Material_xz.CreateShader(vertex_shader, fragment_shader);
+    Material_yz.CreateShader(vertex_shader, fragment_shader);
 
     EvaluateVectorSlices();    
 

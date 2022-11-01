@@ -46,9 +46,6 @@ include_directories(
 
 configure_file(Roboto-Medium.ttf 
 				Roboto-Medium.ttf COPYONLY)
-
-configure_file(simple_texturemap.shader
-				simple_texturemap.shader COPYONLY)
 				
 #create an executable
 add_executable(scatterplane

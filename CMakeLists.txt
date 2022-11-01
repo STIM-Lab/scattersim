@@ -44,8 +44,6 @@ include_directories(
 			${Boost_INCLUDE_DIRS}
 )
 
-configure_file(Roboto-Medium.ttf 
-				Roboto-Medium.ttf COPYONLY)
 				
 #create an executable
 add_executable(scatterplane

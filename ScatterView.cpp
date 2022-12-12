@@ -4,8 +4,6 @@
 
 #include "cpuEvaluator.h"
 #include "tira/graphics_gl.h"
-//#include "CoupledWaveStructure.h"
-//#include "HeteSaveStructure.h"
 #include "tira/image/colormap.h"
 
 #include <GL/glew.h>

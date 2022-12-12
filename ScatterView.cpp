@@ -4,7 +4,8 @@
 
 #include "cpuEvaluator.h"
 #include "tira/graphics_gl.h"
-#include "CoupledWaveStructure.h"
+//#include "CoupledWaveStructure.h"
+//#include "HeteSaveStructure.h"
 #include "tira/image/colormap.h"
 
 #include <GL/glew.h>
@@ -93,6 +94,7 @@ size_t free_gpu_memory;
 size_t total_gpu_memory;
 
 bool verbose = false;
+unsigned int in_isHete;
 
 // time variables
 double t_LoadData;
@@ -586,10 +588,11 @@ int main(int argc, char** argv)
 
     boost::program_options::options_description desc("Allowed options");
 	desc.add_options()
-        ("input", boost::program_options::value<std::string>(&in_filename)->default_value("a.cw"), "output filename for the coupled wave structure")
+        ("input", boost::program_options::value<std::string>(&in_filename)->default_value("py.cw"), "output filename for the coupled wave structure")
 		("help", "produce help message")
         ("cuda,c", boost::program_options::value<int>(&in_device)->default_value(0), "cuda device number (-1 is CPU-only)")
 		("verbose,v", "produce verbose output")
+        ("isHete", boost::program_options::value<unsigned int>(&in_isHete)->default_value(0), "0 means there is no any heterogeneous sample. Non-zero mean the layer that the heterogeneous sample locates at")
 		;
 	boost::program_options::variables_map vm;
 

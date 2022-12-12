@@ -23,6 +23,8 @@ find_package(glm CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED core glfw-binding opengl3-binding)
 find_package(GLEW REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(FFTW3 CONFIG REQUIRED)
+
 
 
 #build the executable in the binary directory on MS Visual Studio
@@ -53,15 +55,20 @@ configure_file(simple_texturemap.shader
 #create an executable
 add_executable(scatterplane
 					CoupledWaveStructure.h
+					# HeteSaveStructure.h
 					ScatterPlane.cpp
 					cnpy/cnpy.cpp)
 
 add_executable(scatterlayer
 					CoupledWaveStructure.h
+					# HeteSaveStructure.h
 					ScatterLayer.cpp)
 
 add_executable(scattervolume
 					CoupledWaveStructure.h
+					# HeteSaveStructure.h
+					FourierWave.h
+					# CoupledWaveVolumeStructure.h
 					ScatterVolume.cpp)
 
 add_executable(scatterview
@@ -70,7 +77,21 @@ add_executable(scatterview
 					cpuEvaluator.h
 					gpuEvaluator.cu
 					gpuEvaluator.h
+					# HeteSaveStructure.h
+					# HetecpuEvaluator.cpp
+					# HetecpuEvaluator.h
+					# HetegpuEvaluator.cu
+					# HetegpuEvaluator.h
 					ScatterView.cpp)
+
+# Final project to finish
+add_executable(scatterviewHete
+					CoupledWaveStructureHete.h
+					cpuEvaluatorHete.cpp
+					cpuEvaluatorHete.h
+					gpuEvaluatorHete.cu
+					gpuEvaluatorHete.h
+					ScatterViewHete.cpp)
 
 target_link_libraries(scatterplane
 			ZLIB::ZLIB
@@ -90,9 +111,20 @@ target_link_libraries(scattervolume
 			glm::glm
 			Boost::program_options
 			Eigen3::Eigen
+			FFTW3::fftw3
 )
 
 target_link_libraries(scatterview
+			ZLIB::ZLIB
+			glfw
+			glm::glm
+			GLEW::GLEW
+			${OPENGL_LIBRARIES}
+			imgui::imgui
+			Boost::program_options
+)
+
+target_link_libraries(scatterviewHete
 			ZLIB::ZLIB
 			glfw
 			glm::glm

@@ -179,7 +179,7 @@ void SetGaussianConstraints(tira::planewave<double> p) {
 	}	
 }
 
-void SetTransverseConstraints(tira::planewave<double> p) {
+void SetBoundaryConstraints(tira::planewave<double> p) {
 	glm::vec<3, double> s = p.getDirection();
 	double zn, zp;
 	size_t start_row = 6 + 2 * (L - 1);
@@ -195,6 +195,9 @@ void SetTransverseConstraints(tira::planewave<double> p) {
 
 		// first constraint (Equation 8)
 		Mat(start_row + l * 4 + 0, l, Transmitted, X) = std::exp(i * k * sz[l] * zn);
+		std::cout << std::exp(i * k * sz[l] * zn) << std::endl;
+		std::cout << std::exp(i * k * sz[l] * zn) << std::endl;
+		std::cout << std::exp(i * k * sz[l] * zn) << std::endl;
 		Mat(start_row + l * 4 + 0, l, Reflected, X) = 1.0;
 		Mat(start_row + l * 4 + 0, l + 1, Transmitted, X) = -1.0;
 		Mat(start_row + l * 4 + 0, l + 1, Reflected, X) = -std::exp(-i * k * sz[l + 1] * zp);
@@ -276,8 +279,8 @@ int main(int argc, char** argv) {
 		("help", "produce help message")
 		("lambda", boost::program_options::value<double>(&in_lambda)->default_value(1.0), "incident field vacuum wavelength")
 		("direction", boost::program_options::value<std::vector<double> >(&in_dir)->multitoken()->default_value(std::vector<double>{0, 0, 1}, "0, 0, 1"), "incoming field direction")
-		("ex", boost::program_options::value<std::vector<double> >(&in_ex)->multitoken()->default_value(std::vector<double>{0, 0}, "0, 0"), "incoming field direction")
-		("ey", boost::program_options::value<std::vector<double> >(&in_ey)->multitoken()->default_value(std::vector<double>{1, 0}, "1, 0"), "incoming field direction")
+		("ex", boost::program_options::value<std::vector<double> >(&in_ex)->multitoken()->default_value(std::vector<double>{0, 0}, "0, 0"), "x component of electrical field")
+		("ey", boost::program_options::value<std::vector<double> >(&in_ey)->multitoken()->default_value(std::vector<double>{1, 0}, "1, 0"), "y component of electrical field")
 		("n", boost::program_options::value<std::vector<double>>(&in_n)->multitoken()->default_value(std::vector<double>{1, 1.4, 1.4, 1.0}, "1, 1.4, 1.4, 1.0"), "real refractive index (optical path length) of all L layers")
 		("kappa", boost::program_options::value<std::vector<double> >(&in_kappa)->multitoken()->default_value(std::vector<double>{0.05}, "0.05, 0.00, 0.00"), "absorbance of layers 2+ (layer 1 is always 0.0)")
 		("z", boost::program_options::value<std::vector<double> >(&in_z)->multitoken()->default_value(std::vector<double>{-3.0, 0.0, 3.0}, "-3.0, 0.0, 3.0"), "position of each layer boundary")
@@ -334,9 +337,9 @@ int main(int argc, char** argv) {
 
 	k = 2 * M_PI / (in_lambda * in_n[0]);
 	tira::planewave<double> i_ref(dir[0] * k, dir[1] * k, dir[2] * k, std::complex<double>(in_ex[0], in_ex[1]), std::complex<double>(in_ey[0], in_ey[1]));
-	
-	InitMatrices();
-	InitLayerProperties();
+	//
+	//InitMatrices();
+	//InitLayerProperties();
 
 	
 	unsigned int N[2];										// calculate the number of samples
@@ -379,9 +382,8 @@ int main(int argc, char** argv) {
 		InitMatrices();
 		InitLayerProperties();
 		InitSz(i);																				// initialize the model matrix
-		SetBoundaryConditions(i);
 		SetGaussianConstraints(i);
-		SetTransverseConstraints(i);
+		SetBoundaryConditions(i);
 
 		Eigen::VectorXcd x = A.colPivHouseholderQr().solve(b);												// solve the linear system
 		std::vector<tira::planewave<double>> P = mat2waves(i, x);									// generate plane waves from the solution vector
@@ -413,7 +415,7 @@ int main(int argc, char** argv) {
 	InitSz(i_ref);
 	SetBoundaryConditions(i_ref);															// set the matrix boundary conditions
 	SetGaussianConstraints(i_ref);
-	SetTransverseConstraints(i_ref);
+	SetBoundaryConstraints(i_ref);
 	Eigen::VectorXcd x = A.partialPivLu().solve(b);												// solve the linear system
 
 	if (logfile) {

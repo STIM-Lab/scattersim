@@ -181,6 +181,11 @@ public:
 
 	Eigen::VectorXd _dir;
 
+	// For sparse storage
+	std::vector<int> _M_rowInd;
+	std::vector<int> _M_colInd;
+	std::vector<std::complex<double>> _M_val;
+
 	volume(std::string filename, Eigen::VectorXcd n_layers, double* z, std::vector<double> center, double width, std::vector<double> pos_interest, double k, std::complex<double> n_volume){
 		// Read data from .npy file
 		npy<std::complex<double>>(filename);
@@ -307,6 +312,10 @@ private:
 	}
 
 	Eigen::MatrixXcd phi(Eigen::MatrixXcd sample) {
+		_M_val.reserve(100000);
+		_M_rowInd.reserve(100000);
+		_M_colInd.reserve(100000);
+		int idx = 0;
 		UpWq_Cal();
 		//std::cout <<"Dimension of the Property Matrix: ("<< sample.rows() << ", "<< sample.cols() << ")" << std::endl;
 		Eigen::MatrixXcd Nf = fftw_fft2(sample.array().pow(2), _M[1], _M[0]);
@@ -336,10 +345,8 @@ private:
 						li += 1;
 					}
 				}
-				//std::cout << "A[0] = " << A[0] << std::endl;
-				//std::cout << "A[1] = " << A[1] << std::endl;
-				//std::cout << "A[2] = " << A[2] << std::endl;
 
+				// Dense storage
 				phi.row(qi * _M[0] + pi).segment(2 * MF, MF) = up * k_inv * A[2];
 				//std::cout << "sec 1 row 1: " << up * k_inv * A[2] << std::endl;
 				phi.row(qi * _M[0] + pi).segment(3 * MF, MF) = -up * k_inv * A[1];
@@ -369,6 +376,13 @@ private:
 				phi(qi * _M[0] + pi + 3 * MF, MF + qi * _M[0] + pi) += up * wq * k_inv;
 				//std::cout << "Index for sec 4 row 3: " << qi * _M[0] + pi + 3 * MF << ", " << MF + qi * _M[0] + pi << std::endl;
 				//std::cout << "sec 4 row 3: " << up * wq * k_inv << std::endl;
+			}
+		}
+		for (size_t i = 0; i < phi.rows(); i++) {
+			for (size_t j = 0; j < phi.cols(); j++) {
+				_M_val.push_back(phi(i, j));
+				_M_rowInd.push_back(i);
+				_M_colInd.push_back(j);
 			}
 		}
 		//std::cout << phi << std::endl;

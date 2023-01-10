@@ -3,19 +3,21 @@ cmake_minimum_required(VERSION 3.19)
 
 #Name your project here
 project(scatter LANGUAGES CUDA CXX)
-#project(scatter LANGUAGES CXX)
 
 #set the module directory
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}")
 set(CMAKE_CXX_STANDARD 20)
 
 #set up CUDA
-enable_language(CUDA)
+
 
 #find the TIRA library
+find_package(CUDA REQUIRED)
 find_package(Boost REQUIRED COMPONENTS program_options)
 find_package(glm CONFIG REQUIRED)
 find_package(TIRA REQUIRED)
+find_package(clapack CONFIG REQUIRED)
+find_package(OpenBLAS CONFIG REQUIRED)
 find_package(ZLIB REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
@@ -24,8 +26,8 @@ find_package(imgui CONFIG REQUIRED core glfw-binding opengl3-binding)
 find_package(GLEW REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(FFTW3 CONFIG REQUIRED)
-
-
+find_package(spectra CONFIG REQUIRED)
+find_package(MKL CONFIG REQUIRED)
 
 #build the executable in the binary directory on MS Visual Studio
 if ( MSVC )
@@ -45,7 +47,7 @@ include_directories(
 			${CUDA_INCLUDE_DIRS}
 			${Boost_INCLUDE_DIRS}
 )
-
+link_directories(${CUDA_BIN_DIRS})
 				
 #create an executable
 add_executable(scatterplane
@@ -61,10 +63,10 @@ add_executable(scatterlayer
 
 add_executable(scattervolume
 					CoupledWaveStructure.h
-					# HeteSaveStructure.h
 					FourierWave.h
-					# CoupledWaveVolumeStructure.h
-					ScatterVolume.cpp)
+					ScatterVolume.cpp
+					third_cusp.h
+					third_Lapack.h)
 
 add_executable(scatterview
 					CoupledWaveStructure.h
@@ -72,21 +74,10 @@ add_executable(scatterview
 					cpuEvaluator.h
 					gpuEvaluator.cu
 					gpuEvaluator.h
-					# HeteSaveStructure.h
-					# HetecpuEvaluator.cpp
-					# HetecpuEvaluator.h
-					# HetegpuEvaluator.cu
-					# HetegpuEvaluator.h
 					ScatterView.cpp)
 
-# Final project to finish
-add_executable(scatterviewHete
-					CoupledWaveStructureHete.h
-					cpuEvaluatorHete.cpp
-					cpuEvaluatorHete.h
-					gpuEvaluatorHete.cu
-					gpuEvaluatorHete.h
-					ScatterViewHete.cpp)
+target_compile_options(scattervolume PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>)
+target_include_directories(scattervolume PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>)
 
 target_link_libraries(scatterplane
 			ZLIB::ZLIB
@@ -107,19 +98,14 @@ target_link_libraries(scattervolume
 			Boost::program_options
 			Eigen3::Eigen
 			FFTW3::fftw3
+			${CUDA_LIBRARIES}
+			OpenBLAS::OpenBLAS
+			f2c lapack
+			Spectra::Spectra
+			$<LINK_ONLY:MKL::MKL>
 )
 
 target_link_libraries(scatterview
-			ZLIB::ZLIB
-			glfw
-			glm::glm
-			GLEW::GLEW
-			${OPENGL_LIBRARIES}
-			imgui::imgui
-			Boost::program_options
-)
-
-target_link_libraries(scatterviewHete
 			ZLIB::ZLIB
 			glfw
 			glm::glm

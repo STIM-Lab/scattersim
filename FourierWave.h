@@ -4,6 +4,7 @@
 #include "CoupledWaveStructure.h"
 #include <vector>
 #include <fstream>
+#include <complex>
 #include "fftw3.h"
 #include "Eigen/Eigen"
 #include "Eigen/Dense"
@@ -186,9 +187,18 @@ public:
 	std::vector<int> _M_colInd;
 	std::vector<std::complex<double>> _M_val;
 
-	volume(std::string filename, Eigen::VectorXcd n_layers, double* z, std::vector<double> center, double width, std::vector<double> pos_interest, double k, std::complex<double> n_volume){
+	volume(std::string filename, 
+		Eigen::VectorXcd n_layers, 
+		double* z, 
+		std::vector<double> center, 
+		double width, 
+		std::vector<double> pos_interest, 
+		double k, 
+		std::complex<double> n_volume){
+
 		// Read data from .npy file
-		npy<std::complex<double>>(filename);
+		//tira::field<T>::npy <std::complex<double>> (filename);
+		this->npy(filename);
 
 		// Necessary parameters
 		_n_layers = n_layers;
@@ -205,14 +215,14 @@ public:
 	/// </summary>
 	std::vector<size_t> reformat() {
 		// _shape = [shape_x, shape_y, shape_z]
-		_Sample.resize(_shape[2]);
+		_Sample.resize(tira::field<T>::_shape[2]);
 		for (int i = 0; i < _Sample.size(); i++) {
-			_Sample[i].resize(_shape[0], _shape[1]); // Orders for resize(): (row, col)
-			_Sample[i] = Eigen::Map<Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>>(&_data[i * _shape[0] * _shape[1]], _shape[0], _shape[1]);
+			_Sample[i].resize(tira::field<T>::_shape[0], tira::field<T>::_shape[1]); // Orders for resize(): (row, col)
+			_Sample[i] = Eigen::Map<Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>>(&tira::field<T>::_data[i * tira::field<T>::_shape[0] * tira::field<T>::_shape[1]], tira::field<T>::_shape[0], tira::field<T>::_shape[1]);
 			//if (i > 48 && i < 53)
 			//	std::cout << "Sample[" << i << "]: " << _Sample[i] << std::endl;
 		}
-		return _shape;
+		return  tira::field<T>::_shape;
 	}
 
 	/// <summary>
@@ -220,10 +230,10 @@ public:
 	/// </summary>
 	/// <returns></returns>
 	std::vector<int> reorg() {
-		_flag.resize(_shape[2]);
+		_flag.resize(tira::field<T>::_shape[2]);
 		int num = 0;
 		int ind = 0;
-		for (size_t i = 0; i < _shape[2]; i++) {
+		for (size_t i = 0; i < tira::field<T>::_shape[2]; i++) {
 			// If _Z[i] is goes to a different layer
 			if (i > 0 && !(_Sample[i].isApprox(_Sample[i - 1]))) {
 				// If homogeneous
@@ -264,8 +274,8 @@ public:
 			double temp1 = abs(_pos_interest[4]);
 			double temp2 = abs(_pos_interest[4]);
 			double current;
-			for (size_t i = 0; i < _shape[2]; i++) {
-				current = _pos_interest[4] + (_pos_interest[5] - _pos_interest[4]) / (double)_shape[2] * (double)i;
+			for (size_t i = 0; i < tira::field<T>::_shape[2]; i++) {
+				current = _pos_interest[4] + (_pos_interest[5] - _pos_interest[4]) / (double)tira::field<T>::_shape[2] * (double)i;
 				if (abs(current - _z[0]) < abs(temp1)) {
 					temp1 = current;
 					_fz[0] = i;

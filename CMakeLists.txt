@@ -1,5 +1,5 @@
 #Specify the version being used aswell as the language
-cmake_minimum_required(VERSION 3.19)
+cmake_minimum_required(VERSION 3.16)
 
 #Name your project here
 project(scatter LANGUAGES CUDA CXX)
@@ -7,6 +7,7 @@ project(scatter LANGUAGES CUDA CXX)
 #set the module directory
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}")
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CPP_COMPILER icpx)
 
 #set up CUDA
 
@@ -28,7 +29,7 @@ find_package(Eigen3 REQUIRED)
 find_package(FFTW3 CONFIG REQUIRED)
 #find_package(spectra CONFIG REQUIRED)
 find_package(MKL CONFIG REQUIRED)
-find_package(LAPACK REQUIRED)
+#find_package(LAPACK REQUIRED)
 
 #build the executable in the binary directory on MS Visual Studio
 if ( MSVC )
@@ -47,6 +48,7 @@ include_directories(
 			${TIRA_INCLUDE_DIRS}
 			${CUDA_INCLUDE_DIRS}
 			${Boost_INCLUDE_DIRS}
+			${MKL_H}
 )
 link_directories(${CUDA_BIN_DIRS})
 				
@@ -93,6 +95,7 @@ target_link_libraries(scatterlayer
 			Eigen3::Eigen
 )
 
+MESSAGE(${MKL_LIBRARIES})
 target_link_libraries(scattervolume
 			ZLIB::ZLIB
 			glm::glm
@@ -101,8 +104,9 @@ target_link_libraries(scattervolume
 			FFTW3::fftw3
 			${CUDA_LIBRARIES}
 #			OpenBLAS::OpenBLAS
-			f2c lapack
+#			f2c lapack
 #			Spectra::Spectra
+			${MKL_LIBRARIES}
 )
 
 target_link_libraries(scatterview

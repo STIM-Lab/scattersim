@@ -27,7 +27,7 @@ find_package(GLEW REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(FFTW3 CONFIG REQUIRED)
 #find_package(spectra CONFIG REQUIRED)
-#find_package(MKL CONFIG REQUIRED)
+find_package(MKL CONFIG REQUIRED)
 find_package(LAPACK REQUIRED)
 
 #build the executable in the binary directory on MS Visual Studio

@@ -16,8 +16,8 @@ find_package(CUDA REQUIRED)
 find_package(Boost REQUIRED COMPONENTS program_options)
 find_package(glm CONFIG REQUIRED)
 find_package(TIRA REQUIRED)
-find_package(clapack CONFIG REQUIRED)
-find_package(OpenBLAS CONFIG REQUIRED)
+#find_package(clapack CONFIG REQUIRED)
+#find_package(OpenBLAS CONFIG REQUIRED)
 find_package(ZLIB REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
@@ -26,8 +26,9 @@ find_package(imgui CONFIG REQUIRED core glfw-binding opengl3-binding)
 find_package(GLEW REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(FFTW3 CONFIG REQUIRED)
-find_package(spectra CONFIG REQUIRED)
-find_package(MKL CONFIG REQUIRED)
+#find_package(spectra CONFIG REQUIRED)
+#find_package(MKL CONFIG REQUIRED)
+find_package(LAPACK REQUIRED)
 
 #build the executable in the binary directory on MS Visual Studio
 if ( MSVC )
@@ -65,7 +66,7 @@ add_executable(scattervolume
 					CoupledWaveStructure.h
 					FourierWave.h
 					ScatterVolume.cpp
-					third_cusp.h
+#					third_cusp.h
 					third_Lapack.h)
 
 add_executable(scatterview
@@ -76,8 +77,8 @@ add_executable(scatterview
 					gpuEvaluator.h
 					ScatterView.cpp)
 
-target_compile_options(scattervolume PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>)
-target_include_directories(scattervolume PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>)
+#target_compile_options(scattervolume PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>)
+#target_include_directories(scattervolume PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>)
 
 target_link_libraries(scatterplane
 			ZLIB::ZLIB
@@ -99,10 +100,9 @@ target_link_libraries(scattervolume
 			Eigen3::Eigen
 			FFTW3::fftw3
 			${CUDA_LIBRARIES}
-			OpenBLAS::OpenBLAS
+#			OpenBLAS::OpenBLAS
 			f2c lapack
-			Spectra::Spectra
-			$<LINK_ONLY:MKL::MKL>
+#			Spectra::Spectra
 )
 
 target_link_libraries(scatterview

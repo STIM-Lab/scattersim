@@ -95,7 +95,6 @@ target_link_libraries(scatterlayer
 			Eigen3::Eigen
 )
 
-MESSAGE(${mkl_core_file})
 target_link_libraries(scattervolume
 			ZLIB::ZLIB
 			glm::glm

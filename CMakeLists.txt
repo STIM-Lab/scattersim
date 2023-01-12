@@ -95,7 +95,7 @@ target_link_libraries(scatterlayer
 			Eigen3::Eigen
 )
 
-MESSAGE(${MKL_LIBRARIES})
+MESSAGE(${mkl_core_file})
 target_link_libraries(scattervolume
 			ZLIB::ZLIB
 			glm::glm
@@ -106,7 +106,9 @@ target_link_libraries(scattervolume
 #			OpenBLAS::OpenBLAS
 #			f2c lapack
 #			Spectra::Spectra
-			${MKL_LIBRARIES}
+			${mkl_core_file}
+			${mkl_intel_ilp64_file}
+			${mkl_intel_thread_file}
 )
 
 target_link_libraries(scatterview

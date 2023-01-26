@@ -7,7 +7,8 @@ project(scatter LANGUAGES CUDA CXX)
 #set the module directory
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}")
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CPP_COMPILER icpx)
+#set(CMAKE_CXX_COMPILER icpx)
+#set(WITH_LAPACK OFF)
 
 #set up CUDA
 
@@ -25,9 +26,8 @@ find_package(imgui CONFIG REQUIRED core glfw-binding opengl3-binding)
 find_package(GLEW REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(FFTW3 CONFIG REQUIRED)
-#find_package(spectra CONFIG REQUIRED)
 find_package(MKL CONFIG REQUIRED)
-#find_package(LAPACK REQUIRED)
+
 
 #build the executable in the binary directory on MS Visual Studio
 if ( MSVC )
@@ -45,7 +45,7 @@ configure_file(data/RecSquare.npy
 				RecSquare.npy COPYONLY)
 configure_file(data/target.npy 
 				target.npy COPYONLY)
-
+message(${MKL_H})
 #set the include directories
 include_directories(
 			${CMAKE_CURRENT_BINARY_DIR}
@@ -114,9 +114,7 @@ target_link_libraries(scattervolume
 			Eigen3::Eigen
 			FFTW3::fftw3
 			${CUDA_LIBRARIES}
-			${mkl_core_file}
-			${mkl_intel_ilp64_file}
-			${mkl_intel_thread_file}
+			MKL::MKL
 )
 
 target_link_libraries(scatterview

@@ -16,6 +16,8 @@
 
 #define PI 3.141592653
 
+extern std::vector<double> in_size;
+
 // function to compute 2d-fftshift (like MATLAB) of a matrix
 Eigen::MatrixXcd fftShift2d(Eigen::MatrixXcd mat)
 {
@@ -196,7 +198,8 @@ public:
 
 		// Read data from .npy file
 		//tira::field<T>::npy <std::complex<double>> (filename);
-		this->npy<std::complex<double>>(filename);
+		//this->npy< std::complex<double> >(filename);
+		tira::field<T>::load_npy(filename);
 
 		// Necessary parameters
 		_n_layers = n_layers;

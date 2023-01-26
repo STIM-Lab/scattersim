@@ -26,6 +26,12 @@ void cw_allocate(CoupledWaveStructure<double>* cw){
     W.resize(total_waves);    
 }
 
+/// <summary>
+/// Unpacks all plane waves in the Coupled Wave structure to arrays containing the E vector at 0 (E0) and the k vector.
+/// These arrays perform all of the processing necessary to evaluate the plane wave at 0, making it easier to map to a fast
+/// CPU and GPU calculation for visualization.
+/// </summary>
+/// <param name="cw"></param>
 void cw_unpack(CoupledWaveStructure<double>* cw) {
 
     size_t idx = 0;

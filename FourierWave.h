@@ -154,20 +154,19 @@ void meshgrid(Eigen::VectorXcd& vecX, Eigen::VectorXcd& vecY, Eigen::MatrixXcd& 
 template <class T>
 class volume : public tira::field<T> {
 public:
-	std::vector<Eigen::MatrixXcd> _Sample;
+	Eigen::MatrixXcd _Sample;
 
 	Eigen::VectorXcd _n_layers;
 	double* _z = new double[2];
 	std::vector<double> _center;
-	double _width;
 	std::vector<unsigned int> _num_pixels;
-	std::vector<double> _pos_interest;
+	std::vector<double> _size;
 	std::complex<double> _n_volume;
 
 	std::vector<int> _flag;
-	std::vector<int> _fz;
+	//std::vector<int> _fz;
 	Eigen::VectorXd _Z;
-	std::vector<Eigen::MatrixXcd> _Phi;
+	Eigen::MatrixXcd _phi;
 	int* _M = new int[2];
 	double _k;
 
@@ -191,21 +190,19 @@ public:
 		Eigen::VectorXcd n_layers, 
 		double* z, 
 		std::vector<double> center, 
-		double width, 
-		std::vector<double> pos_interest, 
+		std::vector<double> size, 
 		double k, 
 		std::complex<double> n_volume){
 
 		// Read data from .npy file
 		//tira::field<T>::npy <std::complex<double>> (filename);
-		this->npy(filename);
+		this->npy<std::complex<double>>(filename);
 
 		// Necessary parameters
 		_n_layers = n_layers;
 		_z = z;
 		_center = center;
-		_width = width;
-		_pos_interest = pos_interest;
+		_size = size;
 		_k = k;
 		_n_volume = n_volume;
 	}
@@ -215,91 +212,20 @@ public:
 	/// </summary>
 	std::vector<size_t> reformat() {
 		// _shape = [shape_x, shape_y, shape_z]
-		_Sample.resize(tira::field<T>::_shape[2]);
-		for (int i = 0; i < _Sample.size(); i++) {
-			_Sample[i].resize(tira::field<T>::_shape[0], tira::field<T>::_shape[1]); // Orders for resize(): (row, col)
-			_Sample[i] = Eigen::Map<Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>>(&tira::field<T>::_data[i * tira::field<T>::_shape[0] * tira::field<T>::_shape[1]], tira::field<T>::_shape[0], tira::field<T>::_shape[1]);
-			//if (i > 48 && i < 53)
-			//	std::cout << "Sample[" << i << "]: " << _Sample[i] << std::endl;
-		}
+		_Sample.resize(tira::field<T>::_shape[0], tira::field<T>::_shape[1]); // Orders for resize(): (row, col)
+		_Sample = Eigen::Map<Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>>(&tira::field<T>::_data[0], tira::field<T>::_shape[0], tira::field<T>::_shape[1]);
 		return  tira::field<T>::_shape;
 	}
 
-	/// <summary>
-	/// Set labels for layers along z
-	/// </summary>
-	/// <returns></returns>
-	std::vector<int> reorg() {
-		_flag.resize(tira::field<T>::_shape[2]);
-		int num = 0;
-		int ind = 0;
-		for (size_t i = 0; i < tira::field<T>::_shape[2]; i++) {
-			// If _Z[i] is goes to a different layer
-			if (i > 0 && !(_Sample[i].isApprox(_Sample[i - 1]))) {
-				// If homogeneous
-				if (_Sample[i].real().maxCoeff() == _Sample[i].real().minCoeff() && _Sample[i].imag().maxCoeff() == _Sample[i].imag().minCoeff()) {
-					num += 1;
-					_flag[i] = num;
-				}
-				// if heterogeneous
-				else {
-					ind -= 1;
-					_fz.push_back(i);
-					_flag[i] = ind;
-					// if next layer is homogeneous, mark the current _z[i+1] as next fz.
-					if (_Sample[i + 1].real().maxCoeff() == _Sample[i + 1].real().minCoeff() && _Sample[i + 1].imag().maxCoeff() == _Sample[i + 1].imag().minCoeff()) {
-						_fz.push_back(i + 1);
-						num += 1;
-					}
-				}
-			}
-			// If _Z[i] remains at the same layer
-			else {
-				// If homogeneous
-				if (_Sample[i].real().maxCoeff() == _Sample[i].real().minCoeff() && _Sample[i].imag().maxCoeff() == _Sample[i].imag().minCoeff()) {
-					_flag[i] = num;
-				}
-				else {
-					_flag[i] = ind;
-					if (_Sample[i + 1].real().maxCoeff() == _Sample[i + 1].real().minCoeff() && _Sample[i + 1].imag().maxCoeff() == _Sample[i + 1].imag().minCoeff()) {
-						_fz.push_back(i + 1);
-						num += 1;
-					}
-				}
-			}
-		}
-		// For unit sample, manually set numbers for _fz
-		if (_fz.size() == 0) {
-			_fz.resize(2);
-			double temp1 = abs(_pos_interest[4]);
-			double temp2 = abs(_pos_interest[4]);
-			double current;
-			for (size_t i = 0; i < tira::field<T>::_shape[2]; i++) {
-				current = _pos_interest[4] + (_pos_interest[5] - _pos_interest[4]) / (double)tira::field<T>::_shape[2] * (double)i;
-				if (abs(current - _z[0]) < abs(temp1)) {
-					temp1 = current;
-					_fz[0] = i;
-				}
-				if (abs(current - _z[1]) < abs(temp2)) {
-					temp2 = current;
-					_fz[1] = i;
-				}
-			}
-		}
-		return _fz;
-	}
-
-	std::vector<Eigen::MatrixXcd> CalculateD(int* M, Eigen::VectorXd dir) {
+	Eigen::MatrixXcd CalculateD(int* M, Eigen::VectorXd dir) {
 		_M = M;
 		_dir = dir;
-		for (size_t i = 0; i < _fz.size() - 1; i++) {
-			std::cout << "		For layer " << i << ", the property matrix D starts forming..." << std::endl;
-			clock_t Phi1 = clock();
-			_Phi.push_back(phi(_Sample[_fz[i]]));
-			clock_t Phi2 = clock();
-			std::cout << "		Time for forming D: " << (Phi2 - Phi1) / CLOCKS_PER_SEC << "s" << std::endl;
-		}
-		return _Phi;
+		std::cout << "		The property matrix D starts forming..." << std::endl;
+		clock_t Phi1 = clock();
+		_phi = phi(_Sample);
+		clock_t Phi2 = clock();
+		std::cout << "		Time for forming D: " << (Phi2 - Phi1) / CLOCKS_PER_SEC << "s" << std::endl;
+		return _phi;
 	}
 
 private:
@@ -307,8 +233,8 @@ private:
 	void UpWq_Cal() {
 		_p_series.setLinSpaced(_M[0], -_M[0] / 2, (_M[0] - 1) / 2);
 		_q_series.setLinSpaced(_M[1], -_M[1] / 2, (_M[1] - 1) / 2);
-		_up = 2 * PI * _p_series / (_pos_interest[1] - _pos_interest[0]) + _dir[0] * _k * Eigen::VectorXd::Ones(_M[0]);
-		_wq = 2 * PI * _q_series / (_pos_interest[1] - _pos_interest[0]) + _dir[1] * _k * Eigen::VectorXd::Ones(_M[1]);
+		_up = 2 * PI * _p_series / in_size[0] + _dir[0] * _k * Eigen::VectorXd::Ones(_M[0]);
+		_wq = 2 * PI * _q_series / in_size[1] + _dir[1] * _k * Eigen::VectorXd::Ones(_M[1]);
 		_Sx = (_up / _k).cast<std::complex<double>>();
 		_Sy = (_wq / _k).cast<std::complex<double>>();
 
@@ -331,7 +257,7 @@ private:
 		Eigen::MatrixXcd Nf = fftw_fft2(sample.array().pow(2), _M[1], _M[0]);
 		Eigen::MatrixXcd Nif = fftw_fft2(sample.cwiseInverse().array().pow(2), _M[1], _M[0]);
 		int MF = _M[0] * _M[1];
-		// Calculate Phi
+		// Calculate phi
 		Eigen::MatrixXcd phi;
 		phi.setZero(4 * MF, 4 * MF);
 

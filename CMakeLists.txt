@@ -17,8 +17,6 @@ find_package(CUDA REQUIRED)
 find_package(Boost REQUIRED COMPONENTS program_options)
 find_package(glm CONFIG REQUIRED)
 find_package(TIRA REQUIRED)
-#find_package(clapack CONFIG REQUIRED)
-#find_package(OpenBLAS CONFIG REQUIRED)
 find_package(ZLIB REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
@@ -41,6 +39,13 @@ if ( MSVC )
 	add_definitions(-D_SCL_SECURE_NO_WARNINGS)
 endif ( MSVC )
 
+configure_file(data/RecBar.npy 
+				RecBar.npy COPYONLY)
+configure_file(data/RecSquare.npy 
+				RecSquare.npy COPYONLY)
+configure_file(data/target.npy 
+				target.npy COPYONLY)
+
 #set the include directories
 include_directories(
 			${CMAKE_CURRENT_BINARY_DIR}
@@ -59,6 +64,11 @@ add_executable(scatterplane
 					ScatterPlane.cpp
 					cnpy/cnpy.cpp)
 
+add_executable(scattertest
+					CoupledWaveStructure.h
+					ScatterTest.cpp
+					cnpy/cnpy.cpp)
+
 add_executable(scatterlayer
 					CoupledWaveStructure.h
 					# HeteSaveStructure.h
@@ -68,7 +78,6 @@ add_executable(scattervolume
 					CoupledWaveStructure.h
 					FourierWave.h
 					ScatterVolume.cpp
-#					third_cusp.h
 					third_Lapack.h)
 
 add_executable(scatterview
@@ -79,10 +88,13 @@ add_executable(scatterview
 					gpuEvaluator.h
 					ScatterView.cpp)
 
-#target_compile_options(scattervolume PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>)
-#target_include_directories(scattervolume PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>)
-
 target_link_libraries(scatterplane
+			ZLIB::ZLIB
+			glm::glm
+			Boost::program_options
+)
+
+target_link_libraries(scattertest
 			ZLIB::ZLIB
 			glm::glm
 			Boost::program_options
@@ -102,9 +114,6 @@ target_link_libraries(scattervolume
 			Eigen3::Eigen
 			FFTW3::fftw3
 			${CUDA_LIBRARIES}
-#			OpenBLAS::OpenBLAS
-#			f2c lapack
-#			Spectra::Spectra
 			${mkl_core_file}
 			${mkl_intel_ilp64_file}
 			${mkl_intel_thread_file}

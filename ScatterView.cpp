@@ -615,11 +615,14 @@ int main(int argc, char** argv)
     }
     AllocateImageArrays();                                              // allocate space to store the evaluated fields
 
-    auto start = std::chrono::steady_clock::now();
+    std::cout << "Loading input file...";
+    auto start = std::chrono::steady_clock::now();    
     cw.load(in_filename);                                                  // load the coupled wave data
     auto end = std::chrono::steady_clock::now();
-    std::chrono::duration<double> duration = end-start;
+    std::chrono::duration<double> duration = end - start;
     t_LoadData = duration.count();
+    std::cout << "done. (" << t_LoadData << " s)" << std::endl;
+    
 
     cw_allocate(&cw);
     cw_unpack(&cw);

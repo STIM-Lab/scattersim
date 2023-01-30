@@ -470,7 +470,8 @@ void SetBoundaryConditions() {
 
 	A.block(2 * MF, 0, 4 * MF, 3 * MF) = f2;
 	//A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = Gd * Gc_inv * f3;
-	A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = MKL_multiply(MKL_multiply(Gd, Gc_inv, 1), f3, 1);
+	Eigen::MatrixXcd tmpG = MKL_multiply(Gd, Gc_inv, 1);
+	A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = MKL_multiply(tmpG, f3, 1);
 	clock_t mul = clock();
 	std::cout << "			Time for multiplication once: " << (mul - inv) / 2 / CLOCKS_PER_SEC << "s" << std::endl;
 

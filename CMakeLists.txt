@@ -45,6 +45,8 @@ configure_file(data/RecSquare.npy
 				RecSquare.npy COPYONLY)
 configure_file(data/target.npy 
 				target.npy COPYONLY)
+configure_file(data/triangle.npy 
+				triangle.npy COPYONLY)
 message(${MKL_H})
 #set the include directories
 include_directories(

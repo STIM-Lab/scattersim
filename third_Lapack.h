@@ -70,7 +70,9 @@ Eigen::MatrixXcd MKL_multiply(Eigen::MatrixXcd& A, Eigen::MatrixXcd& B, std::com
 	int K = A.cols();
 	int N = B.cols();
 	std::complex<double> beta = 0;
-	cblas_zgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, M, N, K, &alpha, (MKL_Complex16*)A.data(), M, (MKL_Complex16*)B.data(), K, &beta, (MKL_Complex16*)A.data(), M);
+	Eigen::MatrixXcd C;
+	C.resize(M, N);
+	cblas_zgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, M, N, K, &alpha, (MKL_Complex16*)A.data(), M, (MKL_Complex16*)B.data(), K, &beta, (MKL_Complex16*)C.data(), M);
 
 	return A;
 }

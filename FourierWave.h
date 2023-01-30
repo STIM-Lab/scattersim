@@ -199,7 +199,7 @@ public:
 		// Read data from .npy file
 		//tira::field<T>::npy <std::complex<double>> (filename);
 		//this->npy< std::complex<double> >(filename);
-		tira::field<T>::template npy<std::complex<double>>(filename);
+		tira::field<T>::template load_npy<std::complex<double>>(filename);
 
 		// Necessary parameters
 		_n_layers = n_layers;

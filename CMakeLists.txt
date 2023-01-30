@@ -7,6 +7,7 @@ project(scatter LANGUAGES CUDA CXX)
 #set the module directory
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}")
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 #set(CMAKE_CXX_COMPILER icpx)
 #set(WITH_LAPACK OFF)
 

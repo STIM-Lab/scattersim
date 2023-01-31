@@ -14,7 +14,7 @@ SAMPLE = np.asfortranarray(SAMPLE)
 np.save(outfile, SAMPLE)
 
 #%% display the simulated image from a specified number of Fourier coefficients
-M = 35
+M = 300
 
 I_fft_shift = sp.fft.fft2(I)
 I_fft = sp.fft.fftshift(I_fft_shift)
@@ -32,3 +32,4 @@ I_fft_cropped_shift = sp.fft.ifftshift(I_fft_cropped)
 I_cropped = np.real(sp.fft.ifft2(I_fft_cropped_shift))
 
 plt.imshow(I_cropped)
+plt.show()

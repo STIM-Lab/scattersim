@@ -7,16 +7,17 @@ project(scatter LANGUAGES CUDA CXX)
 #set the module directory
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}")
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_FLAGS_RELEASE "-O3")
-#set(CMAKE_CXX_COMPILER icpx)
-#set(WITH_LAPACK OFF)
 
-#set up CUDA
+# fix warnings with BOOST and CMake
+set(Boost_NO_WARN_NEW_VERSIONS 1)
+find_package(Boost REQUIRED COMPONENTS program_options)
 
 
 #find the TIRA library
+set(CMAKE_CUDA_ARCHITECTURES 75)
 find_package(CUDA REQUIRED)
-find_package(Boost REQUIRED COMPONENTS program_options)
+
+
 find_package(glm CONFIG REQUIRED)
 find_package(TIRA REQUIRED)
 find_package(ZLIB REQUIRED)
@@ -48,7 +49,7 @@ configure_file(data/target.npy
 				target.npy COPYONLY)
 configure_file(data/triangle.npy 
 				triangle.npy COPYONLY)
-message(${MKL_H})
+
 #set the include directories
 include_directories(
 			${CMAKE_CURRENT_BINARY_DIR}

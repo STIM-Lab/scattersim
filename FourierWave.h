@@ -195,10 +195,6 @@ public:
 		std::vector<double> size, 
 		double k, 
 		std::complex<double> n_volume){
-
-		// Read data from .npy file
-		//tira::field<T>::npy <std::complex<double>> (filename);
-		//this->npy< std::complex<double> >(filename);
 		tira::field<T>::template load_npy<std::complex<double>>(filename);
 
 		// Necessary parameters
@@ -256,10 +252,10 @@ private:
 		_M_colInd.reserve(100000);
 		int idx = 0;
 		UpWq_Cal();
-		//std::cout <<"Dimension of the Property Matrix: ("<< sample.rows() << ", "<< sample.cols() << ")" << std::endl;
 		Eigen::MatrixXcd Nf = fftw_fft2(sample.array().pow(2), _M[1], _M[0]);
 		Eigen::MatrixXcd Nif = fftw_fft2(sample.cwiseInverse().array().pow(2), _M[1], _M[0]);
 		int MF = _M[0] * _M[1];
+
 		// Calculate phi
 		Eigen::MatrixXcd phi;
 		phi.setZero(4 * MF, 4 * MF);
@@ -287,34 +283,20 @@ private:
 
 				// Dense storage
 				phi.row(qi * _M[0] + pi).segment(2 * MF, MF) = up * k_inv * A[2];
-				//std::cout << "sec 1 row 1: " << up * k_inv * A[2] << std::endl;
 				phi.row(qi * _M[0] + pi).segment(3 * MF, MF) = -up * k_inv * A[1];
-				//std::cout << "sec 1 row 2: " << -up * k_inv * A[1] << std::endl;
 				phi(qi * _M[0] + pi, 3 * MF + qi * _M[0] + pi) += 1;
-				//std::cout << "Index for sec 1 row 3: " << qi * _M[0] + pi << "," << 3 * MF + qi * _M[0] + pi << std::endl;
 
 				phi.row(qi * _M[0] + pi + MF).segment(2 * MF, MF) = wq * k_inv * A[2];
-				//std::cout << "sec 2 row 1: " << wq * k_inv * A[2] << std::endl;
 				phi.row(qi * _M[0] + pi + MF).segment(3 * MF, MF) = -wq * k_inv * A[1];
-				//std::cout << "sec 2 row 2: " << -wq * k_inv * A[1] << std::endl;
 				phi(qi * _M[0] + pi + MF, 2 * MF + qi * _M[0] + pi) += -1;
-				//std::cout << "Index for sec 2 row 3: " << qi * _M[0] + pi + MF << ", " << 2 * MF + qi * _M[0] + pi << std::endl;
 
 				phi.row(qi * _M[0] + pi + 2 * MF).segment(MF, MF) = -A[0];
-				//std::cout << "sec 3 row 1: " << -A[0] << std::endl;
 				phi(qi * _M[0] + pi + 2 * MF, qi * _M[0] + pi) += -up * wq * k_inv;
-				//std::cout << "sec 3 row 2: " << -up * wq * k_inv << std::endl;
 				phi(qi * _M[0] + pi + 2 * MF, MF + qi * _M[0] + pi) += up * up * k_inv;
-				//std::cout << "Index for sec 3 row 3: " << qi * _M[0] + pi + 2 * MF << ", " << MF + qi * _M[0] + pi << std::endl;
-				//std::cout << "sec 3 row 3: " << up * up * k_inv << std::endl;
 
 				phi.row(qi * _M[0] + pi + 3 * MF).segment(0, MF) = A[0];
-				//std::cout << "sec 4 row 1: " << A[0] << std::endl;
 				phi(qi * _M[0] + pi + 3 * MF, qi * _M[0] + pi) += -wq * wq * k_inv;
-				//std::cout << "sec 4 row 2: " << -wq * wq * k_inv << std::endl;
 				phi(qi * _M[0] + pi + 3 * MF, MF + qi * _M[0] + pi) += up * wq * k_inv;
-				//std::cout << "Index for sec 4 row 3: " << qi * _M[0] + pi + 3 * MF << ", " << MF + qi * _M[0] + pi << std::endl;
-				//std::cout << "sec 4 row 3: " << up * wq * k_inv << std::endl;
 			}
 		}
 		for (size_t i = 0; i < phi.rows(); i++) {

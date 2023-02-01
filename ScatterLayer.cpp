@@ -1,13 +1,9 @@
 #include <iostream>
 #include <tira/optics/planewave.h>
 #include "CoupledWaveStructure.h"
-//#include <tira/optics/beam.h>
-//#include <tira/geometry/plane.h>
-//#include <numbers>
+
 #include <complex>
 #include <math.h>
-//#include <tira/geometry/vec3.h>
-//#include "ScatterIO.h"
 #include <fstream>
 #include <boost/program_options.hpp>
 #include <random>
@@ -34,7 +30,6 @@ std::string in_mode;
 
 unsigned int L;
 Eigen::MatrixXcd A;
-//std::complex<double>* A;
 Eigen::VectorXcd b;
 std::vector<std::complex<double>> ri;
 std::complex<double>* sz;
@@ -428,8 +423,7 @@ int main(int argc, char** argv) {
 		logfile << std::endl;
 	}
 	std::vector<tira::planewave<double>> P = mat2waves(i_ref, x);
-	//std::cout<<P<<std::endl;
-	//std::cout<<x<<std::endl;
+
 	int spacing1 = 30;
 	int spacing2 = 30;
 	// incident field parameters

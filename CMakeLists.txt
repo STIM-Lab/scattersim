@@ -29,7 +29,8 @@ find_package(GLEW REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(FFTW3 CONFIG REQUIRED)
 find_package(MKL CONFIG REQUIRED)
-
+find_package(JPEG REQUIRED)
+find_package(PNG REQUIRED)
 
 #build the executable in the binary directory on MS Visual Studio
 if ( MSVC )
@@ -41,14 +42,16 @@ if ( MSVC )
 	add_definitions(-D_SCL_SECURE_NO_WARNINGS)
 endif ( MSVC )
 
-configure_file(data/RecBar.npy 
-				RecBar.npy COPYONLY)
+configure_file(data/sphere.npy 
+				sphere.npy COPYONLY)
 configure_file(data/RecSquare.npy 
 				RecSquare.npy COPYONLY)
 configure_file(data/target.npy 
 				target.npy COPYONLY)
 configure_file(data/triangle.npy 
 				triangle.npy COPYONLY)
+configure_file(data/triangle.png 
+				triangle.png COPYONLY)
 
 #set the include directories
 include_directories(
@@ -58,6 +61,7 @@ include_directories(
 			${CUDA_INCLUDE_DIRS}
 			${Boost_INCLUDE_DIRS}
 			${MKL_H}
+			${JPEG_INCLUDE_DIR}
 )
 link_directories(${CUDA_BIN_DIRS})
 				
@@ -78,6 +82,11 @@ add_executable(scatterlayer
 					# HeteSaveStructure.h
 					ScatterLayer.cpp)
 
+add_executable(scatterthinvolume
+					CoupledWaveStructure.h
+					FourierWave.h
+					ScatterThinVolume.cpp
+					third_Lapack.h)
 add_executable(scattervolume
 					CoupledWaveStructure.h
 					FourierWave.h
@@ -111,6 +120,16 @@ target_link_libraries(scatterlayer
 			Eigen3::Eigen
 )
 
+target_link_libraries(scatterthinvolume
+			ZLIB::ZLIB
+			glm::glm
+			Boost::program_options
+			Eigen3::Eigen
+			FFTW3::fftw3
+			${CUDA_LIBRARIES}
+			MKL::MKL
+)
+
 target_link_libraries(scattervolume
 			ZLIB::ZLIB
 			glm::glm
@@ -129,4 +148,6 @@ target_link_libraries(scatterview
 			${OPENGL_LIBRARIES}
 			imgui::imgui
 			Boost::program_options
+			${JPEG_LIBRARIES}
+			PNG::PNG
 )

@@ -156,7 +156,8 @@ void meshgrid(Eigen::VectorXcd& vecX, Eigen::VectorXcd& vecY, Eigen::MatrixXcd& 
 template <class T>
 class volume : public tira::field<T> {
 public:
-	Eigen::MatrixXcd _Sample;
+	std::vector<Eigen::MatrixXcd> _Sample;
+	std::vector<size_t> _shape;
 
 	Eigen::VectorXcd _n_layers;
 	double* _z = new double[2];
@@ -168,7 +169,7 @@ public:
 	std::vector<int> _flag;
 	//std::vector<int> _fz;
 	Eigen::VectorXd _Z;
-	Eigen::MatrixXcd _phi;
+	std::vector<Eigen::MatrixXcd> _Phi;
 	int* _M = new int[2];
 	double _k;
 
@@ -195,13 +196,10 @@ public:
 		std::vector<double> size, 
 		double k, 
 		std::complex<double> n_volume){
-
-		// Read data from .npy file
-		//tira::field<T>::npy <std::complex<double>> (filename);
-		//this->npy< std::complex<double> >(filename);
 		tira::field<T>::template load_npy<std::complex<double>>(filename);
 
 		// Necessary parameters
+		_shape = tira::field<T>::_shape;
 		_n_layers = n_layers;
 		_z = z;
 		_center = center;
@@ -214,21 +212,35 @@ public:
 	/// Read data from .npy file as std::vector<double> and reformat it to be std::vector<Eigen::MatrixXcd>
 	/// </summary>
 	std::vector<size_t> reformat() {
-		// _shape = [shape_x, shape_y, shape_z]
-		_Sample.resize(tira::field<T>::_shape[0], tira::field<T>::_shape[1]); // Orders for resize(): (row, col)
-		_Sample = Eigen::Map<Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>>(&tira::field<T>::_data[0], tira::field<T>::_shape[0], tira::field<T>::_shape[1]);
-		return  tira::field<T>::_shape;
+		if (_shape.size() == 3) {
+			_Sample.resize(_shape[2]);
+			for (size_t i = 0; i < _shape[2]; i++) {
+				_Sample[i].resize(_shape[0], _shape[1]); // Orders for resize(): (row, col)
+				_Sample[i] = Eigen::Map<Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>>(&tira::field<T>::_data[i * _shape[0] * _shape[1]], _shape[0], _shape[1]);
+			}
+		}
+		else if (_shape.size() == 2) {
+			_Sample.resize(1);
+			_shape.push_back(1);
+			for (size_t i = 0; i < _shape[2]; i++) {
+				_Sample[i].resize(_shape[0], _shape[1]); // Orders for resize(): (row, col)
+				_Sample[i] = Eigen::Map<Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>>(&tira::field<T>::_data[i * _shape[0] * _shape[1]], _shape[0], _shape[1]);
+			}
+		}
+		return  _shape;
 	}
 
-	Eigen::MatrixXcd CalculateD(int* M, Eigen::VectorXd dir) {
+	std::vector<Eigen::MatrixXcd> CalculateD(int* M, Eigen::VectorXd dir) {
 		_M = M;
 		_dir = dir;
 		std::cout << "		The property matrix D starts forming..." << std::endl;
 		clock_t Phi1 = clock();
-		_phi = phi(_Sample);
+		for (size_t i = 0; i < _shape[2]; i++) {
+			_Phi.push_back(phi(_Sample[0]));
+		}
 		clock_t Phi2 = clock();
 		std::cout << "		Time for forming D: " << (Phi2 - Phi1) / CLOCKS_PER_SEC << "s" << std::endl;
-		return _phi;
+		return _Phi;
 	}
 
 private:
@@ -256,10 +268,10 @@ private:
 		_M_colInd.reserve(100000);
 		int idx = 0;
 		UpWq_Cal();
-		//std::cout <<"Dimension of the Property Matrix: ("<< sample.rows() << ", "<< sample.cols() << ")" << std::endl;
 		Eigen::MatrixXcd Nf = fftw_fft2(sample.array().pow(2), _M[1], _M[0]);
 		Eigen::MatrixXcd Nif = fftw_fft2(sample.cwiseInverse().array().pow(2), _M[1], _M[0]);
 		int MF = _M[0] * _M[1];
+
 		// Calculate phi
 		Eigen::MatrixXcd phi;
 		phi.setZero(4 * MF, 4 * MF);
@@ -287,34 +299,20 @@ private:
 
 				// Dense storage
 				phi.row(qi * _M[0] + pi).segment(2 * MF, MF) = up * k_inv * A[2];
-				//std::cout << "sec 1 row 1: " << up * k_inv * A[2] << std::endl;
 				phi.row(qi * _M[0] + pi).segment(3 * MF, MF) = -up * k_inv * A[1];
-				//std::cout << "sec 1 row 2: " << -up * k_inv * A[1] << std::endl;
 				phi(qi * _M[0] + pi, 3 * MF + qi * _M[0] + pi) += 1;
-				//std::cout << "Index for sec 1 row 3: " << qi * _M[0] + pi << "," << 3 * MF + qi * _M[0] + pi << std::endl;
 
 				phi.row(qi * _M[0] + pi + MF).segment(2 * MF, MF) = wq * k_inv * A[2];
-				//std::cout << "sec 2 row 1: " << wq * k_inv * A[2] << std::endl;
 				phi.row(qi * _M[0] + pi + MF).segment(3 * MF, MF) = -wq * k_inv * A[1];
-				//std::cout << "sec 2 row 2: " << -wq * k_inv * A[1] << std::endl;
 				phi(qi * _M[0] + pi + MF, 2 * MF + qi * _M[0] + pi) += -1;
-				//std::cout << "Index for sec 2 row 3: " << qi * _M[0] + pi + MF << ", " << 2 * MF + qi * _M[0] + pi << std::endl;
 
 				phi.row(qi * _M[0] + pi + 2 * MF).segment(MF, MF) = -A[0];
-				//std::cout << "sec 3 row 1: " << -A[0] << std::endl;
 				phi(qi * _M[0] + pi + 2 * MF, qi * _M[0] + pi) += -up * wq * k_inv;
-				//std::cout << "sec 3 row 2: " << -up * wq * k_inv << std::endl;
 				phi(qi * _M[0] + pi + 2 * MF, MF + qi * _M[0] + pi) += up * up * k_inv;
-				//std::cout << "Index for sec 3 row 3: " << qi * _M[0] + pi + 2 * MF << ", " << MF + qi * _M[0] + pi << std::endl;
-				//std::cout << "sec 3 row 3: " << up * up * k_inv << std::endl;
 
 				phi.row(qi * _M[0] + pi + 3 * MF).segment(0, MF) = A[0];
-				//std::cout << "sec 4 row 1: " << A[0] << std::endl;
 				phi(qi * _M[0] + pi + 3 * MF, qi * _M[0] + pi) += -wq * wq * k_inv;
-				//std::cout << "sec 4 row 2: " << -wq * wq * k_inv << std::endl;
 				phi(qi * _M[0] + pi + 3 * MF, MF + qi * _M[0] + pi) += up * wq * k_inv;
-				//std::cout << "Index for sec 4 row 3: " << qi * _M[0] + pi + 3 * MF << ", " << MF + qi * _M[0] + pi << std::endl;
-				//std::cout << "sec 4 row 3: " << up * wq * k_inv << std::endl;
 			}
 		}
 		for (size_t i = 0; i < phi.rows(); i++) {

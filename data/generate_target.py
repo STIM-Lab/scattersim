@@ -4,13 +4,13 @@ import skimage.io
 import matplotlib.pyplot as plt
 
 eta = complex(1.4, 0.01)
-infile = "1951usaf_test_target.jpg"
-outfile = "target.npy"
+infile = "triangle.png"
+outfile = "triangle.npy"
 
 I = skimage.io.imread(infile)[:, :, 0] / 255
 
 SAMPLE = I * (eta - 1.0) + 1.0
-SAMPLE = np.asfortranarray(SAMPLE)
+# SAMPLE = np.asfortranarray(SAMPLE)
 np.save(outfile, SAMPLE)
 
 #%% display the simulated image from a specified number of Fourier coefficients

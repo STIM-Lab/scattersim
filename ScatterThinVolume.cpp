@@ -7,12 +7,16 @@
 #include <fstream>
 #include <boost/program_options.hpp>
 #include <random>
-#include <iomanip>s
+#include <iomanip>
 #include "glm/glm.hpp"
 #include "glm/gtc/quaternion.hpp"
+//#include "cnpy/cnpy.h"
 #include <extern/libnpy/npy.hpp>
 #include <time.h>
-
+//#include <cuda_runtime.h>
+//#include <cusparse.h>
+//#include "cusolverSp.h"
+//#include <cuComplex.h>
 
 #include "third_Lapack.h"
 
@@ -31,7 +35,7 @@ std::vector<double> in_ex;
 std::vector<double> in_ey;
 double in_z;
 std::vector<double> in_size;
-std::vector<size_t> num_pixels;
+std::vector<size_t> in_num_pixels;
 std::vector<double> in_normal;
 double in_na;
 std::string in_outfile;
@@ -66,8 +70,10 @@ int l;			// The current layer l.
 std::ofstream logfile;
 std::vector<Eigen::MatrixXcd> D;		// The property matrix
 //std::vector<int> fz;					// The coordinates for the sample boundaries
-std::vector<Eigen::VectorXcd> eigenvalues;			// eigen values for current layer
-std::vector<Eigen::MatrixXcd> eigenvectors;			// eigen vectors for current layer
+Eigen::VectorXcd eigenvalues;			// eigen values for current layer
+Eigen::MatrixXcd eigenvectors;			// eigen vectors for current layer
+Eigen::VectorXcd eigenvalues_unordered;
+Eigen::MatrixXcd eigenvectors_unordered;
 Eigen::MatrixXcd Gc;					// Upward
 Eigen::MatrixXcd Gd;					// Downward
 std::vector<Eigen::VectorXcd > Eigenvalues;			// Dimension: (layers, coeffs)
@@ -82,8 +88,9 @@ Eigen::MatrixXcd f3;
 std::vector<int> M_rowInd;
 std::vector<int> M_colInd;
 std::vector<std::complex<double>> M_val;
-Eigen::MatrixXcd tmp;					// Temposarily store some Eigen::MatrixXcd
-	
+std::string out_mat;
+long long SizeInBytes = 0;
+
 /// Convert a complex vector to a string for display
 template <typename T>
 std::string vec2str(glm::vec<3, std::complex<T> > v, int spacing = 20) {
@@ -150,6 +157,8 @@ void InitLayerProperties() {
 	z = new double[L];														// allocate space to store z coordinates for each interface
 	z[0] = in_z;
 	z[1] = in_z + in_size[2];
+	SizeInBytes += sizeof(double) * L ;
+	SizeInBytes += sizeof(ni);
 }
 
 // The struct is to integrate eigenvalues and their indices
@@ -169,47 +178,47 @@ bool sorter(EiV const& lhs, EiV const& rhs) {
 }
 
 /// <summary>
-/// Temporarily depreacated.
-/// <summary>
+/// Sort the eigenvalues and eigenvectors by pairs
+/// </summary>
 /// <param name="eigenvalues_unordered"></param>
 /// <param name="eigenvectors_unordered"></param>
-//void Eigen_Sort(Eigen::VectorXcd eigenvalues_unordered, Eigen::MatrixXcd eigenvectors_unordered, i) {
-//	unsigned int len = eigenvalues_unordered.size();
-//	// Sort the unordered eigenvalues and track the indices
-//	std::vector<EiV> eiV(len);
-//	for (size_t i = 0; i < len; i++) {
-//		eiV[i].idx = i;
-//		eiV[i].value = eigenvalues_unordered(i);
-//	}
-//
-//	sort(eiV.begin(), eiV.end(), &sorter);
-//	for (size_t i = 0; i < len; i++)
-//		std::cout << "eiV: " << eiV[i].value << std::endl;
-//	eigenvalues[i].resize(len);
-//	eigenvectors[i].resize(len, len);
-//
-//	if (logfile) {
-//		logfile << "eigenvalues_unordered: " << std::endl;
-//		logfile << eigenvalues_unordered << std::endl << std::endl;
-//		logfile << "eigenvectors_unordered: " << std::endl;
-//		logfile << eigenvectors_unordered << std::endl << std::endl;
-//	}
-//	for (size_t i = 0; i < len / 2; i++) {
-//		eigenvalues[i][2 * i] = eigenvalues_unordered[len - 1 - eiV[i].idx];
-//		eigenvectors[i].col(2 * i) = eigenvectors_unordered.col(len - 1 - eiV[i].idx);
-//		eigenvalues[i][2 * i + 1] = eigenvalues_unordered[eiV[i].idx];
-//		eigenvectors[i].col(2 * i + 1) = eigenvectors_unordered.col(eiV[i].idx);
-//	}
-//	if (logfile) {
-//		logfile << "eigenvalues: " << std::endl;
-//		logfile << eigenvalues << std::endl << std::endl;
-//		logfile << "eigenvectors: " << std::endl;
-//		logfile << eigenvectors << std::endl << std::endl;
-//	}
-//
-//	Eigenvalues.push_back(eigenvalues);				// For computing the inner structure of the sample
-//	Eigenvectors.push_back(eigenvectors);
-//}
+void Eigen_Sort(Eigen::VectorXcd eigenvalues_unordered, Eigen::MatrixXcd eigenvectors_unordered) {
+	unsigned int len = eigenvalues_unordered.size();
+	// Sort the unordered eigenvalues and track the indices
+	std::vector<EiV> eiV(len);
+	for (size_t i = 0; i < len; i++) {
+		eiV[i].idx = i;
+		eiV[i].value = eigenvalues_unordered(i);
+	}
+
+	sort(eiV.begin(), eiV.end(), &sorter);
+	for (size_t i = 0; i < len; i++)
+		std::cout << "eiV: " << eiV[i].value << std::endl;
+	eigenvalues.resize(len);
+	eigenvectors.resize(len, len);
+
+	if (logfile) {
+		logfile << "eigenvalues_unordered: " << std::endl;
+		logfile << eigenvalues_unordered << std::endl << std::endl;
+		logfile << "eigenvectors_unordered: " << std::endl;
+		logfile << eigenvectors_unordered << std::endl << std::endl;
+	}
+	for (size_t i = 0; i < len / 2; i++) {
+		eigenvalues[2 * i] = eigenvalues_unordered[len - 1 - eiV[i].idx];
+		eigenvectors.col(2 * i) = eigenvectors_unordered.col(len - 1 - eiV[i].idx);
+		eigenvalues[2 * i + 1] = eigenvalues_unordered[eiV[i].idx];
+		eigenvectors.col(2 * i + 1) = eigenvectors_unordered.col(eiV[i].idx);
+	}
+	if (logfile) {
+		logfile << "eigenvalues: " << std::endl;
+		logfile << eigenvalues << std::endl << std::endl;
+		logfile << "eigenvectors: " << std::endl;
+		logfile << eigenvectors << std::endl << std::endl;
+	}
+
+	Eigenvalues.push_back(eigenvalues);				// For computing the inner structure of the sample
+	Eigenvectors.push_back(eigenvectors);
+}
 
 // Do eigen decomposition for Phi. 
 // Sort the eigenvectors and eigenvalues by pairs. 
@@ -217,83 +226,177 @@ bool sorter(EiV const& lhs, EiV const& rhs) {
 void EigenDecompositionD() {
 	//std::cout << "				Eigen solver working..." << std::endl;
 	//clock_t essolver1 = clock();
-	std::vector<Eigen::VectorXcd> eigenvalues_unordered;
-	std::vector<Eigen::MatrixXcd> eigenvectors_unordered;
-	bool EIGEN = false;
-	bool MKL_lapack = true;
-	for (size_t i = 0; i < D.size(); i++) {
-		if (EIGEN) {
-			Eigen::ComplexEigenSolver<Eigen::MatrixXcd> es(D[i]);
-			eigenvalues_unordered.push_back(es.eigenvalues());
-			eigenvectors_unordered.push_back(es.eigenvectors());
-			std::cout << "eigenvalues from eigen solver: " << std::endl;
-			std::cout << eigenvalues_unordered[i] << std::endl;
-			std::cout << "eigenvectors from eigen solver: " << std::endl;
-			std::cout << eigenvectors_unordered[i] << std::endl;
-		}
-		if (MKL_lapack) {
-			std::complex<double>* A = new std::complex<double>[4 * MF * 4 * MF];
-			Eigen::MatrixXcd::Map(A, D[i].rows(), D[i].cols()) = D[i];
-			std::complex<double>* evl = new std::complex<double>[4 * MF];
-			std::complex<double>* evt = new std::complex<double>[4 * MF * 4 * MF];
-			clock_t s = clock();
-			MKL_eigensolve(A, evl, evt, 4 * MF);
-			clock_t e = clock();
-			std::cout << "			 Time for MKL_eigensolve():" << (e - s) / CLOCKS_PER_SEC << "s" << std::endl;
-			eigenvalues_unordered.push_back(Eigen::Map<Eigen::VectorXcd>(evl, 4 * MF));
-			eigenvectors_unordered.push_back(Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(evt, 4 * MF, 4 * MF));
 
-		}
+	// Output the property matrix as .npy
+	if (out_mat != "") {
+		const std::vector<long unsigned> shape{ 4 * (long unsigned)MF, 4 * (long unsigned)MF };
+		const bool fortran_order{ false };
+		const std::string path{ out_mat };
+		npy::SaveArrayAsNumpy(path, fortran_order, shape.size(), shape.data(), D[0].data());
+	}
+	bool EIGEN = false;
+	bool LAPACK = false;
+	bool MKL_lapack = true;
+	bool CUDA = false;
+		
+	if (EIGEN) {
+		Eigen::ComplexEigenSolver<Eigen::MatrixXcd> es(D[0]);
+		eigenvalues_unordered = es.eigenvalues();
+		eigenvectors_unordered = es.eigenvectors();
+		std::cout << "eigenvalues from eigen solver: " << std::endl;
+		std::cout << eigenvalues_unordered << std::endl;
+		std::cout << "eigenvectors from eigen solver: " << std::endl;
+		std::cout << eigenvectors_unordered << std::endl;
+	}
+	if (MKL_lapack) {
+		SizeInBytes += sizeof(D);
+		SizeInBytes += sizeof(std::complex<double>) * 4 * MF * 4 * MF;
+		std::complex<double>* A = new std::complex<double>[4 * MF * 4 * MF];
+		Eigen::MatrixXcd::Map(A, D[0].rows(), D[0].cols()) = D[0];
+		std::complex<double>* evl = new std::complex<double>[4 * MF];
+		std::complex<double>* evt = new std::complex<double>[4 * MF * 4 * MF];
+		SizeInBytes += sizeof(std::complex<double>) * 4 * MF;
+		SizeInBytes += sizeof(std::complex<double>) * 4 * MF * 4 * MF;
+		clock_t s = clock(); 
+		MKL_eigensolve(A, evl, evt, 4 * MF);
+		clock_t e = clock();
+		std::cout << "			 Time for MKL_eigensolve():" << (e - s) / CLOCKS_PER_SEC << "s" << std::endl;
+		eigenvalues_unordered = Eigen::Map<Eigen::VectorXcd>(evl, 4 * MF);
+		eigenvectors_unordered = Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor > (evt, 4 * MF, 4 * MF);
+		SizeInBytes += sizeof(eigenvalues_unordered);
+		SizeInBytes += sizeof(eigenvectors_unordered);
+		//std::cout << "Property matrix M:" << std::endl;
+		//std::cout << D[0] << std::endl;
+		//std::cout << "eigenvalues from eigen solver: " << std::endl;
+		//std::cout << eigenvalues_unordered << std::endl;
+		//std::cout << "eigenvectors from eigen solver: " << std::endl;
+		//std::cout << eigenvectors_unordered << std::endl;
 
 	}
+	if (LAPACK) {
+		//std::complex<double>* A = new std::complex<double>[4 * MF * 4 * MF];
+		//Eigen::MatrixXcd::Map(A, D.rows(), D.cols()) = D;
+		//std::complex<double>* evl = new std::complex<double>[4 * MF];
+		//std::complex<double>* evt = new std::complex<double>[4 * MF * 4 * MF];
+		//std::cout << "				Eigen solver working..." << std::endl;
+		//clock_t essolver1 = clock();
+		//LINALG_eigensolve(A, evl, evt, 4 * MF);
+		//clock_t essolver2 = clock();
+		//std::cout << "				Time for eigen solver: " << (essolver2 - essolver1) / CLOCKS_PER_SEC << "s" << std::endl;
 
-	eigenvalues = eigenvalues_unordered;
-	eigenvectors = eigenvectors_unordered;
+		//eigenvalues_unordered = Eigen::Map<Eigen::VectorXcd>(evl, 4 * MF);
+		//eigenvectors_unordered = Eigen::Map<Eigen::MatrixXcd, Eigen::ColMajor>(evt, 4 * MF, 4 * MF);
+		////std::cout << "eigenvalues from lapack: " << eigenvalues_unordered << std::endl;
+		////std::cout << "eigenvectors from lapack: " << eigenvectors_unordered << std::endl;
+	}	
+	if (CUDA) {
+		//int v = 0;
+		//cudaDriverGetVersion(&v);
+		//std::cout << "CUDA driver version: " << v << std::endl;
+		//std::vector<std::complex<double>> mu0;
+		//mu0.resize(4 * MF, 0);
 
+		//// CUDA version
+		//cudaError_t cudaStatus;
+		//cusolverStatus_t cusolverStatus;
+		//cusparseStatus_t cusparseStatus;
+		//cusolverSpHandle_t handle = NULL;
+		//cusparseHandle_t cusparseHandle = NULL;
+		//cudaStream_t stream = NULL;
+		//cusparseMatDescr_t descrM = NULL;
+		//cuDoubleComplex* csrValM_, * dev_eigenvalue, * dev_eigenvector;
+		//size_t rowsA = 4 * MF, colsA = 4 * MF, nnA = M_val.size(), baseM_ = 0;		//nnA is the number of non-zero elements.
+		//int* csrRowPtrM = NULL;														//row index M_rowInd projected to GPU.
+		//int* csrColIndM = NULL; //CSR(A) from I/O.									// M_colInd projected to GPU.
+		//int maxite = 20;
+		//double tol = 1.e-12;
+		//int singularity = 0;
+
+		////Initialize.
+		//cusolverStatus = cusolverSpCreate(&handle);
+		//int num = 1;
+		//cudaStatus = cudaGetDevice(&num);
+		//cusparseStatus = cusparseCreate(&cusparseHandle);
+		//cudaStatus = cudaStreamCreate(&stream);
+		//cusolverStatus = cusolverSpSetStream(handle, stream);
+		//cusparseStatus = cusparseSetStream(cusparseHandle, stream);
+		//cusparseStatus = cusparseCreateMatDescr(&descrM);
+		//cusparseStatus = cusparseSetMatType(descrM, CUSPARSE_MATRIX_TYPE_GENERAL);
+		//if (baseM_) {
+		//	cusparseStatus = cusparseSetMatIndexBase(descrM, CUSPARSE_INDEX_BASE_ONE);
+		//}
+		//else {
+		//	cusparseStatus = cusparseSetMatIndexBase(descrM, CUSPARSE_INDEX_BASE_ZERO);
+		//}
+
+		//cudaStatus = cudaMalloc((void**)&csrRowPtrM, sizeof(int) * (rowsA + 1));				
+		//cudaStatus = cudaMalloc((void**)&csrColIndM, sizeof(int) * M_colInd.size());			
+		//cudaStatus = cudaMalloc((void**)&csrValM_, sizeof(cuDoubleComplex) * M_val.size());				
+		//cudaStatus = cudaMalloc((void**)&dev_eigenvalue, sizeof(cuDoubleComplex) * 4 * MF);		
+		//cudaStatus = cudaMalloc((void**)&dev_eigenvector, sizeof(cuDoubleComplex) * 4 * MF * 4 * MF);
+
+		//cudaStatus = cudaMemcpy(csrValM_, M_val.data(), M_val.size() * sizeof(cuDoubleComplex), cudaMemcpyHostToDevice);
+		//cudaStatus = cudaMemcpy(csrRowPtrM, M_rowInd.data(), M_rowInd.size() * sizeof(int), cudaMemcpyHostToDevice);
+		//cudaStatus = cudaMemcpy(csrColIndM, M_colInd.data(), M_colInd.size() * sizeof(int), cudaMemcpyHostToDevice);
+
+		//cusolverStatus = cusolverSpZcsreigvsi(handle, (int)rowsA, (int)nnA, descrM, csrValM_, csrRowPtrM, csrColIndM, mu0.data(), maxite, tol, dev_eigenvalue, dev_eigenvector);
+	}
+
+	//clock_t essolver2 = clock();
+	//std::cout << "				Time for eigen solver: " << (essolver2 - essolver1) / CLOCKS_PER_SEC << "s" << std::endl;
+	//Eigen_Sort(eigenvalues_unordered, eigenvectors_unordered);		// Sort the eigenvalues
+
+	//eigenvalues = eigenvalues_unordered;
+	//eigenvectors = eigenvectors_unordered;
+
+	//std::vector<std::complex<double>> loaded_data1;
+	//std::vector<unsigned long> shape1;
+	//bool is_fortran1;
+	//npy::LoadArrayFromNumpy<std::complex<double>>("Values.npy", shape1, is_fortran1, loaded_data1);
+	//Eigen::Map<Eigen::VectorXcd> Values(loaded_data1.data(), 4 * MF);
+	//std::vector<std::complex<double>> loaded_data2;
+	//std::vector<unsigned long> shape2;
+	//bool is_fortran2;
+	//npy::LoadArrayFromNumpy<std::complex<double>>("Vectors.npy", shape2, is_fortran2, loaded_data2);
+	//Eigen::Map<Eigen::MatrixXcd> Vectors(loaded_data2.data(), 4 * MF, 4 * MF);
+	//eigenvalues = Values;
+	//eigenvectors = Vectors;
 	Gd.resize(4 * MF, 4 * MF);
 	Gc.resize(4 * MF, 4 * MF);
-	std::complex<double> Di;
-	std::complex<double> Ci;
-	for (size_t i = 0; i < D.size(); i++) {
-		for (size_t j = 0; j < eigenvalues[i].size(); j++) {
-			if (i == 0) {
-				Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(z[1] - z[0]));
-				Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(z[0] - z[1]));
-			}
-			else {
-				Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(in_size[2]/num_pixels[2]));
-				Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(in_size[2] / num_pixels[2]));
-			}
-			if (j % 2 == 0) {
-				Gd.col(j) = eigenvectors[i].col(j) * Di;
-				Gc.col(j) = eigenvectors[i].col(j);
-			}
+	SizeInBytes += sizeof(Gd);
+	SizeInBytes += size(Gc);
+	for (size_t i = 0; i < eigenvalues_unordered.size(); i++) {
+		//z_new[0] = (double)in_z + (double)fz[j] * (double)in_size[2] / (double)in_num_pixels[2];
+		//z_new[1] = (double)in_z + (double)fz[j + 1] * (double)in_size[2] / (double)in_num_pixels[2];
+		std::complex<double> Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues_unordered(i) * (std::complex<double>)(z[1] - z[0]));
+		std::complex<double> Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues_unordered(i) * (std::complex<double>)(z[0] - z[1]));
 
-			else {
-				Gd.col(j) = eigenvectors[i].col(j);
-				Gc.col(j) = eigenvectors[i].col(j) * Ci;
-			}
+		if (i % 2 == 0) {
+			Gd.col(i) = eigenvectors_unordered.col(i) * Di;
+			Gc.col(i) = eigenvectors_unordered.col(i);
 		}
-		GD = Gd;
-		if (i == 0)
-			GC = Gc;
+
 		else {
-			tmp = MKL_multiply(Gc, MKL_inverse(Gd), 1);
-			GC = MKL_multiply(tmp, GC, 1);
+			Gd.col(i) = eigenvectors_unordered.col(i);
+			Gc.col(i) = eigenvectors_unordered.col(i) * Ci;
 		}
-		if (logfile) {
-			logfile << "----------For the layer---------- " << std::endl;
-			logfile << "Property matrix D: " << std::endl;
-			logfile << D[i] << std::endl;
-			logfile << "GD: " << std::endl;
-			logfile << GD << std::endl;
-			logfile << "GD inversese: " << std::endl;
-			logfile << Gd.inverse() << std::endl;
-			logfile << "GC: " << std::endl;
-			logfile << GC << std::endl;
-			logfile << "GC inversese: " << std::endl;
-			logfile << GC.inverse() << std::endl;
-		}
+	}
+	GD = Gd;
+	GC = Gc;
+	SizeInBytes += sizeof(GD);
+	SizeInBytes += sizeof(GC);
+	if (logfile) {
+		logfile << "----------For the layer---------- " << std::endl;
+		logfile << "Property matrix D: " << std::endl;
+		logfile << D[0] << std::endl;
+		logfile << "GD: " << std::endl;
+		logfile << GD << std::endl;
+		logfile << "GD inversese: " << std::endl;
+		logfile << Gd.inverse() << std::endl;
+		logfile << "GC: " << std::endl;
+		logfile << GC << std::endl;
+		logfile << "GC inversese: " << std::endl;
+		logfile << GC.inverse() << std::endl;
 	}
 }
 
@@ -304,6 +407,9 @@ void MatTransfer() {
 	f1.setZero();
 	f2.setZero();
 	f3.setZero();
+	SizeInBytes += sizeof(f1);
+	SizeInBytes += sizeof(f2);
+	SizeInBytes += sizeof(f3);
 
 	Eigen::RowVectorXcd phase = (std::complex<double>(0, 1) * k * (std::complex<double>)(z[0] - z[0]) * Eigen::Map<Eigen::RowVectorXcd>(Sz[0].data(), Sz[0].size())).array().exp();
 	Eigen::MatrixXcd Phase = phase.replicate(MF, 1);		// Phase is the duplicated (by row) matrix from phase.
@@ -314,6 +420,14 @@ void MatTransfer() {
 	Eigen::MatrixXcd SY = Sy.replicate(MF, 1);		// neg_SX is the duplicated (by row) matrix from phase.
 
 	Eigen::MatrixXcd identity = Eigen::MatrixXcd::Identity(MF, MF);
+
+	SizeInBytes += sizeof(phase);
+	SizeInBytes += sizeof(Phase);
+	SizeInBytes += sizeof(SZ0);
+	SizeInBytes += sizeof(SZ1);
+	SizeInBytes += sizeof(SX);
+	SizeInBytes += sizeof(SY);
+	SizeInBytes += sizeof(identity);
 
 	// first constraint (Equation 8)
 	f1.block(0, 0, MF, MF) = identity.array() * Phase.array();
@@ -346,6 +460,9 @@ void MatTransfer() {
 		logfile << f2 << std::endl;
 		logfile << "f3: " << std::endl;
 		logfile << f3 << std::endl;
+
+		logfile << "Special recording 'Gd * Gc.inv() * f3': " << std::endl;
+		logfile << Gd * Gc.inverse() * f3 << std::endl;
 	}
 }
 
@@ -373,7 +490,7 @@ void SetBoundaryConditions() {
 	std::complex<double> i(0.0, 1.0);
 	std::cout << "		Boundary conditions setting starts..." << std::endl;
 	clock_t eigen1 = clock();
-	EigenDecompositionD();		// Compute GD and GC
+	EigenDecompositionD();		// Compute Gd and Gc
 	clock_t eigen2 = clock();
 	std::cout << "			Time for EigenDecompositionD(): " << (eigen2 - eigen1) / CLOCKS_PER_SEC << "s" << std::endl;
 
@@ -381,19 +498,22 @@ void SetBoundaryConditions() {
 	clock_t matTransfer = clock();
 	std::cout << "			Time for MatTransfer(): " << (matTransfer - eigen2) / CLOCKS_PER_SEC << "s" << std::endl;
 	
-	Eigen::MatrixXcd Gc_inv = MKL_inverse(GC);
+	Eigen::MatrixXcd Gc_inv = MKL_inverse(Gc);
 	clock_t inv = clock();
 	std::cout << "			Time for MKL_inverse(): " << (inv - matTransfer) / CLOCKS_PER_SEC << "s" << std::endl;
+	SizeInBytes += sizeof(Gc_inv);
 
 	A.block(2 * MF, 0, 4 * MF, 3 * MF) = f2;
 	//A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = Gd * Gc_inv * f3;
-	tmp = MKL_multiply(GD, Gc_inv, 1);
-	A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = MKL_multiply(tmp, f3, 1);
+	Eigen::MatrixXcd tmpG;
+	tmpG = MKL_multiply(Gd, Gc_inv, 1);
+	A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = MKL_multiply(tmpG, f3, 1);
 	clock_t mul = clock();
 	std::cout << "			Time for multiplication once: " << (mul - inv) / 2 / CLOCKS_PER_SEC << "s" << std::endl;
 
 	b.segment(2 * MF, 4 * MF) = std::complex<double>(-1, 0) * f1 * Eigen::Map<Eigen::VectorXcd>(EF.data(), 3 * MF);
-
+	SizeInBytes += sizeof(A);
+	SizeInBytes += sizeof(b);
 
 	if (logfile) {
 		logfile << "LHS matrix in the linear system:" << std::endl;
@@ -425,8 +545,30 @@ std::vector<tira::planewave<double>> mat2waves(tira::planewave<double> i, Eigen:
 		x[idx(1, Transmitted, Z, p, MF)]
 		);
 
+	//std::cout << "x: " << x << std::endl;
+	//std::cout << "id for r: " << idx(0, Reflected, X, p, MF) << std::endl;
+	//std::cout << "id for r: " << idx(0, Reflected, Y, p, MF) << std::endl;
+	//std::cout << "id for r: " << idx(0, Reflected, Z, p, MF) << std::endl;
+	//std::cout << "Sx(p) * k for r: " << Sx(p) * k << std::endl;
+	//std::cout << "Sy(p) * k for r: " << Sy(p) * k << std::endl;
+	//std::cout << "-Sz[0](p) * k for r: " << -Sz[0](p) * k << std::endl;
+	//std::cout << "x for r: " << x[idx(0, Reflected, X, p, MF)] << std::endl;
+	//std::cout << "x for r: " << x[idx(0, Reflected, Y, p, MF)] << std::endl;
+	//std::cout << "x for r: " << x[idx(0, Reflected, Z, p, MF)] << std::endl;
+
+	//std::cout << "id for t: " << idx(1, Transmitted, X, p, MF) << std::endl;
+	//std::cout << "id for t: " << idx(1, Transmitted, Y, p, MF) << std::endl;
+	//std::cout << "id for t: " << idx(1, Transmitted, Z, p, MF) << std::endl;
+	//std::cout << "Sx(p) * k for r: " << Sx(p) * k << std::endl;
+	//std::cout << "Sy(p) * k for r: " << Sy(p) * k << std::endl;
+	//std::cout << "Sz[1](p) * k for r: " << Sz[1](p) * k << std::endl;
+	//std::cout << "x for t: " << x[idx(1, Transmitted, X, p, MF)] << std::endl;
+	//std::cout << "x for t: " << x[idx(1, Transmitted, Y, p, MF)] << std::endl;
+	//std::cout << "x for t: " << x[idx(1, Transmitted, Z, p, MF)] << std::endl;
+
 	P.push_back(r);
 	P.push_back(t);
+	SizeInBytes += sizeof(P);
 	return P;
 }
 
@@ -463,9 +605,11 @@ int main(int argc, char** argv) {
 		("alpha", boost::program_options::value<double>(&in_alpha)->default_value(1), "angle used to focus the incident field")
 		("beta", boost::program_options::value<double>(&in_beta)->default_value(0.0), "internal obscuration angle (for simulating reflective optics)")
 		("na", boost::program_options::value<double>(&in_na), "focus angle expressed as a numerical aperture (overrides --alpha)")
-		("coef", boost::program_options::value<std::vector<int> >(&in_coeff)->multitoken()->default_value(std::vector<int>{1, 3}, "3, 3"), "number of Fouerier coefficients (can be specified in 2 dimensions)")
+		("coef", boost::program_options::value<std::vector<int> >(&in_coeff)->multitoken()->default_value(std::vector<int>{15, 15}, "3, 3"), "number of Fouerier coefficients (can be specified in 2 dimensions)")
 		("mode", boost::program_options::value<std::string>(&in_mode)->default_value("polar"), "sampling mode (polar, montecarlo)")
 		("log", "produce a log file")
+		("OutMat", boost::program_options::value<std::string>(&out_mat), "Output the property matrix as an .npy file")
+
 		// input just for scattervolume 
 		;
 	// I have to do some strange stuff in here to allow negative values in the command line. I just wouldn't change any of it if possible.
@@ -520,34 +664,45 @@ int main(int argc, char** argv) {
 	InitLayerProperties();
 	// Define sample volume, reformat, and reorgnize.
 	volume < std::complex< double> > Volume(in_sample, ni, z, in_center, in_size, k.real(), std::complex<double>(in_n_sample, in_kappa_sample));
-	num_pixels = Volume.reformat();
+	in_num_pixels = Volume.reformat();
 	//fz = Volume.reorg();				// Form fz and flag
 	D = Volume.CalculateD(M, dir);	// Calculate the property matrix for the sample
+	SizeInBytes += sizeof(D);
 
 	// For sparse storage
 	M_rowInd = Volume._M_rowInd;
 	M_colInd = Volume._M_colInd;
 	M_val = Volume._M_val;
+	SizeInBytes += sizeof(M_rowInd);
+	SizeInBytes += sizeof(M_colInd);
+	SizeInBytes += sizeof(M_val);
 
 	// Fourier transform for the incident waves
 	E0.push_back(std::complex<double>(in_ex[0], in_ex[1]));
 	E0.push_back(std::complex<double>(in_ey[0], in_ey[1]));
 	E0.push_back(std::sqrt(pow(std::complex<double>(1, 0), 2) - pow(E0[0], 2) - pow(E0[1], 2)));
 	std::vector<Eigen::MatrixXcd> Ef(3);
-	Ef[0] = fftw_fft2(E0[0] * Eigen::MatrixXcd::Ones(num_pixels[0], num_pixels[1]), M[1], M[0]);	// M[0]=3 is column. M[1]=1 is row. 
-	Ef[1] = fftw_fft2(E0[1] * Eigen::MatrixXcd::Ones(num_pixels[0], num_pixels[1]), M[1], M[0]);
-	Ef[2] = fftw_fft2(E0[2] * Eigen::MatrixXcd::Ones(num_pixels[0], num_pixels[1]), M[1], M[0]);
+	Ef[0] = fftw_fft2(E0[0] * Eigen::MatrixXcd::Ones(in_num_pixels[0], in_num_pixels[1]), M[1], M[0]);	// M[0]=3 is column. M[1]=1 is row. 
+	Ef[1] = fftw_fft2(E0[1] * Eigen::MatrixXcd::Ones(in_num_pixels[0], in_num_pixels[1]), M[1], M[0]);
+	Ef[2] = fftw_fft2(E0[2] * Eigen::MatrixXcd::Ones(in_num_pixels[0], in_num_pixels[1]), M[1], M[0]);
 	EF.resize(3 * MF);
 	EF.segment(0, MF) = Eigen::Map<Eigen::VectorXcd>(Ef[0].data(), MF);
 	EF.segment(MF, MF) = Eigen::Map<Eigen::VectorXcd>(Ef[1].data(), MF);
 	EF.segment(2 * MF, MF) = Eigen::Map<Eigen::VectorXcd>(Ef[2].data(), MF);
 	//std::cout << "EF:" << EF;
+	SizeInBytes += sizeof(E0);
+	SizeInBytes += sizeof(Ef);
+	SizeInBytes += sizeof(EF);
 
 	// Sync the Fourier transform of direction propagation with Volume
 	Sx = Eigen::Map<Eigen::RowVectorXcd>(Volume._meshS0.data(), MF);
 	Sy = Eigen::Map<Eigen::RowVectorXcd>(Volume._meshS1.data(), MF);
 	Sz[0] = Eigen::Map<Eigen::RowVectorXcd>(Volume._Sz[0].data(), MF);
 	Sz[1] = Eigen::Map<Eigen::RowVectorXcd>(Volume._Sz[1].data(), MF);
+	SizeInBytes += sizeof(Sx);
+	SizeInBytes += sizeof(Sy);
+	SizeInBytes += sizeof(Sz[0]);
+	SizeInBytes += sizeof(Sz[1]);
 
 	if (logfile) {
 		logfile << "Ex fourier form:" << EF.segment(0, MF) << std::endl;
@@ -581,10 +736,32 @@ int main(int argc, char** argv) {
 	clock_t built = clock();
 	std::cout << "Time for building the system: " << (built - initialized) / CLOCKS_PER_SEC << "s" << std::endl << std::endl;
 
+	//// Eigen solution
+	//std::cout << "Linear system solving (Eigen)..." << std::endl;
+	//Eigen::VectorXcd x = A.colPivHouseholderQr().solve(b);
+	////std::cout << "x from Eigen: " << x << std::endl;
+	//std::cout << "Linear system solved." << std::endl;
+
+	// More solutions: https://github.com/BeanLiu1994/solver_speed_test/blob/master/solver.cpp 
 	// MKL solution
 	std::cout << "Linear system solving (MKL)..." << std::endl;
+	//std::cout << "A: " << A << std::endl;
+	//std::cout << "b: " << b << std::endl;
 	MKL_linearsolve(A, b);
 	Eigen::VectorXcd x = b;
+	SizeInBytes += sizeof(x);
+	//std::cout << "x: " << x << std::endl;
+	//const std::vector<long unsigned> shapeC{ (unsigned long)b.size() };
+	//const bool fortran_order{ false };
+	//const std::string path{ "solutionX_C.npy" };
+	//npy::SaveArrayAsNumpy(path, fortran_order, shapeC.size(), shapeC.data(), x.data());
+
+	//std::vector<std::complex<double>> loaded_data;
+	//std::vector<unsigned long> shape;
+	//bool is_fortran;
+	//npy::LoadArrayFromNumpy<std::complex<double>>("SolutionX.npy", shape, is_fortran, loaded_data);
+	//Eigen::Map<Eigen::VectorXcd> x(loaded_data.data(), b.size());
+	//std::cout << "x from MKL: " << x << std::endl;
 	std::cout << "Linear system solved." << std::endl;
 
 	clock_t solved = clock();
@@ -642,11 +819,11 @@ int main(int argc, char** argv) {
 	clock_t simulated = clock();
 	std::cout << "Time for saving the field " << (simulated - solved) / CLOCKS_PER_SEC << "s" << std::endl << std::endl << std::endl;
 
-	std::cout << "Number of pixels (x, y): [" << num_pixels[1] << "," << num_pixels[0]  << "]" << std::endl;
-	std::cout << "Number of sublayers: " << num_pixels[2] << std::endl;
+	std::cout << "Number of pixels (x, y): [" << in_num_pixels[1] << "," << in_num_pixels[0]  << "]" << std::endl;
 	std::cout << "Number of Fourier coefficients (Mx, My): [" << M[0] << "," << M[1] << "]" << std::endl;
 	std::cout << "Total time:" << (simulated - start) / CLOCKS_PER_SEC << "s" << std::endl;
-
+	SizeInBytes += sizeof(cw);
+	std::cout << "Total memory allocated: " << SizeInBytes / pow(10, 9) << "GByte."<< std::endl;
 	if (in_outfile != "") {
 		cw.save(in_outfile);
 	}

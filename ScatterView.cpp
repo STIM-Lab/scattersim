@@ -88,6 +88,7 @@ std::string in_filename;
 
 // CUDA device information and management
 int in_device;
+float in_size;                                          // size of the sample being visualized (in arbitrary units specified during simulation)
 size_t free_gpu_memory;
 size_t total_gpu_memory;
 
@@ -102,6 +103,36 @@ double t_UpdateTextures;
 double t_EvaluateColorSlices;
 double t_EvaluateScalarSlices;
 double t_EvaluateVectorSlices;
+
+std::string VertexSource =                                  // Source code for the default vertex shader
+"# version 330 core\n"
+
+"layout(location = 0) in vec3 vertices;\n"
+"layout(location = 2) in vec2 texcoords;\n"
+
+"uniform mat4 MVP;\n"
+
+"out vec4 vertex_color;\n"
+"out vec2 vertex_texcoord;\n"
+
+"void main() {\n"
+"    gl_Position = MVP * vec4(vertices.x, vertices.y, vertices.z, 1.0f);\n"
+"    vertex_texcoord = texcoords;\n"
+"};\n";
+
+std::string FragmentSource =
+"# version 330 core\n"
+
+"layout(location = 0) out vec4 color;\n"
+
+"in vec4 vertex_color;\n"
+"in vec2 vertex_texcoord;\n"
+"uniform sampler2D texmap;\n"
+
+"void main() {\n"
+"    color = texture(texmap, vertex_texcoord);\n"
+"};\n";
+
 
 
 void DeleteImageArrays(){
@@ -312,7 +343,7 @@ void EvaluateScalarSlices() {
 
 void EvaluateVectorSlices() {
     auto start = std::chrono::steady_clock::now();
-    unsigned int N = pow(2, resolution);                         // get the resolution of the field N
+    unsigned int N = pow(2, resolution);                                    // get the resolution of the field N
     float d = extent / (N - 1);                                             // calculate the step size in cartesian coordinates
     float x, y, z;
     float x_start = center[0] - extent / 2;
@@ -532,7 +563,7 @@ void InitUI(GLFWwindow* window, const char* glsl_version) {
     ImGui_ImplOpenGL3_Init(glsl_version);
 
     // Load Fonts
-    io.Fonts->AddFontFromFileTTF("Roboto-Medium.ttf", ui_scale * 16.0f);
+    //io.Fonts->AddFontFromFileTTF("Roboto-Medium.ttf", ui_scale * 16.0f);
 
 }
 
@@ -590,7 +621,9 @@ int main(int argc, char** argv)
 		("help", "produce help message")
         ("cuda,c", boost::program_options::value<int>(&in_device)->default_value(0), "cuda device number (-1 is CPU-only)")
 		("verbose,v", "produce verbose output")
-        ("isHete", boost::program_options::value<unsigned int>(&in_isHete)->default_value(0), "0 means there is no any heterogeneous sample. Non-zero mean the layer that the heterogeneous sample locates at")
+        ("sample", "load a 3D sample stored as a grid (*.npy)")
+        ("size", boost::program_options::value<float>(&in_size)->default_value(10), "size of the sample being visualized (initial range in arbitrary units)")
+        //("isHete", boost::program_options::value<unsigned int>(&in_isHete)->default_value(0), "0 means there is no any heterogeneous sample. Non-zero mean the layer that the heterogeneous sample locates at")
 		;
 	boost::program_options::variables_map vm;
 
@@ -600,6 +633,8 @@ int main(int argc, char** argv)
     //boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
 	
     boost::program_options::notify(vm); 
+
+    extent = in_size;                           // initialize the extent of the visualization to the size of the sample
   
 
 	if (vm.count("help")) {
@@ -660,10 +695,9 @@ int main(int argc, char** argv)
     InitUI(window, glsl_version);
 
     
-
-    Material_xy.LoadShader("simple_texturemap.shader");          // create a material    
-    Material_xz.LoadShader("simple_texturemap.shader");
-    Material_yz.LoadShader("simple_texturemap.shader");
+    Material_xy.CreateShader(VertexSource, FragmentSource);         // create a material based on the vertex and fragment shaders
+    Material_xz.CreateShader(VertexSource, FragmentSource);
+    Material_yz.CreateShader(VertexSource, FragmentSource);
 
     EvaluateVectorSlices();    
 

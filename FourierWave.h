@@ -156,7 +156,8 @@ void meshgrid(Eigen::VectorXcd& vecX, Eigen::VectorXcd& vecY, Eigen::MatrixXcd& 
 template <class T>
 class volume : public tira::field<T> {
 public:
-	Eigen::MatrixXcd _Sample;
+	std::vector<Eigen::MatrixXcd> _Sample;
+	std::vector<size_t> _shape;
 
 	Eigen::VectorXcd _n_layers;
 	double* _z = new double[2];
@@ -168,7 +169,7 @@ public:
 	std::vector<int> _flag;
 	//std::vector<int> _fz;
 	Eigen::VectorXd _Z;
-	Eigen::MatrixXcd _phi;
+	std::vector<Eigen::MatrixXcd> _Phi;
 	int* _M = new int[2];
 	double _k;
 
@@ -198,6 +199,7 @@ public:
 		tira::field<T>::template load_npy<std::complex<double>>(filename);
 
 		// Necessary parameters
+		_shape = tira::field<T>::_shape;
 		_n_layers = n_layers;
 		_z = z;
 		_center = center;
@@ -210,21 +212,35 @@ public:
 	/// Read data from .npy file as std::vector<double> and reformat it to be std::vector<Eigen::MatrixXcd>
 	/// </summary>
 	std::vector<size_t> reformat() {
-		// _shape = [shape_x, shape_y, shape_z]
-		_Sample.resize(tira::field<T>::_shape[0], tira::field<T>::_shape[1]); // Orders for resize(): (row, col)
-		_Sample = Eigen::Map<Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>>(&tira::field<T>::_data[0], tira::field<T>::_shape[0], tira::field<T>::_shape[1]);
-		return  tira::field<T>::_shape;
+		if (_shape.size() == 3) {
+			_Sample.resize(_shape[2]);
+			for (size_t i = 0; i < _shape[2]; i++) {
+				_Sample[i].resize(_shape[0], _shape[1]); // Orders for resize(): (row, col)
+				_Sample[i] = Eigen::Map<Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>>(&tira::field<T>::_data[i * _shape[0] * _shape[1]], _shape[0], _shape[1]);
+			}
+		}
+		else if (_shape.size() == 2) {
+			_Sample.resize(1);
+			_shape.push_back(1);
+			for (size_t i = 0; i < _shape[2]; i++) {
+				_Sample[i].resize(_shape[0], _shape[1]); // Orders for resize(): (row, col)
+				_Sample[i] = Eigen::Map<Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>>(&tira::field<T>::_data[i * _shape[0] * _shape[1]], _shape[0], _shape[1]);
+			}
+		}
+		return  _shape;
 	}
 
-	Eigen::MatrixXcd CalculateD(int* M, Eigen::VectorXd dir) {
+	std::vector<Eigen::MatrixXcd> CalculateD(int* M, Eigen::VectorXd dir) {
 		_M = M;
 		_dir = dir;
 		std::cout << "		The property matrix D starts forming..." << std::endl;
 		clock_t Phi1 = clock();
-		_phi = phi(_Sample);
+		for (size_t i = 0; i < _shape[2]; i++) {
+			_Phi.push_back(phi(_Sample[0]));
+		}
 		clock_t Phi2 = clock();
 		std::cout << "		Time for forming D: " << (Phi2 - Phi1) / CLOCKS_PER_SEC << "s" << std::endl;
-		return _phi;
+		return _Phi;
 	}
 
 private:

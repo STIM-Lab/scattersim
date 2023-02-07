@@ -40,7 +40,7 @@ void MKL_eigensolve(std::complex<double>* A, std::complex<double>* eigenvalues, 
 	MKL_INT n = N, lda = LDA, ldvl = LDVL, ldvr = LDVR, info;
 	MKL_Complex16 *w, *vl, *vr;
 	vl = new MKL_Complex16[LDVL * N];
-	info = LAPACKE_zgeev(LAPACK_COL_MAJOR, 'V', 'V', n, (MKL_Complex16*)A, lda, (MKL_Complex16*)eigenvalues, vl, ldvl, (MKL_Complex16*)eigenvectors, ldvr);
+	info = LAPACKE_zgeev(LAPACK_COL_MAJOR, 'N', 'V', n, (MKL_Complex16*)A, lda, (MKL_Complex16*)eigenvalues, vl, ldvl, (MKL_Complex16*)eigenvectors, ldvr);
 	delete[] vl;
 }
 

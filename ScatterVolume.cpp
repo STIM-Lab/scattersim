@@ -7,7 +7,7 @@
 #include <fstream>
 #include <boost/program_options.hpp>
 #include <random>
-#include <iomanip>s
+#include <iomanip>
 #include "glm/glm.hpp"
 #include "glm/gtc/quaternion.hpp"
 #include <extern/libnpy/npy.hpp>

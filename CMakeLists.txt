@@ -111,6 +111,7 @@ target_link_libraries(scattertest
 			ZLIB::ZLIB
 			glm::glm
 			Boost::program_options
+			MKL::MKL
 )
 
 target_link_libraries(scatterlayer

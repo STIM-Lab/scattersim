@@ -430,28 +430,28 @@ void MatTransfer() {
 	SizeInBytes += sizeof(identity);
 
 	// first constraint (Equation 8)
-	f1.block(0, 0, MF, MF) = identity.array() * Phase.array();
-	f1.block(MF, MF, MF, MF) = identity.array() * Phase.array();
-	f1.block(2 * MF, MF, MF, MF) = (std::complex<double>(-1, 0)) * identity.array() * Phase.array() * SZ0.array();
-	f1.block(2 * MF, 2 * MF, MF, MF) = identity.array() * Phase.array() * SY.array();
-	f1.block(3 * MF, 0, MF, MF) = identity.array() * Phase.array() * SZ0.array();
-	f1.block(3 * MF, 2 * MF, MF, MF) = (std::complex<double>(-1, 0)) * identity.array() * Phase.array() * SX.array();
+	f1.block(3 * MF, 0, MF, MF) = -identity.array() * Phase.array();
+	f1.block(2 * MF, MF, MF, MF) = -identity.array() * Phase.array();
+	f1.block(MF, MF, MF, MF) = identity.array() * Phase.array() * SZ0.array();
+	f1.block(MF, 2 * MF, MF, MF) = -identity.array() * Phase.array() * SY.array();
+	f1.block(0, 0, MF, MF) = -identity.array() * Phase.array() * SZ0.array();
+	f1.block(0, 2 * MF, MF, MF) = identity.array() * Phase.array() * SX.array();
 
-	// second constraint (Equation 9)
-	f2.block(0, 0, MF, MF) = identity.array();
-	f2.block(MF, MF, MF, MF) = identity.array();
-	f2.block(2 * MF, MF, MF, MF) = SZ0.array() * identity.array();
-	f2.block(2 * MF, 2 * MF, MF, MF) = SY.array() * identity.array();
-	f2.block(3 * MF, 0, MF, MF) = std::complex<double>(-1, 0) * SZ0.array() * identity.array();
-	f2.block(3 * MF, 2 * MF, MF, MF) = std::complex<double>(-1, 0) * SX.array() * identity.array();
+	// second constraint (Equation 9) For upward
+	f2.block(3 * MF, 0, MF, MF) = identity.array();
+	f2.block(2 * MF, MF, MF, MF) = identity.array();
+	f2.block(MF, MF, MF, MF) = SZ0.array() * identity.array();
+	f2.block(MF, 2 * MF, MF, MF) = SY.array() * identity.array();
+	f2.block(0, 0, MF, MF) = std::complex<double>(-1, 0) * SZ0.array() * identity.array();
+	f2.block(0, 2 * MF, MF, MF) = std::complex<double>(-1, 0) * SX.array() * identity.array();
 
-	// third constraint (Equation 10)	
-	f3.block(0, 0, MF, MF) = -identity.array();
-	f3.block(MF, MF, MF, MF) = -identity.array();
-	f3.block(2 * MF, MF, MF, MF) = SZ1.array() * identity.array();
-	f3.block(2 * MF, 2 * MF, MF, MF) = -SY.array() * identity.array();
-	f3.block(3 * MF, 0, MF, MF) = -SZ1.array() * identity.array();
-	f3.block(3 * MF, 2 * MF, MF, MF) = SX.array() * identity.array();
+	// third constraint (Equation 10) For downward
+	f3.block(3 * MF, 0, MF, MF) = -identity.array();
+	f3.block(2 * MF, MF, MF, MF) = -identity.array();
+	f3.block(MF, MF, MF, MF) = SZ1.array() * identity.array();
+	f3.block(MF, 2 * MF, MF, MF) = -SY.array() * identity.array();
+	f3.block(0, 0, MF, MF) = -SZ1.array() * identity.array();
+	f3.block(0, 2 * MF, MF, MF) = SX.array() * identity.array();
 
 	if (logfile) {
 		logfile << "f1: " << std::endl;
@@ -505,13 +505,13 @@ void SetBoundaryConditions() {
 
 	A.block(2 * MF, 0, 4 * MF, 3 * MF) = f2;
 	//A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = Gd * Gc_inv * f3;
-	Eigen::MatrixXcd tmpG;
-	tmpG = MKL_multiply(Gd, Gc_inv, 1);
-	A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = MKL_multiply(tmpG, f3, 1);
+	Eigen::MatrixXcd G_mul;
+	G_mul = MKL_multiply(Gd, Gc_inv, 1);
+	A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = MKL_multiply(G_mul, f3, 1);
 	clock_t mul = clock();
 	std::cout << "			Time for multiplication once: " << (mul - inv) / 2 / CLOCKS_PER_SEC << "s" << std::endl;
 
-	b.segment(2 * MF, 4 * MF) = std::complex<double>(-1, 0) * f1 * Eigen::Map<Eigen::VectorXcd>(EF.data(), 3 * MF);
+	b.segment(2 * MF, 4 * MF) = f1 * Eigen::Map<Eigen::VectorXcd>(EF.data(), 3 * MF);
 	SizeInBytes += sizeof(A);
 	SizeInBytes += sizeof(b);
 
@@ -605,7 +605,7 @@ int main(int argc, char** argv) {
 		("alpha", boost::program_options::value<double>(&in_alpha)->default_value(1), "angle used to focus the incident field")
 		("beta", boost::program_options::value<double>(&in_beta)->default_value(0.0), "internal obscuration angle (for simulating reflective optics)")
 		("na", boost::program_options::value<double>(&in_na), "focus angle expressed as a numerical aperture (overrides --alpha)")
-		("coef", boost::program_options::value<std::vector<int> >(&in_coeff)->multitoken()->default_value(std::vector<int>{15, 15}, "3, 3"), "number of Fouerier coefficients (can be specified in 2 dimensions)")
+		("coef", boost::program_options::value<std::vector<int> >(&in_coeff)->multitoken()->default_value(std::vector<int>{2, 2}, "2, 2"), "number of Fouerier coefficients (can be specified in 2 dimensions)")
 		("mode", boost::program_options::value<std::string>(&in_mode)->default_value("polar"), "sampling mode (polar, montecarlo)")
 		("log", "produce a log file")
 		("OutMat", boost::program_options::value<std::string>(&out_mat), "Output the property matrix as an .npy file")

@@ -278,7 +278,8 @@ void EigenDecompositionD() {
 		if (i == 0)
 			GC = Gc;
 		else {
-			tmp = MKL_multiply(Gc, MKL_inverse(Gd), 1);
+			tmp = MKL_inverse(Gd);
+			tmp = MKL_multiply(Gc, tmp, 1);
 			GC = MKL_multiply(tmp, GC, 1);
 		}
 		if (logfile) {

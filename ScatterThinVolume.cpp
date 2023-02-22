@@ -89,24 +89,24 @@ long long SizeInBytes = 0;
 std::chrono::duration<double> elapsed_seconds;
 
 /// Convert a complex vector to a string for display
-template <typename T>
-std::string vec2str(glm::vec<3, std::complex<T> > v, int spacing = 20) {
-	std::stringstream ss;
-	if (v[0].imag() == 0.0 && v[1].imag() == 0.0 && v[2].imag() == 0.0) {				// if the vector is real
-		ss << std::setw(spacing) << std::left << v[0].real() << std::setw(spacing) << std::left << v[1].real() << std::setw(spacing) << std::left << v[2].real();
-	}
-	else {
-		ss << std::setw(spacing) << std::left << v[0] << std::setw(spacing) << std::left << v[1] << std::setw(spacing) << std::left << v[2];
-	}
-	return ss.str();
-}
-
-/// Convert a real vector to a string for display
-std::string vec2str(glm::vec<3, double> v, int spacing = 20) {
-	std::stringstream ss;
-	ss << std::setw(spacing) << std::left << v[0] << std::setw(spacing) << std::left << v[1] << std::setw(spacing) << std::left << v[2];
-	return ss.str();
-}
+//template <typename T>
+//std::string vec2str(glm::vec<3, std::complex<T> > v, int spacing = 20) {
+//	std::stringstream ss;
+//	if (v[0].imag() == 0.0 && v[1].imag() == 0.0 && v[2].imag() == 0.0) {				// if the vector is real
+//		ss << std::setw(spacing) << std::left << v[0].real() << std::setw(spacing) << std::left << v[1].real() << std::setw(spacing) << std::left << v[2].real();
+//	}
+//	else {
+//		ss << std::setw(spacing) << std::left << v[0] << std::setw(spacing) << std::left << v[1] << std::setw(spacing) << std::left << v[2];
+//	}
+//	return ss.str();
+//}
+//
+///// Convert a real vector to a string for display
+//std::string vec2str(glm::vec<3, double> v, int spacing = 20) {
+//	std::stringstream ss;
+//	ss << std::setw(spacing) << std::left << v[0] << std::setw(spacing) << std::left << v[1] << std::setw(spacing) << std::left << v[2];
+//	return ss.str();
+//}
 
 /// Return a value in the A matrix
 std::complex<double>& Mat(int row, int col) {
@@ -506,8 +506,7 @@ void SetBoundaryConditions() {
 
 	A.block(2 * MF, 0, 4 * MF, 3 * MF) = f2;
 	//A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = Gd * Gc_inv * f3;
-	Eigen::MatrixXcd G_mul;
-	G_mul = MKL_multiply(Gd, Gc_inv, 1);
+	Eigen::MatrixXcd G_mul = MKL_multiply(Gd, Gc_inv, 1);
 	A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = MKL_multiply(G_mul, f3, 1);
 	std::chrono::time_point<std::chrono::system_clock> mul = std::chrono::system_clock::now();
 	elapsed_seconds = mul - inv;
@@ -740,7 +739,7 @@ int main(int argc, char** argv) {
 
 	std::cout << "Linear system built." << std::endl;
 	std::chrono::time_point<std::chrono::system_clock> built = std::chrono::system_clock::now();
-	elapsed_seconds = built - initialized
+	elapsed_seconds = built - initialized;
 	std::cout << "Time for building the system: " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 
 	//// Eigen solution
@@ -822,10 +821,7 @@ int main(int argc, char** argv) {
 			}
 
 		}
-		if(p == MF-1)
-			exit(1);
 	}
-	exit(1);
 	std::cout << "Field saved in " << in_outfile << "." << std::endl;
 	std::chrono::time_point<std::chrono::system_clock> simulated = std::chrono::system_clock::now();
 	elapsed_seconds = simulated - solved;

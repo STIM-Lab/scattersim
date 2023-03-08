@@ -47,7 +47,7 @@ void MKL_eigensolve(std::complex<double>* A, std::complex<double>* eigenvalues, 
 void MKL_linearsolve(Eigen::MatrixXcd& A, Eigen::VectorXcd& b) {
 	int N = b.size();
 	MKL_INT* x;
-	x = new MKL_INT[N];
+	x = new MKL_INT[N * 2];
 	int Nb = 1;
 	// 'N' means no trans
 	int info = LAPACKE_zgesv(LAPACK_COL_MAJOR, N, Nb, (MKL_Complex16*)A.data(), N, x, (MKL_Complex16*)b.data(), N);
@@ -57,7 +57,7 @@ Eigen::MatrixXcd MKL_inverse(Eigen::MatrixXcd& A) {
 	int N = A.rows();
 	Eigen::MatrixXcd b = Eigen::MatrixXcd::Identity(N, N);
 	MKL_INT* x;
-	x = new MKL_INT[N];
+	x = new MKL_INT[N * 2];
 	// 'N' means no trans
 	int info = LAPACKE_zgesv(LAPACK_COL_MAJOR, N, N, (MKL_Complex16*)A.data(), N, x, (MKL_Complex16*)b.data(), N);
 	return b;
@@ -70,8 +70,7 @@ Eigen::MatrixXcd MKL_multiply(Eigen::MatrixXcd& A, Eigen::MatrixXcd& B, std::com
 	int K = A.cols();
 	int N = B.cols();
 	std::complex<double> beta = 0;
-	Eigen::MatrixXcd C;
-	C.resize(M, N);
+	Eigen::MatrixXcd C = Eigen::MatrixXcd::Zero(M, N);
 	cblas_zgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, M, N, K, &alpha, (MKL_Complex16*)A.data(), M, (MKL_Complex16*)B.data(), K, &beta, (MKL_Complex16*)C.data(), M);
 
 	return C;

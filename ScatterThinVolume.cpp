@@ -12,12 +12,8 @@
 #include "glm/gtc/quaternion.hpp"
 //#include "cnpy/cnpy.h"
 #include <extern/libnpy/npy.hpp>
-#include <time.h>
-//#include <cuda_runtime.h>
-//#include <cusparse.h>
-//#include "cusolverSp.h"
-//#include <cuComplex.h>
-
+#include <chrono> 
+#include <ctime>
 #include "third_Lapack.h"
 
 // workaround issue between gcc >= 4.7 and cuda 5.5
@@ -90,26 +86,27 @@ std::vector<int> M_colInd;
 std::vector<std::complex<double>> M_val;
 std::string out_mat;
 long long SizeInBytes = 0;
+std::chrono::duration<double> elapsed_seconds;
 
 /// Convert a complex vector to a string for display
-template <typename T>
-std::string vec2str(glm::vec<3, std::complex<T> > v, int spacing = 20) {
-	std::stringstream ss;
-	if (v[0].imag() == 0.0 && v[1].imag() == 0.0 && v[2].imag() == 0.0) {				// if the vector is real
-		ss << std::setw(spacing) << std::left << v[0].real() << std::setw(spacing) << std::left << v[1].real() << std::setw(spacing) << std::left << v[2].real();
-	}
-	else {
-		ss << std::setw(spacing) << std::left << v[0] << std::setw(spacing) << std::left << v[1] << std::setw(spacing) << std::left << v[2];
-	}
-	return ss.str();
-}
-
-/// Convert a real vector to a string for display
-std::string vec2str(glm::vec<3, double> v, int spacing = 20) {
-	std::stringstream ss;
-	ss << std::setw(spacing) << std::left << v[0] << std::setw(spacing) << std::left << v[1] << std::setw(spacing) << std::left << v[2];
-	return ss.str();
-}
+//template <typename T>
+//std::string vec2str(glm::vec<3, std::complex<T> > v, int spacing = 20) {
+//	std::stringstream ss;
+//	if (v[0].imag() == 0.0 && v[1].imag() == 0.0 && v[2].imag() == 0.0) {				// if the vector is real
+//		ss << std::setw(spacing) << std::left << v[0].real() << std::setw(spacing) << std::left << v[1].real() << std::setw(spacing) << std::left << v[2].real();
+//	}
+//	else {
+//		ss << std::setw(spacing) << std::left << v[0] << std::setw(spacing) << std::left << v[1] << std::setw(spacing) << std::left << v[2];
+//	}
+//	return ss.str();
+//}
+//
+///// Convert a real vector to a string for display
+//std::string vec2str(glm::vec<3, double> v, int spacing = 20) {
+//	std::stringstream ss;
+//	ss << std::setw(spacing) << std::left << v[0] << std::setw(spacing) << std::left << v[1] << std::setw(spacing) << std::left << v[2];
+//	return ss.str();
+//}
 
 /// Return a value in the A matrix
 std::complex<double>& Mat(int row, int col) {
@@ -225,7 +222,7 @@ void Eigen_Sort(Eigen::VectorXcd eigenvalues_unordered, Eigen::MatrixXcd eigenve
 // Build matrices Gd and Gc.
 void EigenDecompositionD() {
 	//std::cout << "				Eigen solver working..." << std::endl;
-	//clock_t essolver1 = clock();
+	//std::chrono::time_point<std::chrono::system_clock> essolver1 = std::chrono::system_clock::now();
 
 	// Output the property matrix as .npy
 	if (out_mat != "") {
@@ -257,10 +254,11 @@ void EigenDecompositionD() {
 		std::complex<double>* evt = new std::complex<double>[4 * MF * 4 * MF];
 		SizeInBytes += sizeof(std::complex<double>) * 4 * MF;
 		SizeInBytes += sizeof(std::complex<double>) * 4 * MF * 4 * MF;
-		clock_t s = clock(); 
+		std::chrono::time_point<std::chrono::system_clock> s = std::chrono::system_clock::now();
 		MKL_eigensolve(A, evl, evt, 4 * MF);
-		clock_t e = clock();
-		std::cout << "			 Time for MKL_eigensolve():" << (e - s) / CLOCKS_PER_SEC << "s" << std::endl;
+		std::chrono::time_point<std::chrono::system_clock> e = std::chrono::system_clock::now();
+		elapsed_seconds = e - s;
+		std::cout << "			 Time for MKL_eigensolve():" << elapsed_seconds.count() << "s" << std::endl;
 		eigenvalues_unordered = Eigen::Map<Eigen::VectorXcd>(evl, 4 * MF);
 		eigenvectors_unordered = Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor > (evt, 4 * MF, 4 * MF);
 		SizeInBytes += sizeof(eigenvalues_unordered);
@@ -279,10 +277,10 @@ void EigenDecompositionD() {
 		//std::complex<double>* evl = new std::complex<double>[4 * MF];
 		//std::complex<double>* evt = new std::complex<double>[4 * MF * 4 * MF];
 		//std::cout << "				Eigen solver working..." << std::endl;
-		//clock_t essolver1 = clock();
+		//std::chrono::time_point<std::chrono::system_clock> essolver1 = std::chrono::system_clock::now();
 		//LINALG_eigensolve(A, evl, evt, 4 * MF);
-		//clock_t essolver2 = clock();
-		//std::cout << "				Time for eigen solver: " << (essolver2 - essolver1) / CLOCKS_PER_SEC << "s" << std::endl;
+		//std::chrono::time_point<std::chrono::system_clock> essolver2 = std::chrono::system_clock::now();
+		//std::cout << "				Time for eigen solver: " << (essolver2 - essolver1).count() << "s" << std::endl;
 
 		//eigenvalues_unordered = Eigen::Map<Eigen::VectorXcd>(evl, 4 * MF);
 		//eigenvectors_unordered = Eigen::Map<Eigen::MatrixXcd, Eigen::ColMajor>(evt, 4 * MF, 4 * MF);
@@ -342,8 +340,8 @@ void EigenDecompositionD() {
 		//cusolverStatus = cusolverSpZcsreigvsi(handle, (int)rowsA, (int)nnA, descrM, csrValM_, csrRowPtrM, csrColIndM, mu0.data(), maxite, tol, dev_eigenvalue, dev_eigenvector);
 	}
 
-	//clock_t essolver2 = clock();
-	//std::cout << "				Time for eigen solver: " << (essolver2 - essolver1) / CLOCKS_PER_SEC << "s" << std::endl;
+	//std::chrono::time_point<std::chrono::system_clock> essolver2 = std::chrono::system_clock::now();
+	//std::cout << "				Time for eigen solver: " << (essolver2 - essolver1).count() << "s" << std::endl;
 	//Eigen_Sort(eigenvalues_unordered, eigenvectors_unordered);		// Sort the eigenvalues
 
 	//eigenvalues = eigenvalues_unordered;
@@ -430,28 +428,28 @@ void MatTransfer() {
 	SizeInBytes += sizeof(identity);
 
 	// first constraint (Equation 8)
-	f1.block(0, 0, MF, MF) = identity.array() * Phase.array();
-	f1.block(MF, MF, MF, MF) = identity.array() * Phase.array();
-	f1.block(2 * MF, MF, MF, MF) = (std::complex<double>(-1, 0)) * identity.array() * Phase.array() * SZ0.array();
-	f1.block(2 * MF, 2 * MF, MF, MF) = identity.array() * Phase.array() * SY.array();
-	f1.block(3 * MF, 0, MF, MF) = identity.array() * Phase.array() * SZ0.array();
-	f1.block(3 * MF, 2 * MF, MF, MF) = (std::complex<double>(-1, 0)) * identity.array() * Phase.array() * SX.array();
+	f1.block(3 * MF, 0, MF, MF) = -identity.array() * Phase.array();
+	f1.block(2 * MF, MF, MF, MF) = -identity.array() * Phase.array();
+	f1.block(MF, MF, MF, MF) = identity.array() * Phase.array() * SZ0.array();
+	f1.block(MF, 2 * MF, MF, MF) = -identity.array() * Phase.array() * SY.array();
+	f1.block(0, 0, MF, MF) = -identity.array() * Phase.array() * SZ0.array();
+	f1.block(0, 2 * MF, MF, MF) = identity.array() * Phase.array() * SX.array();
 
-	// second constraint (Equation 9)
-	f2.block(0, 0, MF, MF) = identity.array();
-	f2.block(MF, MF, MF, MF) = identity.array();
-	f2.block(2 * MF, MF, MF, MF) = SZ0.array() * identity.array();
-	f2.block(2 * MF, 2 * MF, MF, MF) = SY.array() * identity.array();
-	f2.block(3 * MF, 0, MF, MF) = std::complex<double>(-1, 0) * SZ0.array() * identity.array();
-	f2.block(3 * MF, 2 * MF, MF, MF) = std::complex<double>(-1, 0) * SX.array() * identity.array();
+	// second constraint (Equation 9) For upward
+	f2.block(3 * MF, 0, MF, MF) = identity.array();
+	f2.block(2 * MF, MF, MF, MF) = identity.array();
+	f2.block(MF, MF, MF, MF) = SZ0.array() * identity.array();
+	f2.block(MF, 2 * MF, MF, MF) = SY.array() * identity.array();
+	f2.block(0, 0, MF, MF) = std::complex<double>(-1, 0) * SZ0.array() * identity.array();
+	f2.block(0, 2 * MF, MF, MF) = std::complex<double>(-1, 0) * SX.array() * identity.array();
 
-	// third constraint (Equation 10)	
-	f3.block(0, 0, MF, MF) = -identity.array();
-	f3.block(MF, MF, MF, MF) = -identity.array();
-	f3.block(2 * MF, MF, MF, MF) = SZ1.array() * identity.array();
-	f3.block(2 * MF, 2 * MF, MF, MF) = -SY.array() * identity.array();
-	f3.block(3 * MF, 0, MF, MF) = -SZ1.array() * identity.array();
-	f3.block(3 * MF, 2 * MF, MF, MF) = SX.array() * identity.array();
+	// third constraint (Equation 10) For downward
+	f3.block(3 * MF, 0, MF, MF) = -identity.array();
+	f3.block(2 * MF, MF, MF, MF) = -identity.array();
+	f3.block(MF, MF, MF, MF) = SZ1.array() * identity.array();
+	f3.block(MF, 2 * MF, MF, MF) = -SY.array() * identity.array();
+	f3.block(0, 0, MF, MF) = -SZ1.array() * identity.array();
+	f3.block(0, 2 * MF, MF, MF) = SX.array() * identity.array();
 
 	if (logfile) {
 		logfile << "f1: " << std::endl;
@@ -489,29 +487,32 @@ void SetGaussianConstraints() {
 void SetBoundaryConditions() {
 	std::complex<double> i(0.0, 1.0);
 	std::cout << "		Boundary conditions setting starts..." << std::endl;
-	clock_t eigen1 = clock();
+	std::chrono::time_point<std::chrono::system_clock> eigen1 = std::chrono::system_clock::now();
 	EigenDecompositionD();		// Compute Gd and Gc
-	clock_t eigen2 = clock();
-	std::cout << "			Time for EigenDecompositionD(): " << (eigen2 - eigen1) / CLOCKS_PER_SEC << "s" << std::endl;
+	std::chrono::time_point<std::chrono::system_clock> eigen2 = std::chrono::system_clock::now();
+	elapsed_seconds = eigen2 - eigen1;
+	std::cout << "			Time for EigenDecompositionD(): " << elapsed_seconds.count() << "s" << std::endl;
 
 	MatTransfer();				// Achieve the connection between the variable vector and the field vector
-	clock_t matTransfer = clock();
-	std::cout << "			Time for MatTransfer(): " << (matTransfer - eigen2) / CLOCKS_PER_SEC << "s" << std::endl;
+	std::chrono::time_point<std::chrono::system_clock> matTransfer = std::chrono::system_clock::now();
+	elapsed_seconds = matTransfer - eigen2;
+	std::cout << "			Time for MatTransfer(): " << elapsed_seconds.count() << "s" << std::endl;
 	
 	Eigen::MatrixXcd Gc_inv = MKL_inverse(Gc);
-	clock_t inv = clock();
-	std::cout << "			Time for MKL_inverse(): " << (inv - matTransfer) / CLOCKS_PER_SEC << "s" << std::endl;
+	std::chrono::time_point<std::chrono::system_clock> inv = std::chrono::system_clock::now();
+	elapsed_seconds = inv - matTransfer;
+	std::cout << "			Time for MKL_inverse(): " << elapsed_seconds.count() << "s" << std::endl;
 	SizeInBytes += sizeof(Gc_inv);
 
 	A.block(2 * MF, 0, 4 * MF, 3 * MF) = f2;
 	//A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = Gd * Gc_inv * f3;
-	Eigen::MatrixXcd tmpG;
-	tmpG = MKL_multiply(Gd, Gc_inv, 1);
-	A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = MKL_multiply(tmpG, f3, 1);
-	clock_t mul = clock();
-	std::cout << "			Time for multiplication once: " << (mul - inv) / 2 / CLOCKS_PER_SEC << "s" << std::endl;
+	Eigen::MatrixXcd G_mul = MKL_multiply(Gd, Gc_inv, 1);
+	A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = MKL_multiply(G_mul, f3, 1);
+	std::chrono::time_point<std::chrono::system_clock> mul = std::chrono::system_clock::now();
+	elapsed_seconds = mul - inv;
+	std::cout << "			Time for multiplication once: " << elapsed_seconds.count() / 2 << "s" << std::endl;
 
-	b.segment(2 * MF, 4 * MF) = std::complex<double>(-1, 0) * f1 * Eigen::Map<Eigen::VectorXcd>(EF.data(), 3 * MF);
+	b.segment(2 * MF, 4 * MF) = f1 * Eigen::Map<Eigen::VectorXcd>(EF.data(), 3 * MF);
 	SizeInBytes += sizeof(A);
 	SizeInBytes += sizeof(b);
 
@@ -584,7 +585,7 @@ std::vector< tira::planewave<double> > RemoveInvalidWaves(std::vector<tira::plan
 }
 
 int main(int argc, char** argv) {
-	clock_t start = clock();
+	std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
 	std::cout << "Initialization starts..." << std::endl;
 
 	// Set up all of the input options provided to the user
@@ -605,7 +606,7 @@ int main(int argc, char** argv) {
 		("alpha", boost::program_options::value<double>(&in_alpha)->default_value(1), "angle used to focus the incident field")
 		("beta", boost::program_options::value<double>(&in_beta)->default_value(0.0), "internal obscuration angle (for simulating reflective optics)")
 		("na", boost::program_options::value<double>(&in_na), "focus angle expressed as a numerical aperture (overrides --alpha)")
-		("coef", boost::program_options::value<std::vector<int> >(&in_coeff)->multitoken()->default_value(std::vector<int>{15, 15}, "3, 3"), "number of Fouerier coefficients (can be specified in 2 dimensions)")
+		("coef", boost::program_options::value<std::vector<int> >(&in_coeff)->multitoken()->default_value(std::vector<int>{2, 2}, "2, 2"), "number of Fouerier coefficients (can be specified in 2 dimensions)")
 		("mode", boost::program_options::value<std::string>(&in_mode)->default_value("polar"), "sampling mode (polar, montecarlo)")
 		("log", "produce a log file")
 		("OutMat", boost::program_options::value<std::string>(&out_mat), "Output the property matrix as an .npy file")
@@ -715,26 +716,31 @@ int main(int argc, char** argv) {
 	}
 
 	std::cout << "Initialization finished." << std::endl;
-	clock_t initialized = clock();
-	std::cout << "Time for initialization: " << (initialized - start) / CLOCKS_PER_SEC << "s" << std::endl << std::endl;
+	std::chrono::time_point<std::chrono::system_clock> initialized = std::chrono::system_clock::now();
+	elapsed_seconds = initialized - start;
+	std::cout << "Time for initialization: " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 
 	std::cout << "Linear system starts..." << std::endl;
 	// Build linear system
 	InitMatrices();
-	clock_t initDone = clock();
-	std::cout << "		Time for InitMatrices(): " << (initDone - initialized) / CLOCKS_PER_SEC << "s" << std::endl << std::endl;
+	std::chrono::time_point<std::chrono::system_clock> initDone = std::chrono::system_clock::now();
+	elapsed_seconds = initDone - initialized;
+	std::cout << "		Time for InitMatrices(): " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 
 	SetGaussianConstraints();
-	clock_t gauss = clock();
-	std::cout << "		Time for SetGaussianConstraints(): " << (gauss - initDone) / CLOCKS_PER_SEC << "s" << std::endl << std::endl;
+	std::chrono::time_point<std::chrono::system_clock> gauss = std::chrono::system_clock::now();
+	elapsed_seconds = gauss - initDone;
+	std::cout << "		Time for SetGaussianConstraints(): " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 
 	SetBoundaryConditions();
-	clock_t boundary = clock();
-	std::cout << "		Time for SetBoundaryConditions(): " << (boundary - gauss) / CLOCKS_PER_SEC << "s" << std::endl << std::endl;
+	std::chrono::time_point<std::chrono::system_clock> boundary = std::chrono::system_clock::now();
+	elapsed_seconds = boundary - gauss;
+	std::cout << "		Time for SetBoundaryConditions(): " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 
 	std::cout << "Linear system built." << std::endl;
-	clock_t built = clock();
-	std::cout << "Time for building the system: " << (built - initialized) / CLOCKS_PER_SEC << "s" << std::endl << std::endl;
+	std::chrono::time_point<std::chrono::system_clock> built = std::chrono::system_clock::now();
+	elapsed_seconds = built - initialized;
+	std::cout << "Time for building the system: " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 
 	//// Eigen solution
 	//std::cout << "Linear system solving (Eigen)..." << std::endl;
@@ -764,8 +770,9 @@ int main(int argc, char** argv) {
 	//std::cout << "x from MKL: " << x << std::endl;
 	std::cout << "Linear system solved." << std::endl;
 
-	clock_t solved = clock();
-	std::cout << "Time for solving the system: " << (solved - built) / CLOCKS_PER_SEC << "s" << std::endl << std::endl;
+	std::chrono::time_point<std::chrono::system_clock> solved = std::chrono::system_clock::now();
+	elapsed_seconds = solved - built;
+	std::cout << "Time for solving the system: " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 
 	std::cout << "Field reorganization starts..." << std::endl;
 	if (logfile) {
@@ -816,12 +823,14 @@ int main(int argc, char** argv) {
 		}
 	}
 	std::cout << "Field saved in " << in_outfile << "." << std::endl;
-	clock_t simulated = clock();
-	std::cout << "Time for saving the field " << (simulated - solved) / CLOCKS_PER_SEC << "s" << std::endl << std::endl << std::endl;
+	std::chrono::time_point<std::chrono::system_clock> simulated = std::chrono::system_clock::now();
+	elapsed_seconds = simulated - solved;
+	std::cout << "Time for saving the field " << elapsed_seconds.count() << "s" << std::endl << std::endl << std::endl;
 
 	std::cout << "Number of pixels (x, y): [" << in_num_pixels[1] << "," << in_num_pixels[0]  << "]" << std::endl;
 	std::cout << "Number of Fourier coefficients (Mx, My): [" << M[0] << "," << M[1] << "]" << std::endl;
-	std::cout << "Total time:" << (simulated - start) / CLOCKS_PER_SEC << "s" << std::endl;
+	elapsed_seconds = simulated - start;
+	std::cout << "Total time:" << elapsed_seconds.count() << "s" << std::endl;
 	SizeInBytes += sizeof(cw);
 	std::cout << "Total memory allocated: " << SizeInBytes / pow(10, 9) << "GByte."<< std::endl;
 	if (in_outfile != "") {

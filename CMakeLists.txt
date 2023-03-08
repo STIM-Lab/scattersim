@@ -111,6 +111,7 @@ target_link_libraries(scattertest
 			ZLIB::ZLIB
 			glm::glm
 			Boost::program_options
+			MKL::MKL
 )
 
 target_link_libraries(scatterlayer
@@ -126,7 +127,6 @@ target_link_libraries(scatterthinvolume
 			Boost::program_options
 			Eigen3::Eigen
 			FFTW3::fftw3
-			${CUDA_LIBRARIES}
 			MKL::MKL
 )
 
@@ -136,7 +136,6 @@ target_link_libraries(scattervolume
 			Boost::program_options
 			Eigen3::Eigen
 			FFTW3::fftw3
-			${CUDA_LIBRARIES}
 			MKL::MKL
 )
 

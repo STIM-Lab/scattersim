@@ -11,7 +11,8 @@
 #include "glm/glm.hpp"
 #include "glm/gtc/quaternion.hpp"
 #include <extern/libnpy/npy.hpp>
-#include <time.h>
+#include <chrono> 
+#include <ctime>
 
 
 #include "third_Lapack.h"
@@ -83,6 +84,7 @@ std::vector<int> M_rowInd;
 std::vector<int> M_colInd;
 std::vector<std::complex<double>> M_val;
 Eigen::MatrixXcd tmp;					// Temposarily store some Eigen::MatrixXcd
+std::chrono::duration<double> elapsed_seconds;
 	
 /// Convert a complex vector to a string for display
 template <typename T>
@@ -216,7 +218,7 @@ bool sorter(EiV const& lhs, EiV const& rhs) {
 // Build matrices Gd and Gc.
 void EigenDecompositionD() {
 	//std::cout << "				Eigen solver working..." << std::endl;
-	//clock_t essolver1 = clock();
+	//std::chrono::time_point<std::chrono::system_clock> essolver1 = std::chrono::system_clock::now();
 	std::vector<Eigen::VectorXcd> eigenvalues_unordered;
 	std::vector<Eigen::MatrixXcd> eigenvectors_unordered;
 	bool EIGEN = false;
@@ -236,10 +238,11 @@ void EigenDecompositionD() {
 			Eigen::MatrixXcd::Map(A, D[i].rows(), D[i].cols()) = D[i];
 			std::complex<double>* evl = new std::complex<double>[4 * MF];
 			std::complex<double>* evt = new std::complex<double>[4 * MF * 4 * MF];
-			clock_t s = clock();
+			std::chrono::time_point<std::chrono::system_clock> s = std::chrono::system_clock::now();
 			MKL_eigensolve(A, evl, evt, 4 * MF);
-			clock_t e = clock();
-			std::cout << "			 Time for MKL_eigensolve():" << (e - s) / CLOCKS_PER_SEC << "s" << std::endl;
+			std::chrono::time_point<std::chrono::system_clock> e = std::chrono::system_clock::now();
+			elapsed_seconds = e - s;
+			std::cout << "			 Time for MKL_eigensolve():" << elapsed_seconds.count() << "s" << std::endl;
 			eigenvalues_unordered.push_back(Eigen::Map<Eigen::VectorXcd>(evl, 4 * MF));
 			eigenvectors_unordered.push_back(Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(evt, 4 * MF, 4 * MF));
 
@@ -278,7 +281,8 @@ void EigenDecompositionD() {
 		if (i == 0)
 			GC = Gc;
 		else {
-			tmp = MKL_multiply(Gc, MKL_inverse(Gd), 1);
+			tmp = MKL_inverse(Gd);
+			tmp = MKL_multiply(Gc, tmp, 1);
 			GC = MKL_multiply(tmp, GC, 1);
 		}
 		if (logfile) {
@@ -372,25 +376,29 @@ void SetGaussianConstraints() {
 void SetBoundaryConditions() {
 	std::complex<double> i(0.0, 1.0);
 	std::cout << "		Boundary conditions setting starts..." << std::endl;
-	clock_t eigen1 = clock();
+	std::chrono::time_point<std::chrono::system_clock> eigen1 = std::chrono::system_clock::now();
 	EigenDecompositionD();		// Compute GD and GC
-	clock_t eigen2 = clock();
-	std::cout << "			Time for EigenDecompositionD(): " << (eigen2 - eigen1) / CLOCKS_PER_SEC << "s" << std::endl;
+	std::chrono::time_point<std::chrono::system_clock> eigen2 = std::chrono::system_clock::now();
+	elapsed_seconds = eigen2 - eigen1;
+	std::cout << "			Time for EigenDecompositionD(): " << elapsed_seconds.count() << "s" << std::endl;
 
 	MatTransfer();				// Achieve the connection between the variable vector and the field vector
-	clock_t matTransfer = clock();
-	std::cout << "			Time for MatTransfer(): " << (matTransfer - eigen2) / CLOCKS_PER_SEC << "s" << std::endl;
+	std::chrono::time_point<std::chrono::system_clock> matTransfer = std::chrono::system_clock::now();
+	elapsed_seconds = matTransfer - eigen2;
+	std::cout << "			Time for MatTransfer(): " << elapsed_seconds.count() << "s" << std::endl;
 	
 	Eigen::MatrixXcd Gc_inv = MKL_inverse(GC);
-	clock_t inv = clock();
-	std::cout << "			Time for MKL_inverse(): " << (inv - matTransfer) / CLOCKS_PER_SEC << "s" << std::endl;
+	std::chrono::time_point<std::chrono::system_clock> inv = std::chrono::system_clock::now();
+	elapsed_seconds = inv - matTransfer;
+	std::cout << "			Time for MKL_inverse(): " << elapsed_seconds.count() << "s" << std::endl;
 
 	A.block(2 * MF, 0, 4 * MF, 3 * MF) = f2;
 	//A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = Gd * Gc_inv * f3;
 	tmp = MKL_multiply(GD, Gc_inv, 1);
 	A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = MKL_multiply(tmp, f3, 1);
-	clock_t mul = clock();
-	std::cout << "			Time for multiplication once: " << (mul - inv) / 2 / CLOCKS_PER_SEC << "s" << std::endl;
+	std::chrono::time_point<std::chrono::system_clock> mul = std::chrono::system_clock::now();
+	elapsed_seconds = mul - inv;
+	std::cout << "			Time for multiplication once: " << elapsed_seconds.count() / 2 << "s" << std::endl;
 
 	b.segment(2 * MF, 4 * MF) = std::complex<double>(-1, 0) * f1 * Eigen::Map<Eigen::VectorXcd>(EF.data(), 3 * MF);
 
@@ -442,7 +450,7 @@ std::vector< tira::planewave<double> > RemoveInvalidWaves(std::vector<tira::plan
 }
 
 int main(int argc, char** argv) {
-	clock_t start = clock();
+	std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
 	std::cout << "Initialization starts..." << std::endl;
 
 	// Set up all of the input options provided to the user
@@ -560,26 +568,31 @@ int main(int argc, char** argv) {
 	}
 
 	std::cout << "Initialization finished." << std::endl;
-	clock_t initialized = clock();
-	std::cout << "Time for initialization: " << (initialized - start) / CLOCKS_PER_SEC << "s" << std::endl << std::endl;
+	std::chrono::time_point<std::chrono::system_clock> initialized = std::chrono::system_clock::now();
+	elapsed_seconds = initialized - start;
+	std::cout << "Time for initialization: " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 
 	std::cout << "Linear system starts..." << std::endl;
 	// Build linear system
 	InitMatrices();
-	clock_t initDone = clock();
-	std::cout << "		Time for InitMatrices(): " << (initDone - initialized) / CLOCKS_PER_SEC << "s" << std::endl << std::endl;
+	std::chrono::time_point<std::chrono::system_clock> initDone = std::chrono::system_clock::now();
+	elapsed_seconds = initDone - initialized;
+	std::cout << "		Time for InitMatrices(): " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 
 	SetGaussianConstraints();
-	clock_t gauss = clock();
-	std::cout << "		Time for SetGaussianConstraints(): " << (gauss - initDone) / CLOCKS_PER_SEC << "s" << std::endl << std::endl;
+	std::chrono::time_point<std::chrono::system_clock> gauss = std::chrono::system_clock::now();
+	elapsed_seconds = gauss - initDone;
+	std::cout << "		Time for SetGaussianConstraints(): " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 
 	SetBoundaryConditions();
-	clock_t boundary = clock();
-	std::cout << "		Time for SetBoundaryConditions(): " << (boundary - gauss) / CLOCKS_PER_SEC << "s" << std::endl << std::endl;
+	std::chrono::time_point<std::chrono::system_clock> boundary = std::chrono::system_clock::now();
+	elapsed_seconds = boundary - gauss;
+	std::cout << "		Time for SetBoundaryConditions(): " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 
 	std::cout << "Linear system built." << std::endl;
-	clock_t built = clock();
-	std::cout << "Time for building the system: " << (built - initialized) / CLOCKS_PER_SEC << "s" << std::endl << std::endl;
+	std::chrono::time_point<std::chrono::system_clock> built = std::chrono::system_clock::now();
+	elapsed_seconds = built - initialized;
+	std::cout << "Time for building the system: " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 
 	// MKL solution
 	std::cout << "Linear system solving (MKL)..." << std::endl;
@@ -587,8 +600,9 @@ int main(int argc, char** argv) {
 	Eigen::VectorXcd x = b;
 	std::cout << "Linear system solved." << std::endl;
 
-	clock_t solved = clock();
-	std::cout << "Time for solving the system: " << (solved - built) / CLOCKS_PER_SEC << "s" << std::endl << std::endl;
+	std::chrono::time_point<std::chrono::system_clock> solved = std::chrono::system_clock::now();
+	elapsed_seconds = solved - built;
+	std::cout << "Time for solving the system: " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 
 	std::cout << "Field reorganization starts..." << std::endl;
 	if (logfile) {
@@ -639,13 +653,15 @@ int main(int argc, char** argv) {
 		}
 	}
 	std::cout << "Field saved in " << in_outfile << "." << std::endl;
-	clock_t simulated = clock();
-	std::cout << "Time for saving the field " << (simulated - solved) / CLOCKS_PER_SEC << "s" << std::endl << std::endl << std::endl;
+	std::chrono::time_point<std::chrono::system_clock> simulated = std::chrono::system_clock::now();
+	elapsed_seconds = simulated - solved;
+	std::cout << "Time for saving the field " << elapsed_seconds.count() << "s" << std::endl << std::endl << std::endl;
 
 	std::cout << "Number of pixels (x, y): [" << num_pixels[1] << "," << num_pixels[0]  << "]" << std::endl;
 	std::cout << "Number of sublayers: " << num_pixels[2] << std::endl;
 	std::cout << "Number of Fourier coefficients (Mx, My): [" << M[0] << "," << M[1] << "]" << std::endl;
-	std::cout << "Total time:" << (simulated - start) / CLOCKS_PER_SEC << "s" << std::endl;
+	elapsed_seconds = simulated - start;
+	std::cout << "Total time:" << elapsed_seconds.count() << "s" << std::endl;
 
 	if (in_outfile != "") {
 		cw.save(in_outfile);

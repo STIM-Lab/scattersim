@@ -16,6 +16,7 @@
 #include "glm/gtc/quaternion.hpp"
 
 std::vector<double> in_dir;
+std::vector<double> in_focus;
 double in_lambda;
 double in_kappa;
 std::vector<double> in_n;
@@ -29,6 +30,13 @@ double in_beta;
 std::vector<unsigned int> in_samples;
 std::string in_mode;
 
+/// <summary>
+/// Convert a complex glm vector to a string so that it can be displayed on screen or in a text file
+/// </summary>
+/// <typeparam name="T">data type (usually float or double) for the vector</typeparam>
+/// <param name="v">3D glm vector to be converted</param>
+/// <param name="spacing">spacing between coordinates in the string</param>
+/// <returns>string representing the vector</returns>
 template <typename T>
 std::string vec2str(glm::vec<3, std::complex<T> > v, int spacing = 20) {
 	std::stringstream ss;
@@ -41,13 +49,23 @@ std::string vec2str(glm::vec<3, std::complex<T> > v, int spacing = 20) {
 	return ss.str();
 }
 
+/// <summary>
+/// Convert a real glm vector to a string so that it can be displayed on screen or in a text file
+/// </summary>
+/// <param name="v"></param>
+/// <param name="spacing"></param>
+/// <returns></returns>
 std::string vec2str(glm::vec<3, double> v, int spacing = 20) {
 	std::stringstream ss;
 	ss << std::setw(spacing) << std::left << v[0] << std::setw(spacing) << std::left << v[1] << std::setw(spacing) << std::left << v[2];
 	return ss.str();
 }
 
+/// <summary>
 /// Removes waves with a k-vector pointed along the negative z axis
+/// </summary>
+/// <param name="W">list of plane waves</param>
+/// <returns></returns>
 std::vector< tira::planewave<double> > RemoveInvalidWaves(std::vector<tira::planewave<double>> W){
 	std::vector<tira::planewave<double>> new_W;
 	for(size_t i = 0; i < W.size(); i++){
@@ -66,7 +84,8 @@ int main(int argc, char** argv) {
 	desc.add_options()
 		("help", "produce help message")
 		("lambda,l", boost::program_options::value<double>(&in_lambda)->default_value(1.0), "incident field vacuum wavelength")
-		("direction,d", boost::program_options::value<std::vector<double> >(&in_dir)->multitoken()->default_value(std::vector<double>{1, 0, 1}, "0, 0, 1"), "incoming field direction")
+		("direction,d", boost::program_options::value<std::vector<double> >(&in_dir)->multitoken()->default_value(std::vector<double>{1, 0, 1}, "1, 0, 1"), "incoming field direction")
+		("focus,f", boost::program_options::value<std::vector<double> >(&in_focus)->multitoken()->default_value(std::vector<double>{0, 0, 0}, "0, 0, 0"), "focal point for the incident field")
 		("ex", boost::program_options::value<std::vector<double> >(&in_ex)->multitoken()->default_value(std::vector<double>{0, 0}, "0 0"), "incoming field direction")
 		("ey", boost::program_options::value<std::vector<double> >(&in_ey)->multitoken()->default_value(std::vector<double>{1, 0}, "1 0"), "incoming field direction")
 		("n", boost::program_options::value<std::vector<double>>(&in_n)->multitoken()->default_value(std::vector<double>{1.0, 1.4}, "1.0 1.4"), "layer refractive indices")
@@ -80,7 +99,10 @@ int main(int argc, char** argv) {
 		("log", "produce a log file")
 		;
 	boost::program_options::variables_map vm;
-	boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
+	//boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
+	boost::program_options::store(boost::program_options::command_line_parser(argc, argv).options(desc).style(
+		boost::program_options::command_line_style::unix_style ^ boost::program_options::command_line_style::allow_short
+	).run(), vm);
 	boost::program_options::notify(vm); 
 
 	if (vm.count("help")) {
@@ -96,20 +118,27 @@ int main(int argc, char** argv) {
 	}
 
 	glm::tvec3<double> dir = glm::normalize(glm::tvec3<double>(in_dir[0], in_dir[1], in_dir[2]));				// set the direction of the incoming source field
-	double k = 2 * M_PI / (in_lambda * in_n[0]);
+	double k = 2 * M_PI / (in_lambda * in_n[0]);								// calculate the wavenumber (2 pi / lambda)
 	
 	
-	glm::tvec3<double> n = glm::normalize(glm::tvec3<double>(0, 0, -1));
-	std::complex<double> ni(in_n[0], 0.0);
-	std::complex<double> nt(in_n[1], in_kappa);
+	glm::tvec3<double> n = glm::normalize(glm::tvec3<double>(0, 0, -1));		// calculate the normal for the plane
+	std::complex<double> ni(in_n[0], 0.0);										// real refractive index of the input material
+	std::complex<double> nt(in_n[1], in_kappa);									// complex refractive index of the output material
 
-	std::string filename = in_outfile;
+	std::string filename = in_outfile;											// output file name
 
-	glm::tvec3<double> p(0, 0, in_z);
-	tira::planewave<double> r;
-	tira::planewave<double> t;	
-	std::complex<double> nr = nt/ni;
-	tira::planewave<double> i(k * dir[0], k * dir[1], k * dir[2], std::complex<double>(in_ex[0], in_ex[1]), std::complex<double>(in_ey[0], in_ey[1]));
+	glm::tvec3<double> p(0, 0, in_z);											// position of the plane
+	tira::planewave<double> r;													// reflected (sub)-wave
+	tira::planewave<double> t;													// transmitted (sub)-wave
+	std::complex<double> nr = nt/ni;											// refractive index ratio
+
+	glm::tvec3<double> f(in_focus[0], in_focus[1], in_focus[2]);				// focal point for the incident field
+
+	tira::planewave<double> i0(k * dir[0], k * dir[1], k * dir[2],				// create the incident plane wave
+							  std::complex<double>(in_ex[0], in_ex[1]), 
+							  std::complex<double>(in_ey[0], in_ey[1]));
+
+	tira::planewave<double> i = i0.wind(-f[0], -f[1], -f[2]);					// wind the plane wave to the focal point
 	glm::vec<3, std::complex<double> > E0 = i.getE0();
 	unsigned int N[2];										// calculate the number of samples
 
@@ -139,7 +168,7 @@ int main(int argc, char** argv) {
 
 	// incident field parameters
 	std::cout << std::setw(spacing1) << std::left << "vacuum wavelength: " << in_lambda << std::endl;
-
+	std::cout << std::setw(spacing1) << std::left << "focal point: " << vec2str(f, spacing2) << std::endl;
 	// optics
 	if (in_alpha != 0.0) {
 		std::cout << std::setw(spacing1) << std::left << "focusing angle: " << in_alpha << " (" << std::sin(in_alpha) * ni.real() << " NA)" << std::endl;
@@ -175,13 +204,11 @@ int main(int argc, char** argv) {
 
 	// allocate a coupled wave structure to store simulation results
 	CoupledWaveStructure<double> cw;
-	//cw.Pi.resize(N[0] * N[1]);
 	cw.Layers.resize(1);
 	cw.Layers[0].z = p[2];
-	//cw.Layers[0].Pr.resize(N[0] * N[1]);
-	//cw.Layers[0].Pt.resize(N[0] * N[1]);
 
-	if (in_alpha == 0 || N[0] * N[1] == 1) {																			// if there is only one plane, save the previous simulation
+	// if there is only one plane wave, save the previous simulation
+	if (in_alpha == 0 || N[0] * N[1] == 1) {													
 		cw.Pi.push_back(i);
 		cw.Layers[0].Pr.push_back(r);
 		cw.Layers[0].Pt.push_back(t);
@@ -192,25 +219,16 @@ int main(int argc, char** argv) {
 			logfile << std::endl;
 		}
 	}
+	// if there are multiple plane waves that will be added coherently (we're dealing with a focused beam)
 	else {
 		std::vector< tira::planewave<double> > I;
 		if(in_mode == "montecarlo")
 			I = tira::planewave<double>::SolidAngleMC(in_alpha, k * dir[0], k * dir[1], k * dir[2], std::complex<double>(in_ex[0], in_ex[1]), std::complex<double>(in_ey[0], in_ey[1]), N[0] * N[1], in_beta, n);
 		else if(in_mode == "polar")
 			I = tira::planewave<double>::SolidAnglePolar(in_alpha, k * dir[0], k * dir[1], k * dir[2], std::complex<double>(in_ex[0], in_ex[1]), std::complex<double>(in_ey[0], in_ey[1]), N[0], N[1], in_beta, n);
-		
-		// Some waves may be directed upwards from the surface, due to a combination of a large NA and low angle of incidence
-		// This function removes waves with negative z k-vector components
-		//if(logfile){
-		//	logfile<<"Number of waves produced: "<<I.size()<<std::endl;
-		//}
-		//I = RemoveInvalidWaves(I);	
-		//if(logfile){
-		//	logfile<<"Number of waves simulated: "<<I.size()<<std::endl<<std::endl;
-		//}	
 
 		for (size_t idx = 0; idx < I.size(); idx++) {
-			i = I[idx];
+			i = I[idx].wind(-f[0], -f[1], -f[2]);
 			i.scatter(n, p, nr, r, t);
 			cw.Pi.push_back(i);
 			cw.Layers[0].Pr.push_back(r);

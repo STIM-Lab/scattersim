@@ -50,8 +50,11 @@ configure_file(data/target.npy
 				target.npy COPYONLY)
 configure_file(data/triangle.npy 
 				triangle.npy COPYONLY)
+configure_file(data/psf.cw 
+				psf.cw COPYONLY)
 configure_file(data/triangle.png 
 				triangle.png COPYONLY)
+
 
 #set the include directories
 include_directories(
@@ -99,7 +102,8 @@ add_executable(scatterview
 					cpuEvaluator.h
 					gpuEvaluator.cu
 					gpuEvaluator.h
-					ScatterView.cpp)
+					ScatterView.cpp
+					ImGuiFileDialog/ImGuiFileDialog.cpp)
 
 target_link_libraries(scatterplane
 			ZLIB::ZLIB

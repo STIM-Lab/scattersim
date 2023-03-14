@@ -12,6 +12,7 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+#include "ImGuiFileDialog/ImGuiFileDialog.h"
 
 #include <boost/program_options.hpp>
 
@@ -31,7 +32,7 @@ GLFWwindow* window;                                     // pointer to the GLFW w
 const char* glsl_version = "#version 130";              // specify the version of GLSL
 ImVec4 clear_color = ImVec4(0.0f, 0.0f, 0.0f, 1.00f);   // specify the OpenGL color used to clear the back buffer
 float ui_scale = 1.5f;                                  // scale value for the UI and UI text
-
+double xpos, ypos;                                      // cursor positions
 
 float extent = 10;                                      // extent of the field being displayed (think of this as a zoom value)
 float center[] = {0, 0, 0};                             // center of the display field
@@ -378,6 +379,41 @@ void RenderGui(){
         EvaluateVectorSlices();
     }
 
+    
+    
+    if (ImGui::GetIO().MouseClicked[1])
+    {
+        glfwGetCursorPos(window, &xpos, &ypos);
+        ImGui::OpenPopup("save_slice");
+    }
+
+    if (ImGui::BeginPopup("save_slice"))
+    {
+        if (ImGui::Button("Save Slice")) {                                              // create a button that opens a file dialog
+            ImGuiFileDialog::Instance()->OpenDialog("ChooseNpyFile", "Choose NPY File", ".npy,.npz", ".");              
+        }
+        if (ImGuiFileDialog::Instance()->Display("ChooseNpyFile")) {				    // if the user opened a file dialog
+            if (ImGuiFileDialog::Instance()->IsOk()) {								    // and clicks okay, they've probably selected a file
+                std::string filename = ImGuiFileDialog::Instance()->GetFilePathName();	// get the name of the file
+                std::string extension = filename.substr(filename.find_last_of(".") + 1);
+                
+                std::cout << "Cursor position: " << xpos << ", " << ypos << std::endl;
+                std::cout << "File chosen: " << filename << std::endl;
+                // RUIJIAO: determine which slice is clicked
+                //          save the appropriate slice as an NPY file
+                
+            }
+            ImGuiFileDialog::Instance()->Close();									// close the file dialog box
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::EndPopup();
+    }
+    
+    
+
+    
+
     float min_plane[] = { center[0] - (extent * 0.5f), center[1] - (extent * 0.5f), center[2] - (extent * 0.5f) };
     float max_plane[] = { center[0] + (extent * 0.5f), center[1] + (extent * 0.5f), center[2] + (extent * 0.5f) };
     //ImGui::SliderScalarN("Plane Positions", ImGuiDataType_Float, plane_position, 3, min_plane, max_plane);
@@ -617,20 +653,18 @@ int main(int argc, char** argv)
 
     boost::program_options::options_description desc("Allowed options");
 	desc.add_options()
-        ("input", boost::program_options::value<std::string>(&in_filename)->default_value("py.cw"), "output filename for the coupled wave structure")
+        ("input", boost::program_options::value<std::string>(&in_filename)->default_value("psf.cw"), "output filename for the coupled wave structure")
 		("help", "produce help message")
         ("cuda,c", boost::program_options::value<int>(&in_device)->default_value(0), "cuda device number (-1 is CPU-only)")
 		("verbose,v", "produce verbose output")
         ("sample", "load a 3D sample stored as a grid (*.npy)")
         ("size", boost::program_options::value<float>(&in_size)->default_value(10), "size of the sample being visualized (initial range in arbitrary units)")
-        //("isHete", boost::program_options::value<unsigned int>(&in_isHete)->default_value(0), "0 means there is no any heterogeneous sample. Non-zero mean the layer that the heterogeneous sample locates at")
 		;
 	boost::program_options::variables_map vm;
 
     boost::program_options::positional_options_description p;
     p.add("input", -1);
     boost::program_options::store(boost::program_options::command_line_parser(argc, argv).options(desc).positional(p).run(), vm);
-    //boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
 	
     boost::program_options::notify(vm); 
 
@@ -645,14 +679,19 @@ int main(int argc, char** argv)
         verbose = true;
     }
     
-    if(!vm.count("input")){
-        throw "ERROR: no input file specified";
+    if(!vm.count("input")){                                             // load the input file and check for errors
+        std::cout << "ERROR: no input file specified" << std::endl;
+        exit(1);
     }
     AllocateImageArrays();                                              // allocate space to store the evaluated fields
 
     std::cout << "Loading input file...";
     auto start = std::chrono::steady_clock::now();    
-    cw.load(in_filename);                                                  // load the coupled wave data
+    if (!cw.load(in_filename)) {                                          // load the coupled wave data
+        std::cout << "ERROR: file " << in_filename << " not found" << std::endl;
+        exit(1);
+    }
+        
     auto end = std::chrono::steady_clock::now();
     std::chrono::duration<double> duration = end - start;
     t_LoadData = duration.count();

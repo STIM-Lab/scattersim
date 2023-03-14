@@ -87,9 +87,9 @@ struct CoupledWaveStructure {
 		file.close();
 	}
 
-	void load(std::string filename){
+	bool load(std::string filename){
 		std::ifstream file(filename, std::ios::in | std::ios::binary);
-		if(!file) return;
+		if(!file) return false;
 
 		size_t sizeof_T;
 		file.read((char*)&sizeof_T, sizeof(size_t));						// read the precision (float = 4, double = 8)
@@ -118,6 +118,7 @@ struct CoupledWaveStructure {
 			}
 		}
 		file.close();
+		return true;
 	}
 
 	/// <summary>

@@ -103,7 +103,8 @@ add_executable(scatterview
 					gpuEvaluator.cu
 					gpuEvaluator.h
 					ScatterView.cpp
-					ImGuiFileDialog/ImGuiFileDialog.cpp)
+					ImGuiFileDialog/ImGuiFileDialog.cpp
+					cnpy/cnpy.cpp)
 
 target_link_libraries(scatterplane
 			ZLIB::ZLIB

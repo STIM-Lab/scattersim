@@ -1,4 +1,4 @@
-/// This is an OpenGL "Hello World!" file that provides simple examples of integrating ImGui with GLFW
+/// This is an OpenGL "Hello World!" file that provides simple examples of inin_resolutiontegrating ImGui with GLFW
 /// for basic OpenGL applications. The file also includes headers for the TIRA::GraphicsGL classes, which
 /// provide an basic OpenGL front-end for creating materials and models for rendering.
 
@@ -17,6 +17,7 @@
 #include <boost/program_options.hpp>
 
 #include <cuda_runtime.h>
+#include <extern/libnpy/npy.hpp>
 #include "tira/cuda/error.h"
 #include "gpuEvaluator.h"
 
@@ -29,6 +30,8 @@
 
 
 GLFWwindow* window;                                     // pointer to the GLFW window that will be created (used in GLFW calls to request properties)
+double window_width = 1600;
+double window_height = 1200;
 const char* glsl_version = "#version 130";              // specify the version of GLSL
 ImVec4 clear_color = ImVec4(0.0f, 0.0f, 0.0f, 1.00f);   // specify the OpenGL color used to clear the back buffer
 float ui_scale = 1.5f;                                  // scale value for the UI and UI text
@@ -37,7 +40,6 @@ double xpos, ypos;                                      // cursor positions
 float extent = 10;                                      // extent of the field being displayed (think of this as a zoom value)
 float center[] = {0, 0, 0};                             // center of the display field
 float float_high = 1000;                                // store the maximum float value
-unsigned int resolution = 8;                            // resolution of the sample field (use powers of two, ex. 2^n)
 unsigned int res_step = 1;
 float plane_position[] = {0.0f, 0.0f, 0.0f};
 
@@ -86,7 +88,10 @@ tira::glGeometry SliceGeometry;
 
 CoupledWaveStructure<double> cw;                        // coupled wave structure stores plane waves for the visualization
 std::string in_filename;
-
+std::string in_savename;
+bool in_Visualization;                                // The filename for the output. Changeable by the cursor position.
+int in_resolution;
+std::vector<int> in_slice;
 // CUDA device information and management
 int in_device;
 float in_size;                                          // size of the sample being visualized (in arbitrary units specified during simulation)
@@ -154,7 +159,7 @@ void AllocateImageArrays(){
     DeleteImageArrays();
 
     auto start = std::chrono::steady_clock::now();
-    size_t N = (size_t)pow(2, resolution);
+    size_t N = (size_t)pow(2, in_resolution);
 
     E_xy = (glm::vec<3, std::complex<float>>*)malloc(sizeof(glm::vec<3, std::complex<float>>) * N * N);
     E_xz = (glm::vec<3, std::complex<float>>*)malloc(sizeof(glm::vec<3, std::complex<float>>) * N * N);
@@ -212,7 +217,7 @@ glm::vec3 EvaluateColorValue(std::complex<float> v) {
 
 void EvaluateColorSlices() {
     auto start = std::chrono::steady_clock::now();
-    size_t N = pow(2, resolution);                                          // store the resolution of the field slices
+    size_t N = pow(2, in_resolution);                                          // store the in_resolution of the field slices
     size_t N2 = N * N;
     float v;
     float n;
@@ -257,7 +262,7 @@ void EvaluateColorSlices() {
 
 /// Calculate the minimum and maximum values for the scalar field and set the low and high values if specified
 void CalculateMinMax() {
-    size_t N = pow(2, resolution);                                          // store the resolution of the field slices
+    size_t N = pow(2, in_resolution);                                          // store the resolution of the field slices
     size_t N2 = N * N;
 
     real_max = S_xy[0].real();
@@ -291,7 +296,7 @@ void CalculateMinMax() {
 void EvaluateScalarSlices() {
     auto start = std::chrono::steady_clock::now();
 
-    size_t N = pow(2, resolution);                                          // store the resolution of the field slices
+    size_t N = pow(2, in_resolution);                                          // store the resolution of the field slices
     size_t N2 = N * N;
 
     // X-Y Scalar Evaluation
@@ -330,7 +335,7 @@ void EvaluateScalarSlices() {
             S_xz[i] = E_xz[i][1];
         if (display_mode == DisplayMode::Z)
             S_xz[i] = E_xz[i][2];
-        if (display_mode == DisplayMode::Intensity)
+        if (in_Visualization == false || display_mode == DisplayMode::Intensity)
             S_xz[i] = E_xz[i][0] * std::conj(E_xz[i][0]) +
                       E_xz[i][1] * std::conj(E_xz[i][1]) +
                       E_xz[i][2] * std::conj(E_xz[i][2]);
@@ -344,7 +349,7 @@ void EvaluateScalarSlices() {
 
 void EvaluateVectorSlices() {
     auto start = std::chrono::steady_clock::now();
-    unsigned int N = pow(2, resolution);                                    // get the resolution of the field N
+    unsigned int N = pow(2, in_resolution);                                    // get the resolution of the field N
     float d = extent / (N - 1);                                             // calculate the step size in cartesian coordinates
     float x, y, z;
     float x_start = center[0] - extent / 2;
@@ -354,15 +359,26 @@ void EvaluateVectorSlices() {
 
     // X-Y Vector Evaluation
     //z = plane_position[2];                                                  // all coordinates in this plane have the same z value
-    if(in_device >= 0)
-        gpu_cw_evaluate((thrust::complex<float>*)E_xy, (thrust::complex<float>*)E_xz, (thrust::complex<float>*)E_yz,
-            x_start, y_start, z_start, plane_position[0], plane_position[1], plane_position[2], d, N, in_device);
-    else {
-        cpu_cw_evaluate_xy(E_xy, x_start, y_start, plane_position[2], d, N);
-        cpu_cw_evaluate_xz(E_xz, x_start, z_start, plane_position[1], d, N);
-        cpu_cw_evaluate_yz(E_yz, y_start, z_start, plane_position[0], d, N);
+    if (in_Visualization == false) {
+        if (in_device >= 0)
+            gpu_cw_evaluate((thrust::complex<float>*)E_xy, (thrust::complex<float>*)E_xz, (thrust::complex<float>*)E_yz,
+                x_start, y_start, z_start, in_slice[0], in_slice[1], in_slice[2], d, N, in_device);
+        else {
+            cpu_cw_evaluate_xy(E_xy, x_start, y_start, in_slice[2], d, N);
+            cpu_cw_evaluate_xz(E_xz, x_start, z_start, in_slice[1], d, N);
+            cpu_cw_evaluate_yz(E_yz, y_start, z_start, in_slice[0], d, N);
+        }
     }
-    
+    else {
+        if (in_device >= 0)
+            gpu_cw_evaluate((thrust::complex<float>*)E_xy, (thrust::complex<float>*)E_xz, (thrust::complex<float>*)E_yz,
+                x_start, y_start, z_start, plane_position[0], plane_position[1], plane_position[2], d, N, in_device);
+        else {
+            cpu_cw_evaluate_xy(E_xy, x_start, y_start, plane_position[2], d, N);
+            cpu_cw_evaluate_xz(E_xz, x_start, z_start, plane_position[1], d, N);
+            cpu_cw_evaluate_yz(E_yz, y_start, z_start, plane_position[0], d, N);
+        }
+    }
 
     auto end = std::chrono::steady_clock::now();
     std::chrono::duration<double> duration = end-start;
@@ -389,6 +405,7 @@ void RenderGui(){
 
     if (ImGui::BeginPopup("save_slice"))
     {
+        unsigned int N = pow(2, in_resolution);
         if (ImGui::Button("Save Slice")) {                                              // create a button that opens a file dialog
             ImGuiFileDialog::Instance()->OpenDialog("ChooseNpyFile", "Choose NPY File", ".npy,.npz", ".");              
         }
@@ -401,7 +418,31 @@ void RenderGui(){
                 std::cout << "File chosen: " << filename << std::endl;
                 // RUIJIAO: determine which slice is clicked
                 //          save the appropriate slice as an NPY file
-                
+                // Save the y-z slice
+                if (xpos < window_width / 2.0 & ypos > window_height / 2.0) {
+                    const std::vector<long unsigned> shape{ N, N};
+                    const bool fortran_order{ false };
+                    npy::SaveArrayAsNumpy(filename, fortran_order, shape.size(), shape.data(), S_yz);
+                }
+                // Save the x-y slice
+                else if(xpos >= window_width / 2.0 & ypos < window_height / 2.0) {
+                    const std::vector<long unsigned> shape{ N, N };
+                    const bool fortran_order{ false };
+                    npy::SaveArrayAsNumpy(filename, fortran_order, shape.size(), shape.data(), S_xy);
+
+                }
+                // Save the x-z slice
+                else if (xpos >= window_width / 2.0 & ypos >= window_height / 2.0) {
+                    const std::vector<long unsigned> shape{ N, N };
+                    const bool fortran_order{ false };
+                    npy::SaveArrayAsNumpy(filename, fortran_order, shape.size(), shape.data(), S_xz);
+
+                }
+                // Wrong click at the upper left region
+                else {
+                    std::cout << "Wrong click at the wrong region. " << std::endl;
+                    exit(1);
+                }
             }
             ImGuiFileDialog::Instance()->Close();									// close the file dialog box
             ImGui::CloseCurrentPopup();
@@ -411,9 +452,6 @@ void RenderGui(){
     }
     
     
-
-    
-
     float min_plane[] = { center[0] - (extent * 0.5f), center[1] - (extent * 0.5f), center[2] - (extent * 0.5f) };
     float max_plane[] = { center[0] + (extent * 0.5f), center[1] + (extent * 0.5f), center[2] + (extent * 0.5f) };
     //ImGui::SliderScalarN("Plane Positions", ImGuiDataType_Float, plane_position, 3, min_plane, max_plane);
@@ -434,13 +472,13 @@ void RenderGui(){
     ImGui::PopItemWidth();
 
     ImGui::PushItemWidth(-ImGui::GetContentRegionAvail().x * 0.75f);
-        if(ImGui::InputScalar("Resolution = ", ImGuiDataType_U32, &resolution, &res_step, &res_step)){
+        if(ImGui::InputScalar("in_resolution = ", ImGuiDataType_U32, &in_resolution, &res_step, &res_step)){
             AllocateImageArrays();
             EvaluateVectorSlices();
         }
     ImGui::PopItemWidth();
     ImGui::SameLine();
-    ImGui::Text("%d x %d", (int)pow(2, resolution), (int)pow(2, resolution));
+    ImGui::Text("%d x %d", (int)pow(2, in_resolution), (int)pow(2, in_resolution));
 
     if(ImGui::RadioButton("Ex(r)", &display_mode, DisplayMode::X)){
         EvaluateScalarSlices();
@@ -654,11 +692,16 @@ int main(int argc, char** argv)
     boost::program_options::options_description desc("Allowed options");
 	desc.add_options()
         ("input", boost::program_options::value<std::string>(&in_filename)->default_value("psf.cw"), "output filename for the coupled wave structure")
-		("help", "produce help message")
+        ("help", "produce help message")
         ("cuda,c", boost::program_options::value<int>(&in_device)->default_value(0), "cuda device number (-1 is CPU-only)")
+        ("visualization,v", boost::program_options::value<bool>(&in_Visualization)->default_value(true), "false means save without visualization")
 		("verbose,v", "produce verbose output")
         ("sample", "load a 3D sample stored as a grid (*.npy)")
         ("size", boost::program_options::value<float>(&in_size)->default_value(10), "size of the sample being visualized (initial range in arbitrary units)")
+        ("resolution", boost::program_options::value<int>(&in_resolution)->default_value(8), "resolution of the sample field (use powers of two, ex. 2^n)")
+        ("output", boost::program_options::value<std::string>(&in_savename)->default_value("xz.npy"), "output the x-z slice as default")
+        ("slice", boost::program_options::value<std::vector<int> >(&in_slice)->multitoken()->default_value(std::vector<int>{0, 0, 0}, "{0, 0 0}"), "Which slice to save")
+
 		;
 	boost::program_options::variables_map vm;
 
@@ -707,18 +750,15 @@ int main(int argc, char** argv)
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
         return 1;
-
     // GL 3.0 + GLSL 130
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 
     // Create window with graphics context
     std::string window_title = "ScatterView - " + in_filename;
-    window = glfwCreateWindow(1600, 1200, window_title.c_str(), NULL, NULL);
+    window = glfwCreateWindow(window_width, window_height, window_title.c_str(), NULL, NULL);
     if (window == NULL)
         return 1;
-
-    
 
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1); // Enable vsync
@@ -736,12 +776,44 @@ int main(int argc, char** argv)
     
     Material_xy.CreateShader(VertexSource, FragmentSource);         // create a material based on the vertex and fragment shaders
     Material_xz.CreateShader(VertexSource, FragmentSource);
-    Material_yz.CreateShader(VertexSource, FragmentSource);
-
-    EvaluateVectorSlices();    
+    Material_yz.CreateShader(VertexSource, FragmentSource);  
 
     SliceGeometry = tira::glGeometry::GenerateRectangle<float>();
     
+    EvaluateVectorSlices();
+
+    if (in_Visualization == false) {
+        unsigned int N = pow(2, in_resolution);                // The size of the image to be saved
+        // Save the x-z slice (default)
+        if (in_savename.substr(0, 2) == "xz") {
+            const std::vector<long unsigned> shape{ N, N };
+            const bool fortran_order{ false };
+            npy::SaveArrayAsNumpy(in_savename, fortran_order, shape.size(), shape.data(), S_xz);
+            std::cout << "The selected " + in_savename + " saved." << std::endl;
+        }
+        // Save the x-y slice
+        else if (in_savename.substr(0,2) == "xy") {
+            const std::vector<long unsigned> shape{ N, N };
+            const bool fortran_order{ false };
+            npy::SaveArrayAsNumpy(in_savename, fortran_order, shape.size(), shape.data(), S_xy);
+            std::cout << "The selected " + in_savename + " saved." << std::endl;
+
+        }
+        // Save the yz slice
+        else if (in_savename.substr(0, 2) == "yz") {
+            const std::vector<long unsigned> shape{ N, N };
+            const bool fortran_order{ false };
+            npy::SaveArrayAsNumpy(in_savename, fortran_order, shape.size(), shape.data(), S_yz);
+            std::cout << "The selected " + in_savename + " saved." << std::endl;
+
+        }
+        // Other cases
+        else {
+            std::cout << "Wrong click at the wrong region. " << std::endl;
+            exit(1);
+        }
+        exit(1);
+    }
 
     // Main loop
     while (!glfwWindowShouldClose(window))

@@ -89,9 +89,12 @@ tira::glGeometry SliceGeometry;
 CoupledWaveStructure<double> cw;                        // coupled wave structure stores plane waves for the visualization
 std::string in_filename;
 std::string in_savename;
-bool in_Visualization;                                // The filename for the output. Changeable by the cursor position.
+bool in_Visualization = true;                                // The filename for the output. Changeable by the cursor position.
 int in_resolution;
-std::vector<int> in_slice;
+//std::vector<int> in_slice;
+int in_axis;
+std::vector<float> in_center;
+float in_slice;
 // CUDA device information and management
 int in_device;
 float in_size;                                          // size of the sample being visualized (in arbitrary units specified during simulation)
@@ -359,25 +362,14 @@ void EvaluateVectorSlices() {
 
     // X-Y Vector Evaluation
     //z = plane_position[2];                                                  // all coordinates in this plane have the same z value
-    if (in_Visualization == false) {
-        if (in_device >= 0)
-            gpu_cw_evaluate((thrust::complex<float>*)E_xy, (thrust::complex<float>*)E_xz, (thrust::complex<float>*)E_yz,
-                x_start, y_start, z_start, in_slice[0], in_slice[1], in_slice[2], d, N, in_device);
-        else {
-            cpu_cw_evaluate_xy(E_xy, x_start, y_start, in_slice[2], d, N);
-            cpu_cw_evaluate_xz(E_xz, x_start, z_start, in_slice[1], d, N);
-            cpu_cw_evaluate_yz(E_yz, y_start, z_start, in_slice[0], d, N);
-        }
-    }
+    
+    if (in_device >= 0)
+        gpu_cw_evaluate((thrust::complex<float>*)E_xy, (thrust::complex<float>*)E_xz, (thrust::complex<float>*)E_yz,
+            x_start, y_start, z_start, plane_position[0], plane_position[1], plane_position[2], d, N, in_device);
     else {
-        if (in_device >= 0)
-            gpu_cw_evaluate((thrust::complex<float>*)E_xy, (thrust::complex<float>*)E_xz, (thrust::complex<float>*)E_yz,
-                x_start, y_start, z_start, plane_position[0], plane_position[1], plane_position[2], d, N, in_device);
-        else {
-            cpu_cw_evaluate_xy(E_xy, x_start, y_start, plane_position[2], d, N);
-            cpu_cw_evaluate_xz(E_xz, x_start, z_start, plane_position[1], d, N);
-            cpu_cw_evaluate_yz(E_yz, y_start, z_start, plane_position[0], d, N);
-        }
+        cpu_cw_evaluate_xy(E_xy, x_start, y_start, plane_position[2], d, N);
+        cpu_cw_evaluate_xz(E_xz, x_start, z_start, plane_position[1], d, N);
+        cpu_cw_evaluate_yz(E_yz, y_start, z_start, plane_position[0], d, N);
     }
 
     auto end = std::chrono::steady_clock::now();
@@ -694,14 +686,17 @@ int main(int argc, char** argv)
         ("input", boost::program_options::value<std::string>(&in_filename)->default_value("psf.cw"), "output filename for the coupled wave structure")
         ("help", "produce help message")
         ("cuda,c", boost::program_options::value<int>(&in_device)->default_value(0), "cuda device number (-1 is CPU-only)")
-        ("visualization,v", boost::program_options::value<bool>(&in_Visualization)->default_value(true), "false means save without visualization")
+        //("visualization,v", boost::program_options::value<bool>(&in_Visualization)->default_value(true), "false means save without visualization")
+        ("nogui", "save an output file without loading the GUI")
 		("verbose,v", "produce verbose output")
         ("sample", "load a 3D sample stored as a grid (*.npy)")
         ("size", boost::program_options::value<float>(&in_size)->default_value(10), "size of the sample being visualized (initial range in arbitrary units)")
         ("resolution", boost::program_options::value<int>(&in_resolution)->default_value(8), "resolution of the sample field (use powers of two, ex. 2^n)")
-        ("output", boost::program_options::value<std::string>(&in_savename)->default_value("xz.npy"), "output the x-z slice as default")
-        ("slice", boost::program_options::value<std::vector<int> >(&in_slice)->multitoken()->default_value(std::vector<int>{0, 0, 0}, "{0, 0 0}"), "Which slice to save")
-
+        ("output", boost::program_options::value<std::string>(&in_savename)->default_value("xz.npy"), "output file written when the --nogui option is used")
+        //("slice", boost::program_options::value<std::vector<int> >(&in_slice)->multitoken()->default_value(std::vector<int>{0, 0, 0}, "{0, 0 0}"), "Which slice to save")
+        ("axis", boost::program_options::value<int>(&in_axis)->default_value(1), "axis to cut (0 = X, 1 = Y, 2 = Z")
+        ("center", boost::program_options::value<std::vector<float> >(&in_center)->multitoken()->default_value(std::vector<float>{0, 0, 0}, "{0, 0, 0}"), "center position of the sampled volume")
+        ("slice", boost::program_options::value<float>(&in_slice)->default_value(1), "coordinate along the specified axis RELATIVE to the 'center' position")
 		;
 	boost::program_options::variables_map vm;
 
@@ -718,6 +713,23 @@ int main(int argc, char** argv)
 		std::cout << desc << std::endl;
 		return 1;
 	}
+    if (vm.count("nogui")) {
+        in_Visualization = false;
+    }
+
+    // set the initial plane position based on the command line arguments
+    if (in_axis == 0)
+        plane_position[0] = in_slice;
+    else if (in_axis == 1)
+        plane_position[1] = in_slice;
+    else if (in_axis == 2)
+        plane_position[2] = in_slice;
+
+    center[0] = in_center[0];
+    center[1] = in_center[1];
+    center[2] = in_center[2];
+
+
     if(vm.count("verbose")){
         verbose = true;
     }
@@ -746,6 +758,40 @@ int main(int argc, char** argv)
 
     InitCuda();                                                         // initialize CUDA
 
+    if (in_Visualization == false) {
+        EvaluateVectorSlices();
+        unsigned int N = pow(2, in_resolution);                // The size of the image to be saved
+        // Save the x-z slice (default)
+        if (in_axis == 1) {
+            const std::vector<long unsigned> shape{ N, N };
+            const bool fortran_order{ false };
+            npy::SaveArrayAsNumpy(in_savename, fortran_order, shape.size(), shape.data(), S_xz);
+            std::cout << "The selected " + in_savename + " saved." << std::endl;
+        }
+        // Save the x-y slice
+        else if (in_axis == 2) {
+            const std::vector<long unsigned> shape{ N, N };
+            const bool fortran_order{ false };
+            npy::SaveArrayAsNumpy(in_savename, fortran_order, shape.size(), shape.data(), S_xy);
+            std::cout << "The selected " + in_savename + " saved." << std::endl;
+
+        }
+        // Save the yz slice
+        else if (in_axis == 0) {
+            const std::vector<long unsigned> shape{ N, N };
+            const bool fortran_order{ false };
+            npy::SaveArrayAsNumpy(in_savename, fortran_order, shape.size(), shape.data(), S_yz);
+            std::cout << "The selected " + in_savename + " saved." << std::endl;
+
+        }
+        // Other cases
+        else {
+            std::cout << "Wrong click at the wrong region. " << std::endl;
+            exit(1);
+        }
+        exit(1);
+    }
+
     // Setup window
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
@@ -770,6 +816,7 @@ int main(int argc, char** argv)
         fprintf(stderr, "Error: %s\n", glewGetErrorString(err));
         return 0;
     }
+    
 
     InitUI(window, glsl_version);
 
@@ -782,38 +829,7 @@ int main(int argc, char** argv)
     
     EvaluateVectorSlices();
 
-    if (in_Visualization == false) {
-        unsigned int N = pow(2, in_resolution);                // The size of the image to be saved
-        // Save the x-z slice (default)
-        if (in_savename.substr(0, 2) == "xz") {
-            const std::vector<long unsigned> shape{ N, N };
-            const bool fortran_order{ false };
-            npy::SaveArrayAsNumpy(in_savename, fortran_order, shape.size(), shape.data(), S_xz);
-            std::cout << "The selected " + in_savename + " saved." << std::endl;
-        }
-        // Save the x-y slice
-        else if (in_savename.substr(0,2) == "xy") {
-            const std::vector<long unsigned> shape{ N, N };
-            const bool fortran_order{ false };
-            npy::SaveArrayAsNumpy(in_savename, fortran_order, shape.size(), shape.data(), S_xy);
-            std::cout << "The selected " + in_savename + " saved." << std::endl;
-
-        }
-        // Save the yz slice
-        else if (in_savename.substr(0, 2) == "yz") {
-            const std::vector<long unsigned> shape{ N, N };
-            const bool fortran_order{ false };
-            npy::SaveArrayAsNumpy(in_savename, fortran_order, shape.size(), shape.data(), S_yz);
-            std::cout << "The selected " + in_savename + " saved." << std::endl;
-
-        }
-        // Other cases
-        else {
-            std::cout << "Wrong click at the wrong region. " << std::endl;
-            exit(1);
-        }
-        exit(1);
-    }
+    
 
     // Main loop
     while (!glfwWindowShouldClose(window))

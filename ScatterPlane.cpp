@@ -29,7 +29,7 @@ double in_alpha;
 double in_beta;
 std::vector<unsigned int> in_samples;
 std::string in_mode;
-
+bool in_Output = true;					// Show no details when in_Output is set to be false.		
 /// <summary>
 /// Convert a complex glm vector to a string so that it can be displayed on screen or in a text file
 /// </summary>
@@ -97,6 +97,7 @@ int main(int argc, char** argv) {
 		("samples,s", boost::program_options::value<std::vector<unsigned int> >(&in_samples)->multitoken()->default_value(std::vector<unsigned int>{64, 64}, "375"), "number of samples (can be specified in 2 dimensions)")
 		("mode,m", boost::program_options::value<std::string>(&in_mode)->default_value("polar"), "sampling mode (polar, montecarlo)")
 		("log", "produce a log file")
+		("nooutput", "save an output file without loading the GUI")
 		;
 	boost::program_options::variables_map vm;
 	//boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
@@ -115,6 +116,10 @@ int main(int argc, char** argv) {
 		std::stringstream ss;
 		ss<<std::time(0)<<"_scatterplane.log";
 		logfile.open(ss.str());
+	}
+
+	if (vm.count("nooutput")) {
+		in_Output = false;
 	}
 
 	glm::tvec3<double> dir = glm::normalize(glm::tvec3<double>(in_dir[0], in_dir[1], in_dir[2]));				// set the direction of the incoming source field
@@ -165,42 +170,43 @@ int main(int argc, char** argv) {
 
 	int spacing1 = 30;
 	int spacing2 = 30;
+	if (in_Output == true) {
+		// incident field parameters
+		std::cout << std::setw(spacing1) << std::left << "vacuum wavelength: " << in_lambda << std::endl;
+		std::cout << std::setw(spacing1) << std::left << "focal point: " << vec2str(f, spacing2) << std::endl;
+		// optics
+		if (in_alpha != 0.0) {
+			std::cout << std::setw(spacing1) << std::left << "focusing angle: " << in_alpha << " (" << std::sin(in_alpha) * ni.real() << " NA)" << std::endl;
+			if (in_beta > 0.0)
+				std::cout << std::setw(spacing1) << std::left << "obscuration angle: " << in_beta << " (" << std::sin(in_beta) * ni.real() << " NA)" << std::endl;
+		}
+		std::cout << std::setw(spacing1) << std::left << "samples: " << N[0] << " x " << N[1] << " = " << N[0] * N[1] << std::endl;
+		std::cout << std::setw(spacing1) << std::left << "sampling mode: " << in_mode << std::endl;
+		std::cout << std::endl;
 
-	// incident field parameters
-	std::cout << std::setw(spacing1) << std::left << "vacuum wavelength: " << in_lambda << std::endl;
-	std::cout << std::setw(spacing1) << std::left << "focal point: " << vec2str(f, spacing2) << std::endl;
-	// optics
-	if (in_alpha != 0.0) {
-		std::cout << std::setw(spacing1) << std::left << "focusing angle: " << in_alpha << " (" << std::sin(in_alpha) * ni.real() << " NA)" << std::endl;
-		if(in_beta > 0.0)
-			std::cout << std::setw(spacing1) << std::left << "obscuration angle: " << in_beta << " (" << std::sin(in_beta) * ni.real() << " NA)" << std::endl;
+		std::cout << std::setw(spacing1) << std::left << "↓↓↓↓↓   k:" << vec2str(i.getK(), spacing2) << std::endl;
+		glm::vec<3, std::complex<double>> i_E = i.getE0();
+		std::cout << std::setw(spacing1) << std::left << "↓↓↓↓↓   E(0):" << vec2str(i_E, spacing2) << std::endl << std::endl;
+
+		glm::vec<3, std::complex<double>> r_k = r.getK();
+		std::cout << std::setw(spacing1) << std::left << "↑↑↑↑↑   k:" << vec2str(r_k, spacing2) << std::endl;
+		glm::vec<3, std::complex<double>> r_E = r.getE0();
+		std::cout << std::setw(spacing1) << std::left << "↑↑↑↑↑   E(0):" << vec2str(r_E, spacing2) << std::endl;
+
+		std::cout << std::endl;
+		std::cout << "----------------------------n = " << ni.real() << " + " << 0.0 << "i----------------------------" << std::endl;
+		std::cout << "                            z = " << in_z << std::endl;
+		std::cout << "----------------------------n = " << nt.real() << " + " << nt.imag() << "i" << std::endl;
+		std::cout << std::endl;
+
+		glm::vec<3, std::complex<double>> t_k = t.getK();
+		std::cout << std::setw(spacing1) << std::left << "↓↓↓↓↓ k:" << vec2str(t_k, spacing2) << std::endl;
+		glm::vec<3, std::complex<double>> t_E = t.getE0();
+		std::cout << std::setw(spacing1) << std::left << "↓↓↓↓↓ E(0):" << vec2str(t_E, spacing2) << std::endl;
+		std::cout << std::endl << std::endl;
+
+		std::cout << std::setw(spacing1) << std::left << "output file: " << filename << std::endl;
 	}
-	std::cout << std::setw(spacing1) << std::left << "samples: " << N[0] << " x " << N[1] << " = " << N[0] * N[1] << std::endl;
-	std::cout << std::setw(spacing1) << std::left << "sampling mode: " << in_mode << std::endl;
-	std::cout << std::endl;
-
-	std::cout << std::setw(spacing1) << std::left << "↓↓↓↓↓   k:" << vec2str(i.getK(), spacing2) << std::endl;
-	glm::vec<3, std::complex<double>> i_E = i.getE0();
-	std::cout << std::setw(spacing1) << std::left << "↓↓↓↓↓   E(0):" << vec2str(i_E, spacing2) << std::endl << std::endl;
-
-	glm::vec<3, std::complex<double>> r_k = r.getK();
-	std::cout << std::setw(spacing1) << std::left << "↑↑↑↑↑   k:" << vec2str(r_k, spacing2) << std::endl;
-	glm::vec<3, std::complex<double>> r_E = r.getE0();
-	std::cout << std::setw(spacing1) << std::left << "↑↑↑↑↑   E(0):" << vec2str(r_E, spacing2) << std::endl;
-
-	std::cout << std::endl;
-	std::cout << "----------------------------n = " << ni.real() <<" + "<< 0.0 <<"i----------------------------"<< std::endl;
-	std::cout << "                            z = " << in_z << std::endl;
-	std::cout << "----------------------------n = " << nt.real() << " + "<<nt.imag()<<"i" << std::endl;
-	std::cout << std::endl;
-
-	glm::vec<3, std::complex<double>> t_k = t.getK();
-	std::cout << std::setw(spacing1) << std::left << "↓↓↓↓↓ k:" << vec2str(t_k, spacing2) << std::endl;
-	glm::vec<3, std::complex<double>> t_E = t.getE0();
-	std::cout << std::setw(spacing1) << std::left << "↓↓↓↓↓ E(0):" << vec2str(t_E, spacing2) << std::endl;
-	std::cout << std::endl << std::endl;
-
-	std::cout << std::setw(spacing1) << std::left << "output file: " << filename << std::endl;
 
 	// allocate a coupled wave structure to store simulation results
 	CoupledWaveStructure<double> cw;

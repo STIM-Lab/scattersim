@@ -740,7 +740,7 @@ int main(int argc, char** argv)
     }
     AllocateImageArrays();                                              // allocate space to store the evaluated fields
 
-    std::cout << "Loading input file...";
+    // std::cout << "Loading input file...";
     auto start = std::chrono::steady_clock::now();    
     if (!cw.load(in_filename)) {                                          // load the coupled wave data
         std::cout << "ERROR: file " << in_filename << " not found" << std::endl;
@@ -750,7 +750,7 @@ int main(int argc, char** argv)
     auto end = std::chrono::steady_clock::now();
     std::chrono::duration<double> duration = end - start;
     t_LoadData = duration.count();
-    std::cout << "done. (" << t_LoadData << " s)" << std::endl;
+    // std::cout << "done. (" << t_LoadData << " s)" << std::endl;
     
 
     cw_allocate(&cw);
@@ -766,14 +766,14 @@ int main(int argc, char** argv)
             const std::vector<long unsigned> shape{ N, N };
             const bool fortran_order{ false };
             npy::SaveArrayAsNumpy(in_savename, fortran_order, shape.size(), shape.data(), S_xz);
-            std::cout << "The selected " + in_savename + " saved." << std::endl;
+            // std::cout << "The selected " + in_savename + " saved." << std::endl;
         }
         // Save the x-y slice
         else if (in_axis == 2) {
             const std::vector<long unsigned> shape{ N, N };
             const bool fortran_order{ false };
             npy::SaveArrayAsNumpy(in_savename, fortran_order, shape.size(), shape.data(), S_xy);
-            std::cout << "The selected " + in_savename + " saved." << std::endl;
+            // std::cout << "The selected " + in_savename + " saved." << std::endl;
 
         }
         // Save the yz slice
@@ -781,7 +781,7 @@ int main(int argc, char** argv)
             const std::vector<long unsigned> shape{ N, N };
             const bool fortran_order{ false };
             npy::SaveArrayAsNumpy(in_savename, fortran_order, shape.size(), shape.data(), S_yz);
-            std::cout << "The selected " + in_savename + " saved." << std::endl;
+            // std::cout << "The selected " + in_savename + " saved." << std::endl;
 
         }
         // Other cases

@@ -696,7 +696,7 @@ int main(int argc, char** argv)
         //("slice", boost::program_options::value<std::vector<int> >(&in_slice)->multitoken()->default_value(std::vector<int>{0, 0, 0}, "{0, 0 0}"), "Which slice to save")
         ("axis", boost::program_options::value<int>(&in_axis)->default_value(1), "axis to cut (0 = X, 1 = Y, 2 = Z")
         ("center", boost::program_options::value<std::vector<float> >(&in_center)->multitoken()->default_value(std::vector<float>{0, 0, 0}, "{0, 0, 0}"), "center position of the sampled volume")
-        ("slice", boost::program_options::value<float>(&in_slice)->default_value(1), "coordinate along the specified axis RELATIVE to the 'center' position")
+        ("slice", boost::program_options::value<float>(&in_slice)->default_value(0), "coordinate along the specified axis RELATIVE to the 'center' position")
 		;
 	boost::program_options::variables_map vm;
 

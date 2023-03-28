@@ -29,6 +29,7 @@ double in_alpha;
 double in_beta;
 std::vector<unsigned int> in_samples;
 std::string in_mode;
+std::vector<bool> in_wavemask;
 
 /// <summary>
 /// Convert a complex glm vector to a string so that it can be displayed on screen or in a text file
@@ -96,6 +97,7 @@ int main(int argc, char** argv) {
 		("beta,b", boost::program_options::value<double>(&in_beta)->default_value(0.0), "internal obscuration angle (for simulating reflective optics)")
 		("samples,s", boost::program_options::value<std::vector<unsigned int> >(&in_samples)->multitoken()->default_value(std::vector<unsigned int>{64, 64}, "375"), "number of samples (can be specified in 2 dimensions)")
 		("mode,m", boost::program_options::value<std::string>(&in_mode)->default_value("polar"), "sampling mode (polar, montecarlo)")
+		("wavemask", boost::program_options::value<std::vector<bool> >(&in_wavemask)->multitoken()->default_value(std::vector<bool>{1, 1, 1}, "1 1 1"), "waves simulated (boolean value for incident, reflected, and transmitted)")
 		("log", "produce a log file")
 		;
 	boost::program_options::variables_map vm;
@@ -230,9 +232,12 @@ int main(int argc, char** argv) {
 		for (size_t idx = 0; idx < I.size(); idx++) {
 			i = I[idx].wind(-f[0], -f[1], -f[2]);
 			i.scatter(n, p, nr, r, t);
-			cw.Pi.push_back(i);
-			cw.Layers[0].Pr.push_back(r);
-			cw.Layers[0].Pt.push_back(t);
+			if(in_wavemask[0])
+				cw.Pi.push_back(i);
+			if(in_wavemask[1])
+				cw.Layers[0].Pr.push_back(r);
+			if(in_wavemask[2])
+				cw.Layers[0].Pt.push_back(t);
 			if(logfile){
 				logfile<<"i ("<<idx<<") ------------"<<std::endl<<i.str()<<std::endl;
 				logfile<<"r ("<<idx<<") ------------"<<std::endl<<r.str()<<std::endl;

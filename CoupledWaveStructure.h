@@ -112,7 +112,7 @@ struct CoupledWaveStructure {
 			}
 			size_t sizeof_Pt;
 			file.read((char*)&sizeof_Pt, sizeof(size_t));					// read the number of transmitted plane waves
-			Layers[iLayers].Pt.resize(sizeof_Pr);							// allocate space for the transmitted plane waves
+			Layers[iLayers].Pt.resize(sizeof_Pt);							// allocate space for the transmitted plane waves
 			for(size_t iPt = 0; iPt < Layers[iLayers].Pt.size(); iPt++){
 				file.read((char*)&Layers[iLayers].Pt[iPt], sizeof(tira::planewave<T>));
 			}

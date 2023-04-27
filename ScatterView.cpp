@@ -338,7 +338,7 @@ void EvaluateScalarSlices() {
             S_xz[i] = E_xz[i][1];
         if (display_mode == DisplayMode::Z)
             S_xz[i] = E_xz[i][2];
-        if (in_Visualization == false || display_mode == DisplayMode::Intensity)
+        if (display_mode == DisplayMode::Intensity)
             S_xz[i] = E_xz[i][0] * std::conj(E_xz[i][0]) +
                       E_xz[i][1] * std::conj(E_xz[i][1]) +
                       E_xz[i][2] * std::conj(E_xz[i][2]);
@@ -740,7 +740,7 @@ int main(int argc, char** argv)
     }
     AllocateImageArrays();                                              // allocate space to store the evaluated fields
 
-    // std::cout << "Loading input file...";
+    //std::cout << "Loading input file...";
     auto start = std::chrono::steady_clock::now();    
     if (!cw.load(in_filename)) {                                          // load the coupled wave data
         std::cout << "ERROR: file " << in_filename << " not found" << std::endl;
@@ -750,7 +750,7 @@ int main(int argc, char** argv)
     auto end = std::chrono::steady_clock::now();
     std::chrono::duration<double> duration = end - start;
     t_LoadData = duration.count();
-    // std::cout << "done. (" << t_LoadData << " s)" << std::endl;
+    //std::cout << "done. (" << t_LoadData << " s)" << std::endl;
     
 
     cw_allocate(&cw);
@@ -763,25 +763,25 @@ int main(int argc, char** argv)
         unsigned int N = pow(2, in_resolution);                // The size of the image to be saved
         // Save the x-z slice (default)
         if (in_axis == 1) {
-            const std::vector<long unsigned> shape{ N, N };
+            const std::vector<long unsigned> shape{ N, N, 3 };
             const bool fortran_order{ false };
-            npy::SaveArrayAsNumpy(in_savename, fortran_order, shape.size(), shape.data(), S_xz);
-            // std::cout << "The selected " + in_savename + " saved." << std::endl;
+            npy::SaveArrayAsNumpy(in_savename, fortran_order, shape.size(), shape.data(), (std::complex<float>*)E_xz);
+            //std::cout << "The selected " + in_savename + " saved." << std::endl;
         }
         // Save the x-y slice
         else if (in_axis == 2) {
-            const std::vector<long unsigned> shape{ N, N };
+            const std::vector<long unsigned> shape{ N, N, 3 };
             const bool fortran_order{ false };
-            npy::SaveArrayAsNumpy(in_savename, fortran_order, shape.size(), shape.data(), S_xy);
-            // std::cout << "The selected " + in_savename + " saved." << std::endl;
+            npy::SaveArrayAsNumpy(in_savename, fortran_order, shape.size(), shape.data(), (std::complex<float>*)E_xy);
+            //std::cout << "The selected " + in_savename + " saved." << std::endl;
 
         }
         // Save the yz slice
         else if (in_axis == 0) {
-            const std::vector<long unsigned> shape{ N, N };
+            const std::vector<long unsigned> shape{ N, N, 3 };
             const bool fortran_order{ false };
-            npy::SaveArrayAsNumpy(in_savename, fortran_order, shape.size(), shape.data(), S_yz);
-            // std::cout << "The selected " + in_savename + " saved." << std::endl;
+            npy::SaveArrayAsNumpy(in_savename, fortran_order, shape.size(), shape.data(), (std::complex<float>*)E_yz);
+            //std::cout << "The selected " + in_savename + " saved." << std::endl;
 
         }
         // Other cases

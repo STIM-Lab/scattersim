@@ -5,6 +5,7 @@ import subprocess
 import glob
 import time
 import math
+from tqdm import tqdm
 
 # Creating a Function.
 def normal_dist(x):
@@ -17,17 +18,23 @@ def intensity(E):
     I = np.sum(E * Econj, axis=-1)
     return np.real(I)
 
+def simulate_point(focus, direction, wavelength, outfile):
+    
+
 
 start = time.time()
+
+#output_directory = "C:\\Users\\sunrj\\Dropbox\\research\\PAPER_MUSE\\tmp\\"
+output_directory = "C:/Users/david/Desktop/penetration_tests/"
 
 # Define the optical system
 name1 = "NA0.2_15_40_1_1_200"
 name2 = "local"
-out_File1 = "C:\\Users\\sunrj\\Dropbox\\research\\PAPER_MUSE\\tmp\\" + name1 + ".npy"
-out_File2 = "C:\\Users\\sunrj\\Dropbox\\research\\PAPER_MUSE\\tmp\\" + name2 + ".npy"
+out_File1 = output_directory + name1 + ".npy"
+out_File2 = output_directory + name2 + ".npy"
 
-root_dir = "D:/myGit/build/scattersim/"
-data_dir = root_dir + "tmp/"
+#root_dir = "D:/myGit/build/scattersim/"
+#data_dir = root_dir + "tmp/"
 n_lambda = 5           # The number of wavelengths
 n_x = 100                # Sampling points along x
 n_y = 1               # Sampling points along y
@@ -47,10 +54,10 @@ resolution = 9
 # Rotate the focal plane with the change of the direction
 rotate = True
 theta = np.arctan(direction[0] / direction[2])
-if not os.listdir(data_dir):
+if not os.listdir(output_directory):
     print(" The root directory is clean.")
 else:
-    files = glob.glob(data_dir +"*")
+    files = glob.glob(output_directory +"*")
     for file in files:
         os.remove(file)
     print("The old files in the directory are deleted.")
@@ -92,28 +99,34 @@ num = 0
 # Run "scatterplane" n_lambda * len(points) * n_samples times. Generate len(points) ".npy" files
 for w in range(n_lambda):
 
-    for i in range(len(points)):
-        in_str = data_dir + str(wavelengths[w]) + str(points[i][0]) + str(points[i][1]) + str(points[i][2]) + ".cw"
-        out_str = data_dir + str(wavelengths[w]) + str(points[i][0]) + str(points[i][1]) + str(points[i][2]) + ".npy"
+    for i in tqdm(range(len(points))):
+        in_str = output_directory + str(wavelengths[w]) + str(points[i][0]) + str(points[i][1]) + str(points[i][2]) + ".cw"
+        out_str = output_directory + str(wavelengths[w]) + str(points[i][0]) + str(points[i][1]) + str(points[i][2]) + ".npy"
 
-        proc = subprocess.Popen([root_dir + "scatterplane", "--focus", str(points[i][0]), str(points[i][1]), str(points[i][2]),
+        #command_str = "scatterplane --focus " + str(points[i][0]) + " " + str(points[i][1]) + " " + str(points[i][2])\
+        #                + " --nooutput --lambda " + str(wavelengths[w]) + " --output " + in_str + " --alpha " + str(alpha)\
+        #                + " --beta " + str(obscuration) + " --direction " + str(direction[0]) + " " + str(direction[1]) + " " + str(direction[2])\
+        #                + " --n 1.0 1.4 --kappa 0.005 --samples " + str(n_samples) + " --wavemask " + str(1) + " " + str(1) + " " + str(1)
+
+        #subprocess.run([command_str], shell=True, capture_output=True)
+        proc = subprocess.run(["scatterplane", "--focus", str(points[i][0]), str(points[i][1]), str(points[i][2]),
                                  "--nooutput", "--lambda", str(wavelengths[w]), "--output", in_str, "--alpha", str(alpha),
                                  "--beta", str(obscuration), "--direction", str(direction[0]), str(direction[1]), str(direction[2]),
-                                 "--n", "1.0", "1.4", "--kappa", "0.005", "--samples", str(n_samples), "--wavemask", str(1), str(1), str(1)])
+                                 "--n", "1.0", "1.4", "--kappa", "0.005", "--samples", str(n_samples), "--wavemask", str(1), str(1), str(1)], shell=True, capture_output=True)
         # proc = subprocess.Popen(
         #     [root_dir + "scatterplane", "--focus", str(0), str(0), str(0),
         #      "--nooutput", "--lambda", str(wavelengths[w]), "--output", in_str, "--alpha", "0.3", "--beta",
         #      "0.0", "--direction", str(directions_x[xi]), str(directions_y[yi]), str(direction[2]), "--n",
         #      "1.0", "1.0", "--kappa", "0.0"])
 
-        proc.wait()
-        proc = subprocess.Popen(
-            [root_dir + "scatterview", "--input", in_str, "--output", out_str, "--size", str(size), "--nogui", "--slice", "0", "--axis", "1",
-             "--resolution", str(resolution)])
-        proc.wait()
+        #proc.wait()
+        proc = subprocess.run(
+            ["scatterview", "--input", in_str, "--output", out_str, "--size", str(size), "--nogui", "--slice", "0", "--axis", "1",
+             "--resolution", str(resolution)], shell=True)
+        #proc.wait()
 
         num += 1
-        inFile = os.path.join(data_dir, out_str)
+        inFile = os.path.join(output_directory, out_str)
         E = np.load(inFile)
         if w == 0 and i == 0:
             Intensity = abs(intensity(E))

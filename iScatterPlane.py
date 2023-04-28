@@ -29,10 +29,10 @@ out_File2 = "C:\\Users\\sunrj\\Dropbox\\research\\PAPER_MUSE\\tmp\\" + name2 + "
 root_dir = "D:/myGit/build/scattersim/"
 data_dir = root_dir + "tmp/"
 n_lambda = 5           # The number of wavelengths
-n_x = 100                # Sampling points along x
-n_y = 1               # Sampling points along y
+n_x = 120                # Sampling points along x
+n_y = 10               # Sampling points along y
 n_z = 1
-n_samples = 400        # Number of coupled waves for each point
+n_samples = 200        # Number of coupled waves for each point
 size = 80               # The size of the canvas (um)
 wavelength_0 = 0.28     # The central wavelength
 # direction = [1, 0, 1/np.tan(math.radians(70))]
@@ -54,38 +54,49 @@ else:
     for file in files:
         os.remove(file)
     print("The old files in the directory are deleted.")
-# Generate point sources
-# # One circle
-# X, Y = np.mgrid[-radius:radius:10j, -radius:radius:10j]                                 # Pick 10 numbers in [-3, 3]
-# circle = X ** 2 + Y ** 2 <= np.pi * radius ** 2
-# points = []
-# for i in range(len(circle)):
-#     for j in range(len(circle)):
-#         if circle[i][j] == True:
-#             points.append([(i-len(circle)/2) * radius/len(circle), (j-len(circle)/2) * radius/len(circle)])
-# # print(points)
-# print(len(points))
-
-# Generate points (rectangle)
+# Generate point sources (circle)
+points = []
+radius = diameter_xy / 2
 X = np.linspace(0, diameter_xy, n_x).reshape([1, 1, n_x])
 Y = np.linspace(0, diameter_xy, n_y).reshape([1, n_y, 1])
 Z = np.linspace(0, diameter_z, n_z).reshape([n_z, 1, 1])
-# sphere = X ** 2 + Y ** 2 + Z ** 2 <= radius ** 2
-points = []
+circle = (X-radius) ** 2 + (Y-radius) ** 2 <= radius ** 2
 for j in range(len(Y[0])):
     for i in range(len(X[0][0])):
         for k in range(len(Z)):
-            # if sphere[i][j][k] == True:
-            x_pos = (i-len(X[0][0])//2) * diameter_xy / len(X[0][0])
-            y_pos = (j-len(Y[0])//2) * diameter_xy / len(Y[0])
-            z_pos = (k-len(Z)//2) * diameter_z / len(Z)
+            if circle[0][j][i] == True:
+                x_pos = (i-len(X[0][0])//2) * diameter_xy / len(X[0][0])
+                y_pos = (j-len(Y[0])//2) * diameter_xy / len(Y[0])
+                z_pos = (k-len(Z)//2) * diameter_z / len(Z)
 
-            if rotate == True:
-                # https://en.wikipedia.org/wiki/Rotation_matrix#In_two_dimensions
-                x_new_pos = math.cos(theta) * x_pos + math.sin(theta) * z_pos
-                z_new_pos = -math.sin(theta) * x_pos + math.cos(theta) * z_pos
-                points.append([x_new_pos, y_pos, z_new_pos])
+                if rotate == True:
+                    # https://en.wikipedia.org/wiki/Rotation_matrix#In_two_dimensions
+                    x_new_pos = math.cos(theta) * x_pos + math.sin(theta) * z_pos
+                    z_new_pos = -math.sin(theta) * x_pos + math.cos(theta) * z_pos
+                    points.append([x_new_pos, y_pos, z_new_pos])
 print("How many points do we have? --" + str(len(points) * n_lambda))
+
+
+# # Generate points (rectangle)
+# X = np.linspace(0, diameter_xy, n_x).reshape([1, 1, n_x])
+# Y = np.linspace(0, diameter_xy, n_y).reshape([1, n_y, 1])
+# Z = np.linspace(0, diameter_z, n_z).reshape([n_z, 1, 1])
+# # sphere = X ** 2 + Y ** 2 + Z ** 2 <= radius ** 2
+# points = []
+# for j in range(len(Y[0])):
+#     for i in range(len(X[0][0])):
+#         for k in range(len(Z)):
+#             # if sphere[i][j][k] == True:
+#             x_pos = (i-len(X[0][0])//2) * diameter_xy / len(X[0][0])
+#             y_pos = (j-len(Y[0])//2) * diameter_xy / len(Y[0])
+#             z_pos = (k-len(Z)//2) * diameter_z / len(Z)
+#
+#             if rotate == True:
+#                 # https://en.wikipedia.org/wiki/Rotation_matrix#In_two_dimensions
+#                 x_new_pos = math.cos(theta) * x_pos + math.sin(theta) * z_pos
+#                 z_new_pos = -math.sin(theta) * x_pos + math.cos(theta) * z_pos
+#                 points.append([x_new_pos, y_pos, z_new_pos])
+# print("How many points do we have? --" + str(len(points) * n_lambda))
 
 # Simulate the fields and sum them up.
 num = 0

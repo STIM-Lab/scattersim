@@ -24,7 +24,7 @@ def intensity(E):
 # samples is a tuple giving the number of points used to build the focal spot
 # theta is the rotation angle about the z-axis [0, 2pi]
 # phi is the rotation angle about the y-axis [0, pi/2]
-def generate_points(span, samples, theta, phi):
+def generate_points(span, samples, phi):
     rotate = True
     x = np.linspace(-span[0]/2, span[0]/2, samples[0])
     y = np.linspace(-span[1]/2, span[1]/2, samples[1])
@@ -74,30 +74,39 @@ def sample_points(directory, span, resolution):
         subprocess.run(
                 ["scatterview", "--input", files[fi], "--output", files[fi] + ".npy", "--size", str(span), "--nogui", "--slice", "0", "--axis", "1",
                  "--resolution", str(resolution)], shell=True, capture_output=True)
-        
-    
+
 def sum_intensity(input_directory, span, resolution):
     files = glob.glob(input_directory + "*.cw")
+    I = 0
     for fi in tqdm(range(len(files))):
         E = np.load(files[fi] + ".npy")
-         
         if fi == 0:
             I = intensity(E)
         else:
             I = I + intensity(E)            
     return I
 
- 
-output_directory = "C:/Users/david/Desktop/penetration_tests/"
-wavelength = 0.3
-waves = 1800
+
+
+# output_directory = "C:/Users/david/Desktop/penetration_tests/"
+output_directory = "D:\\myGit\\build\\scattersim\\tmp\\"
+# Clean the folder
+if not os.listdir(output_directory):
+    print(" The root directory is clean.")
+else:
+    files = glob.glob(output_directory +"*")
+    for file in files:
+        os.remove(file)
+    print("The old files in the directory are deleted.")
+wavelength = 0.28
+waves = 1000
 direction = [1, 0, 1]
 NA = 0.2
 resolution = 8
 span = 80
 theta, phi, r = cart2sph(direction[0], direction[1], direction[2])
 
-px, py, pz = generate_points((10, 10, 1), (12, 12, 2), theta, phi)
+px, py, pz = generate_points((20, 0, 1), (60, 1, 2), phi)
 #fig = plt.figure()
 #ax = fig.add_subplot(projection='3d')
 #ax.scatter(px, py, pz)
@@ -105,3 +114,9 @@ px, py, pz = generate_points((10, 10, 1), (12, 12, 2), theta, phi)
 simulate_points(output_directory, px, py, pz, direction, wavelength, waves, np.sin(NA), 0)
 sample_points(output_directory, span, resolution)
 I = sum_intensity(output_directory, span, resolution)
+
+plt.imshow(I, extent=(-span/2, span/2, span/2, -span/2))
+plt.set_cmap("afmhot")
+plt.colorbar()
+# plt.title("Intensity")
+plt.show()

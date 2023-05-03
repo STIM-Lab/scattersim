@@ -122,30 +122,19 @@ def simulate_points(output_directory, X, Y, Z, direction, wavelength, num_waves,
     for i in tqdm(range(len(X))):                                                     # for each point in the focal spot
         filename = output_directory + str(i) + ".cw"
         simulate_point(filename, (X[i], Y[i], Z[i]), direction, wavelength, num_waves, alpha_aperture, beta_obscuration)
-
-# convert cw files to sampled npy files representing the field and the desired points
-def sample_points(directory, simulation_range, resolution, axis=1):
-    files = glob.glob(directory + "*.cw")
-    for fi in tqdm(range(len(files))):
-        subprocess.run(
-                ["scatterview", "--input", files[fi], "--output", files[fi] + ".npy", "--size", str(simulation_range), "--nogui", "--slice", "0", "--axis", str(axis),
-                 "--resolution", str(resolution)], shell=True, capture_output=True)
+       
         
 
-def sum_intensity(input_directory, resolution):
-    files = glob.glob(input_directory + "*.cw")
-    I = 0
-    for fi in tqdm(range(len(files))):
-        E = np.load(files[fi] + ".npy")
-        if fi == 0:
-            I = intensity(E)
-        else:
-            I = I + intensity(E)            
-    return I
+def sum_intensity(directory, simulation_range, resolution, axis=1):
+    subprocess.run(
+            ["scatterview", "--input", directory + "*.cw", "--output", "result.npy", "--size", str(simulation_range), "--nogui", "--slice", "0", "--axis", str(axis),
+             "--resolution", str(resolution), "--intensity"], shell=True, capture_output=True)
+    Intensity = np.load("result.npy")
+    return Intensity
 
 
-
-output_directory = "C:/Users/david/Desktop/penetration_tests/"
+output_directory = "C:/Users/david/Documents/intensity_test/"
+#output_directory = "C:/Users/david/Desktop/penetration_tests/"
 #output_directory = "D:\\myGit\\build\\scattersim\\tmp\\"
 # Clean the folder
 if not os.listdir(output_directory):
@@ -156,10 +145,10 @@ else:
         os.remove(file)
     print("The old files in the directory are deleted.")
 wavelength = 0.28
-waves = 1000
+waves = 4000
 points = (20, 20, 1)
 total_pts = points[0] * points[1] * points[2]
-direction = [0, 0, 1]
+direction = [1, 0, 1]
 NA = 0.2
 NAo = 0
 resolution = 8
@@ -167,19 +156,18 @@ spotsize = (10, 10, 1)
 theta, phi, r = cart2sph(direction[0], direction[1], direction[2])
 # adjust the elevation so that it corresponds to radians *from* the z axis
 phi = np.pi/2.0 - phi
-axis = 2
+axis = 1
 
-#px, py, pz = generate_points_rect(spotsize, points, phi)
+px, py, pz = generate_points_rect(spotsize, points, phi)
 #px, py, pz = generate_points_circ(spotsize[0], spotsize[2], total_pts, phi)
-px, py, pz = generate_points_uniform(spotsize[0], spotsize[2], points, phi)
+#px, py, pz = generate_points_uniform(spotsize[0], spotsize[2], points, phi)
 
 #fig = plt.figure()
 #ax = fig.add_subplot(projection='3d')
 #ax.scatter(px, py, pz)
 
 simulate_points(output_directory, px, py, pz, direction, wavelength, waves, np.arcsin(NA), np.arcsin(NAo))
-sample_points(output_directory, spotsize[0] * 2, resolution, axis)
-I = sum_intensity(output_directory, resolution)
+I = sum_intensity(output_directory, spotsize[0] * 2, resolution, axis)
 
 plt.imshow(I, extent=(-spotsize[0], spotsize[0], spotsize[0], -spotsize[0]))
 plt.set_cmap("afmhot")

@@ -9,6 +9,8 @@ std::vector<UnpackedWave<float>> W;
 
 
 void cw_allocate(CoupledWaveStructure<double>* cw){
+    waves_begin.clear();
+    waves_end.clear();
     layers = cw->Layers.size();
     z_layers.resize(layers);
 

@@ -11,7 +11,7 @@ extern size_t free_gpu_memory;
 extern size_t total_gpu_memory;
 
 /// Copy all unpacked plane wave data to the GPU
-void gpu_initialize(){
+void gpu_upload_waves(){
     HANDLE_ERROR(cudaMalloc(&gpu_z_layers, layers * sizeof(float)));                                         // copy z coordinates of layers
     HANDLE_ERROR(cudaMemcpy(gpu_z_layers, &z_layers[0], layers * sizeof(float), cudaMemcpyHostToDevice));
 
@@ -22,6 +22,13 @@ void gpu_initialize(){
 
     HANDLE_ERROR(cudaMalloc(&gpu_W, W.size() * sizeof(UnpackedWave<float>)));                                // copy the waves
     HANDLE_ERROR(cudaMemcpy(gpu_W, &W[0], W.size() * sizeof(UnpackedWave<float>), cudaMemcpyHostToDevice));
+}
+
+void gpu_delete_waves() {
+    HANDLE_ERROR(cudaFree(gpu_z_layers));
+    HANDLE_ERROR(cudaFree(gpu_waves_begin));
+    HANDLE_ERROR(cudaFree(gpu_waves_end));
+    HANDLE_ERROR(cudaFree(gpu_W));
 }
 
 __device__ void evaluate(thrust::complex<float>& Ex, thrust::complex<float>& Ey, thrust::complex<float>& Ez,
@@ -128,7 +135,7 @@ __global__ void kernel_yz(thrust::complex<float>* E_yz, thrust::complex<float>* 
 
 void gpu_cw_evaluate(thrust::complex<float>* E_xy, thrust::complex<float>* E_xz, thrust::complex<float>* E_yz,
     float x_start, float y_start, float z_start, float x, float y, float z, float d,
-    int N, int device) {
+    int N, int device, int axis) {
 
     thrust::complex<float>* gpu_E;
 
@@ -148,14 +155,22 @@ void gpu_cw_evaluate(thrust::complex<float>* E_xy, thrust::complex<float>* E_xz,
     dim3 threads(block_dim, block_dim);
     dim3 blocks(N / threads.x + 1, N / threads.y + 1);
 
-    kernel_xy << <blocks, threads >> > (gpu_E, gpu_W, gpu_z_layers, gpu_waves_begin, gpu_waves_end, x_start, y_start, z, d, N, layers);
-    HANDLE_ERROR(cudaMemcpy(E_xy, gpu_E, E_size, cudaMemcpyDeviceToHost));
-
-    kernel_xz << <blocks, threads >> > (gpu_E, gpu_W, gpu_z_layers, gpu_waves_begin, gpu_waves_end, x_start, z_start, y, d, N, layers);
-    HANDLE_ERROR(cudaMemcpy(E_xz, gpu_E, E_size, cudaMemcpyDeviceToHost));
-
-    kernel_yz << <blocks, threads >> > (gpu_E, gpu_W, gpu_z_layers, gpu_waves_begin, gpu_waves_end, y_start, z_start, x, d, N, layers);
-    HANDLE_ERROR(cudaMemcpy(E_yz, gpu_E, E_size, cudaMemcpyDeviceToHost));
+    if (axis == 2 || axis < 0) {
+        kernel_xy << <blocks, threads >> > (gpu_E, gpu_W, gpu_z_layers, gpu_waves_begin, gpu_waves_end, x_start, y_start, z, d, N, layers);
+        HANDLE_ERROR(cudaMemcpy(E_xy, gpu_E, E_size, cudaMemcpyDeviceToHost));
+    }
+    if (axis == 1 || axis < 0) {
+        kernel_xz << <blocks, threads >> > (gpu_E, gpu_W, gpu_z_layers, gpu_waves_begin, gpu_waves_end, x_start, z_start, y, d, N, layers);
+        HANDLE_ERROR(cudaMemcpy(E_xz, gpu_E, E_size, cudaMemcpyDeviceToHost));
+    }
+    if (axis == 0 || axis < 0) {
+        kernel_yz << <blocks, threads >> > (gpu_E, gpu_W, gpu_z_layers, gpu_waves_begin, gpu_waves_end, y_start, z_start, x, d, N, layers);
+        HANDLE_ERROR(cudaMemcpy(E_yz, gpu_E, E_size, cudaMemcpyDeviceToHost));
+    }
+    if (axis > 2) {
+        std::cout << "ERROR: incorrect axis specified for evaluation" << std::endl;
+        exit(1);
+    }
 
 
     HANDLE_ERROR(cudaFree(gpu_E));

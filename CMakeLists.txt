@@ -52,6 +52,8 @@ configure_file(data/triangle.npy
 				triangle.npy COPYONLY)
 configure_file(data/psf.cw 
 				psf.cw COPYONLY)
+configure_file(data/psf_200k.cw 
+				psf_200k.cw COPYONLY)
 configure_file(data/triangle.png 
 				triangle.png COPYONLY)
 

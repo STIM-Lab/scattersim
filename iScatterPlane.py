@@ -127,9 +127,9 @@ def simulate_points(output_directory, X, Y, Z, direction, wavelength, num_waves,
 
 def sum_intensity(directory, simulation_range, resolution, axis=1):
     subprocess.run(
-            ["scatterview", "--input", directory + "*.cw", "--output", "result.npy", "--size", str(simulation_range), "--nogui", "--slice", "0", "--axis", str(axis),
+            ["scatterview", "--input", directory + "*.cw", "--output", directory + "result.npy", "--size", str(simulation_range), "--nogui", "--slice", "0", "--axis", str(axis),
              "--resolution", str(resolution), "--intensity"], shell=True, capture_output=True)
-    Intensity = np.load("result.npy")
+    Intensity = np.load(directory + "result.npy")
     return Intensity
 
 
@@ -156,7 +156,7 @@ spotsize = (10, 10, 1)
 theta, phi, r = cart2sph(direction[0], direction[1], direction[2])
 # adjust the elevation so that it corresponds to radians *from* the z axis
 phi = np.pi/2.0 - phi
-axis = 1
+axis = 2
 
 px, py, pz = generate_points_rect(spotsize, points, phi)
 #px, py, pz = generate_points_circ(spotsize[0], spotsize[2], total_pts, phi)

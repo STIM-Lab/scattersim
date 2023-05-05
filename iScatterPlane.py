@@ -126,16 +126,17 @@ def simulate_points(output_directory, X, Y, Z, direction, wavelength, num_waves,
         
 
 def sum_intensity(directory, simulation_range, resolution, axis=1):
-    subprocess.run(
+    result = subprocess.run(
             ["scatterview", "--input", directory + "*.cw", "--output", directory + "result.npy", "--size", str(simulation_range), "--nogui", "--slice", "0", "--axis", str(axis),
              "--resolution", str(resolution), "--intensity"], shell=True, capture_output=True)
     Intensity = np.load(directory + "result.npy")
     return Intensity
 
 
-output_directory = "C:/Users/david/Documents/intensity_test/"
-#output_directory = "C:/Users/david/Desktop/penetration_tests/"
+#output_directory = "C:/Users/david/Documents/intensity_test/"
+#output_directory = "D:/test/"
 #output_directory = "D:\\myGit\\build\\scattersim\\tmp\\"
+output_directory = "C:/Users/david/Desktop/penetration_tests/"
 # Clean the folder
 if not os.listdir(output_directory):
     print(" The root directory is clean.")
@@ -146,7 +147,7 @@ else:
     print("The old files in the directory are deleted.")
 wavelength = 0.28
 waves = 4000
-points = (20, 20, 1)
+points = (5, 5, 1)
 total_pts = points[0] * points[1] * points[2]
 direction = [1, 0, 1]
 NA = 0.2

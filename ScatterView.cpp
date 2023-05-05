@@ -843,11 +843,14 @@ std::vector<std::string> FilesFromMask(std::string filemask) {
     std::filesystem::path file_directory = fs_filemask.parent_path();                   // get the directory being searched
     if (file_directory.empty())                                                         // if the directory is empty (one wasn't provided)
         file_directory = working;                                                       // set it to the current working directory
-    std::filesystem::path relative_directory = std::filesystem::relative(file_directory, working);      // get the directory relative to the current working directory
+    std::filesystem::path absolute_directory = std::filesystem::absolute(file_directory);      // get the directory relative to the current working directory
 
     std::vector<std::string> filenames;                                                                 // create a vector to store all of the matching file names
 
-    for (const auto& entry : std::filesystem::directory_iterator(relative_directory)) {                 // for each file in the relative directory
+
+
+    for (const auto& entry : std::filesystem::directory_iterator(absolute_directory)) {                 // for each file in the relative directory
+        std::cout << entry.path().string() << std::endl;
         std::string candidate = entry.path().filename().string();                                       // save the candidate filename as a string
         if (std::regex_match(candidate, reg))                                                           // see if the candidate filename matches the regex object
             filenames.push_back(std::filesystem::absolute(entry.path()).string());                      // if it does, push it to the filenames vector

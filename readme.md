@@ -1,7 +1,7 @@
 # Scatter Simulation
 The project aims to simulate the interactions between light and samples. The algorithm is based on coupled wave theory and wave propagation theory.
 
-Scatterplane solves field for homogeneous sample boundaries. Scatterthinvolume solves boundary fields for 2D heterogeneous samples. The scattervolume solves field for 3D heterogeneous samples. Scatterview do visualization the field from the other three projects.
+Scatterplane solves the field for homogeneous sample boundaries. Scatterthinvolume solves boundary fields for 2D heterogeneous samples. The scattervolume solves the field for 3D heterogeneous samples. Scatterview does visualization of the field from the other three projects.
 
 ## Main Tools
 * Eigen (See https://eigen.tuxfamily.org/index.php?title=Main_Page)
@@ -28,7 +28,7 @@ Scatterplane solves field for homogeneous sample boundaries. Scatterthinvolume s
 	scatterview --input c.cw
 	```
 
-*The users can set all they need from the command line via Boost library.*
+*The users can set all they need from the command line via the Boost library.*
 
-*"excutable - -help" will provide more information about the input and output.*
+*"executable - -help" will provide more information about the input, attributes, and output.*
 

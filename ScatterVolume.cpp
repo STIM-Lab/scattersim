@@ -69,12 +69,13 @@ std::vector<Eigen::MatrixXcd> D;		// The property matrix
 //std::vector<int> fz;					// The coordinates for the sample boundaries
 std::vector<Eigen::VectorXcd> eigenvalues;			// eigen values for current layer
 std::vector<Eigen::MatrixXcd> eigenvectors;			// eigen vectors for current layer
+std::vector<Eigen::VectorXcd> Beta;			// eigen vectors for current layer
 Eigen::MatrixXcd Gc;					// Upward
 Eigen::MatrixXcd Gd;					// Downward
 std::vector<Eigen::VectorXcd > Eigenvalues;			// Dimension: (layers, coeffs)
 std::vector<Eigen::MatrixXcd> Eigenvectors;			// Dimension: (layers, coeffs)
-Eigen::MatrixXcd GD;					// Dimension: (layers, coeffs)
-Eigen::MatrixXcd GC;					// Dimension: (layers, coeffs)
+std::vector<Eigen::MatrixXcd> GD;					// Dimension: (layers, coeffs)
+std::vector<Eigen::MatrixXcd> GC;					// Dimension: (layers, coeffs)
 Eigen::MatrixXcd f1;
 Eigen::MatrixXcd f2;
 Eigen::MatrixXcd f3;
@@ -223,6 +224,8 @@ void EigenDecompositionD() {
 	std::vector<Eigen::MatrixXcd> eigenvectors_unordered;
 	bool EIGEN = false;
 	bool MKL_lapack = true;
+	GD.reserve(D.size());
+	GC.reserve(D.size());
 	for (size_t i = 0; i < D.size(); i++) {
 		if (EIGEN) {
 			Eigen::ComplexEigenSolver<Eigen::MatrixXcd> es(D[i]);
@@ -257,6 +260,7 @@ void EigenDecompositionD() {
 	Gc.resize(4 * MF, 4 * MF);
 	std::complex<double> Di;
 	std::complex<double> Ci;
+	Beta.resize(num_pixels[2]);
 	for (size_t i = 0; i < D.size(); i++) {
 		for (size_t j = 0; j < eigenvalues[i].size(); j++) {
 			if (i == 0) {
@@ -277,26 +281,28 @@ void EigenDecompositionD() {
 				Gc.col(j) = eigenvectors[i].col(j) * Ci;
 			}
 		}
-		GD = Gd;
+		GD.push_back(Gd);
 		if (i == 0)
-			GC = Gc;
+			GC.push_back(Gc);
 		else {
 			tmp = MKL_inverse(Gd);
 			tmp = MKL_multiply(Gc, tmp, 1);
-			GC = MKL_multiply(tmp, GC, 1);
+			Gc = MKL_multiply(tmp, GC[i - 1], 1);
+			GC.push_back(Gc);
 		}
+
 		if (logfile) {
 			logfile << "----------For the layer---------- " << std::endl;
 			logfile << "Property matrix D: " << std::endl;
 			logfile << D[i] << std::endl;
 			logfile << "GD: " << std::endl;
-			logfile << GD << std::endl;
+			logfile << GD[i] << std::endl;
 			logfile << "GD inversese: " << std::endl;
 			logfile << Gd.inverse() << std::endl;
 			logfile << "GC: " << std::endl;
-			logfile << GC << std::endl;
+			logfile << GC[i] << std::endl;
 			logfile << "GC inversese: " << std::endl;
-			logfile << GC.inverse() << std::endl;
+			logfile << Gd.inverse() << std::endl;
 		}
 	}
 }
@@ -387,14 +393,14 @@ void SetBoundaryConditions() {
 	elapsed_seconds = matTransfer - eigen2;
 	std::cout << "			Time for MatTransfer(): " << elapsed_seconds.count() << "s" << std::endl;
 	
-	Eigen::MatrixXcd Gc_inv = MKL_inverse(GC);
+	Eigen::MatrixXcd Gc_inv = MKL_inverse(Gc);
 	std::chrono::time_point<std::chrono::system_clock> inv = std::chrono::system_clock::now();
 	elapsed_seconds = inv - matTransfer;
 	std::cout << "			Time for MKL_inverse(): " << elapsed_seconds.count() << "s" << std::endl;
 
 	A.block(2 * MF, 0, 4 * MF, 3 * MF) = f2;
 	//A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = Gd * Gc_inv * f3;
-	tmp = MKL_multiply(GD, Gc_inv, 1);
+	tmp = MKL_multiply(Gd, Gc_inv, 1);
 	A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = MKL_multiply(tmp, f3, 1);
 	std::chrono::time_point<std::chrono::system_clock> mul = std::chrono::system_clock::now();
 	elapsed_seconds = mul - inv;
@@ -614,6 +620,7 @@ int main(int argc, char** argv) {
 	// The data structure that all data goes to
 	CoupledWaveStructure<double> cw;
 	cw.Layers.resize(L);
+	size_t MF4 = MF * 4;																			// M is the length of beta/gamma/gg
 
 	for (size_t p = 0; p < MF; p++) {															// for each incident plane wave
 		tira::planewave<double> zero(0, 0, 1, 0, 0);																		// store the incident plane wave in i
@@ -652,6 +659,54 @@ int main(int argc, char** argv) {
 
 		}
 	}
+	cw.isHete = true;
+	// Calculate beta according to the GD, GC, and Pt/Pr
+	if (cw.isHete) {
+		cw.Slices.resize(num_pixels[2]);
+		Eigen::MatrixXcd EF_mat;
+		Eigen::MatrixXcd Pr_0;
+		Eigen::MatrixXcd beta;
+		EF_mat.resize(3, MF);
+		Pr_0.resize(3, MF);
+		EF_mat.row(0) = EF.segment(0, MF);
+		EF_mat.row(1) = EF.segment(MF, MF);
+		EF_mat.row(2) = EF.segment(MF * 2, MF);
+		Pr_0.row(0) = x.segment(idx(1, Transmitted, X, 0, MF), MF);
+		Pr_0.row(1) = x.segment(idx(1, Transmitted, Y, 0, MF), MF);
+		Pr_0.row(2) = x.segment(idx(1, Transmitted, Z, 0, MF), MF);
+		for (size_t i = 0; i < num_pixels[2]; i++) {
+			if (i == 0) {
+				tmp = MKL_inverse(GD[0]);
+				tmp = MKL_multiply(tmp, f1, 1);
+				beta = MKL_multiply(tmp, EF_mat, 1);
+				tmp = MKL_inverse(GD[0]);
+				tmp = MKL_multiply(tmp, f2, 1);
+				beta += MKL_multiply(tmp, Pr_0, 1);
+			}
+			else {
+				tmp = MKL_inverse(GD[i]);
+				tmp = MKL_multiply(tmp, GC[i - 1], 1);
+				beta = MKL_multiply(tmp, beta, 1);
+			}
+			Beta[i] = beta.reshaped<Eigen::RowMajor>();
+
+		}
+		std::cout << "beta calculated" << std::endl;
+
+		for (size_t i = 0; i < num_pixels[2]; i++) {
+			cw.Slices[i].beta.resize(MF4);
+			cw.Slices[i].gamma.resize(MF4);
+			cw.Slices[i].gg.resize(MF4 * MF4);
+			for (size_t m = 0; m < MF4; m++) {
+				cw.Slices[i].beta[m] = Beta[i](m);
+				cw.Slices[i].gamma[m] = eigenvalues[i](m);
+			}
+			for (size_t m = 0; m < MF4 * MF4; m++) {
+				cw.Slices[i].gg[m] = eigenvectors[i](m);
+			}
+		}
+	}
+
 	std::cout << "Field saved in " << in_outfile << "." << std::endl;
 	std::chrono::time_point<std::chrono::system_clock> simulated = std::chrono::system_clock::now();
 	elapsed_seconds = simulated - solved;

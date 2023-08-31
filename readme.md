@@ -27,8 +27,12 @@ Scatterplane solves the field for homogeneous sample boundaries. Scatterthinvolu
 	```
 	scatterview --input c.cw
 	```
+## Data Types
+The pricision for all the four projects is double/complex128.
 
+## Notes
 *The users can set all they need from the command line via the Boost library.*
 
 *"executable - -help" will provide more information about the input, attributes, and output.*
+
 

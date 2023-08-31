@@ -359,10 +359,17 @@ void EvaluateVectorSlices() {
     float y_start = center[1] - extent / 2;
     float z_start = center[2] - extent / 2;
                                                                             // stores the plane index of the current pixel
+    //// Caculate for the field in the sample layer
+    //if (isHete) {
+    //    if (z > z[] && z < z[]) {
+    //        for (size_t i = 0; i < sizeof_Slices; i++) {
+    //            for (m in N) {
 
-    // X-Y Vector Evaluation
-    //z = plane_position[2];                                                  // all coordinates in this plane have the same z value
-    
+    //            }
+    //        }
+    //    }
+    //}
+    // Calcualte for the field upper or lower the sample
     if (in_device >= 0)
         gpu_cw_evaluate((thrust::complex<float>*)E_xy, (thrust::complex<float>*)E_xz, (thrust::complex<float>*)E_yz,
             x_start, y_start, z_start, plane_position[0], plane_position[1], plane_position[2], d, N, in_device);
@@ -683,7 +690,7 @@ int main(int argc, char** argv)
 
     boost::program_options::options_description desc("Allowed options");
 	desc.add_options()
-        ("input", boost::program_options::value<std::string>(&in_filename)->default_value("psf.cw"), "output filename for the coupled wave structure")
+        ("input", boost::program_options::value<std::string>(&in_filename)->default_value("c.cw"), "output filename for the coupled wave structure")
         ("help", "produce help message")
         ("cuda,c", boost::program_options::value<int>(&in_device)->default_value(0), "cuda device number (-1 is CPU-only)")
         //("visualization,v", boost::program_options::value<bool>(&in_Visualization)->default_value(true), "false means save without visualization")

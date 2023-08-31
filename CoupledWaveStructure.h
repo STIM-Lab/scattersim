@@ -53,17 +53,31 @@ struct HomogeneousLayer {
 };
 
 template <typename T>
+struct HeteLayer {
+	std::vector<std::complex<T>> beta;			// Some property of the current sample layer
+	std::vector<std::complex<T>> gamma;			// Eigenvalues of the current sample layer
+	std::vector<std::complex<T>> gg;			// Eigenvectors of the current sample layer
+};
+
+template <typename T>
 struct CoupledWaveStructure {
+
+	bool isHete = false;
 
 	std::vector< tira::planewave<T> > Pi;		// incoming plane waves
 
 	std::vector< HomogeneousLayer<T> > Layers;			// homogeneous sample layers and their respective plane waves
 
+	std::vector< HeteLayer<T> > Slices;			// homogeneous sample layers and their respective plane waves
+
 	void save(std::string filename){
 		std::ofstream file(filename, std::ios::out | std::ios::binary);
 
+		file.write((char*)&isHete, sizeof(bool));		// output the precision (float = 4, double = 8)
+
 		size_t sizeof_T = sizeof(T);
 		file.write((char*)&sizeof_T, sizeof(size_t));		// output the precision (float = 4, double = 8)
+
 		size_t sizeof_Pi = Pi.size();
 		file.write((char*)&sizeof_Pi, sizeof(size_t));		// output the number of incident plane waves
 		for(size_t iPi = 0; iPi < Pi.size(); iPi++){
@@ -84,12 +98,32 @@ struct CoupledWaveStructure {
 				file.write((char*)&Layers[iLayers].Pt[iPt], sizeof(tira::planewave<T>));
 			}
 		}
+		
+		// Save info about beta, gamma, and gg if the sample is heterogeneous
+		if (isHete == true) {
+			size_t sizeof_Slices = Slices.size();
+			file.write((char*)&sizeof_Slices, sizeof(size_t));
+			size_t M = sizeof_Pi * 4;
+			for (size_t iSlices = 0; iSlices < sizeof_Slices; iSlices++) {
+				for (size_t m = 0; m < M; m++) {
+					file.write((char*)&Slices[iSlices].beta[m], sizeof(std::complex<T>));
+				}
+				for (size_t m = 0; m < M; m++) {
+					file.write((char*)&Slices[iSlices].gamma[m], sizeof(std::complex<T>));
+				}
+				for (size_t m = 0; m < M * M; m++) {
+					file.write((char*)&Slices[iSlices].gg[m], sizeof(std::complex<T>));
+				}
+			}
+		}
+
 		file.close();
 	}
 
 	bool load(std::string filename){
 		std::ifstream file(filename, std::ios::in | std::ios::binary);
 		if(!file) return false;
+		file.read((char*)&isHete, sizeof(bool));		// output the precision (float = 4, double = 8)
 
 		size_t sizeof_T;
 		file.read((char*)&sizeof_T, sizeof(size_t));						// read the precision (float = 4, double = 8)
@@ -115,6 +149,28 @@ struct CoupledWaveStructure {
 			Layers[iLayers].Pt.resize(sizeof_Pt);							// allocate space for the transmitted plane waves
 			for(size_t iPt = 0; iPt < Layers[iLayers].Pt.size(); iPt++){
 				file.read((char*)&Layers[iLayers].Pt[iPt], sizeof(tira::planewave<T>));
+			}
+		}
+
+		// Load info about beta, gamma, and gg if the sample is heterogeneous
+		if (isHete == true) {
+			size_t sizeof_Slices;
+			file.read((char*)&sizeof_Slices, sizeof(size_t));
+			Slices.resize(sizeof_Slices);
+			size_t M = sizeof_Pi * 4;
+			for (size_t iSlices = 0; iSlices < sizeof_Slices; iSlices++) {
+				Slices[iSlices].beta.resize(M);
+				Slices[iSlices].gamma.resize(M);
+				Slices[iSlices].gg.resize(M * M);
+				for (size_t m = 0; m < M; m++) {
+					file.read((char*)&Slices[iSlices].beta[m], sizeof(std::complex<T>));
+				}
+				for (size_t m = 0; m < M; m++) {
+					file.read((char*)&Slices[iSlices].gamma[m], sizeof(std::complex<T>));
+				}
+				for (size_t m = 0; m < M * M; m++) {
+					file.read((char*)&Slices[iSlices].gg[m], sizeof(std::complex<T>));
+				}
 			}
 		}
 		file.close();

@@ -43,6 +43,8 @@ float float_high = 1000;                                // store the maximum flo
 unsigned int res_step = 1;
 float plane_position[] = {0.0f, 0.0f, 0.0f};
 
+std::vector <std::vector< Eigen::MatrixXcd>> E;
+
 glm::vec<3, std::complex<float>>* E_xy;                  // stores the complex vector values for display
 glm::vec<3, std::complex<float>>* E_xz;
 glm::vec<3, std::complex<float>>* E_yz;
@@ -81,7 +83,7 @@ int colormap_component = 0;                             // 0 = real, 1 = imag
 
 tira::glMaterial Material_xy;                           // OpenGL materials storing the texture and shader information for each slice
 tira::glMaterial Material_yz;
-tira::glMaterial Material_xz;
+tira::glMaterial Material_xz_r;
 glm::mat4 projection;                                   // projection matrix for shader
 
 tira::glGeometry SliceGeometry;
@@ -97,7 +99,7 @@ std::vector<float> in_center;
 float in_slice;
 // CUDA device information and management
 int in_device;
-float in_size;                                          // size of the sample being visualized (in arbitrary units specified during simulation)
+float in_size_c;                                          // size of the sample being visualized (in arbitrary units specified during simulation)
 size_t free_gpu_memory;
 size_t total_gpu_memory;
 
@@ -112,6 +114,7 @@ double t_UpdateTextures;
 double t_EvaluateColorSlices;
 double t_EvaluateScalarSlices;
 double t_EvaluateVectorSlices;
+
 
 std::string VertexSource =                                  // Source code for the default vertex shader
 "# version 330 core\n"
@@ -141,8 +144,6 @@ std::string FragmentSource =
 "void main() {\n"
 "    color = texture(texmap, vertex_texcoord);\n"
 "};\n";
-
-
 
 void DeleteImageArrays(){
     auto start = std::chrono::steady_clock::now();
@@ -183,7 +184,7 @@ void AllocateImageArrays(){
 void UpdateTextures() {
     auto start = std::chrono::steady_clock::now();
     Material_xy.SetTexture("texmap", I_xy, GL_RGB, GL_NEAREST);
-    Material_xz.SetTexture("texmap", I_xz, GL_RGB, GL_NEAREST);
+    Material_xz_r.SetTexture("texmap", I_xz, GL_RGB, GL_NEAREST);
     Material_yz.SetTexture("texmap", I_yz, GL_RGB, GL_NEAREST);
     auto end = std::chrono::steady_clock::now();
     std::chrono::duration<double> duration = end-start;
@@ -358,17 +359,7 @@ void EvaluateVectorSlices() {
     float x_start = center[0] - extent / 2;
     float y_start = center[1] - extent / 2;
     float z_start = center[2] - extent / 2;
-                                                                            // stores the plane index of the current pixel
-    //// Caculate for the field in the sample layer
-    //if (isHete) {
-    //    if (z > z[] && z < z[]) {
-    //        for (size_t i = 0; i < sizeof_Slices; i++) {
-    //            for (m in N) {
 
-    //            }
-    //        }
-    //    }
-    //}
     // Calcualte for the field upper or lower the sample
     if (in_device >= 0)
         gpu_cw_evaluate((thrust::complex<float>*)E_xy, (thrust::complex<float>*)E_xz, (thrust::complex<float>*)E_yz,
@@ -378,6 +369,8 @@ void EvaluateVectorSlices() {
         cpu_cw_evaluate_xz(E_xz, x_start, z_start, plane_position[1], d, N);
         cpu_cw_evaluate_yz(E_yz, y_start, z_start, plane_position[0], d, N);
     }
+    // Sum up the field inside the sample
+    cpu_cw_evaluate_sample(E_xy, E_xz, E_yz, E, x_start, y_start, z_start, plane_position[0], plane_position[1], plane_position[2], d);
 
     auto end = std::chrono::steady_clock::now();
     std::chrono::duration<double> duration = end-start;
@@ -387,12 +380,12 @@ void EvaluateVectorSlices() {
 
 void RenderGui(){
     ImGui::Begin("Display Controls");                                       // Create a window for all ImGui controls
-    if(ImGui::DragFloat("Extent", &extent, 0.05, 0, float_high)){
-        EvaluateVectorSlices();
-    }
-    if(ImGui::DragFloat3("Center", center, 0.05, -float_high, float_high)){
-        EvaluateVectorSlices();
-    }
+    //if(ImGui::DragFloat("Extent", &extent, 0.05, 0, float_high)){
+    //    EvaluateVectorSlices();
+    //}
+    //if(ImGui::DragFloat3("Center", center, 0.05, -float_high, float_high)){
+    //    EvaluateVectorSlices();
+    //}
 
     
     
@@ -584,6 +577,8 @@ void RenderGui(){
     }
     ImGui::Text("Layers: %d", (int)cw.Layers.size());
     ImGui::Text("     Layer 1: %d incident, %d reflected, %d transmitted", (int)cw.Pi.size(), (int)cw.Layers[0].Pr.size(), (int)cw.Layers[0].Pt.size());
+    ImGui::Text("Extent: %d", extent);
+    ImGui::Text("Center: [%d, %d, %d]", center[0], center[1], center[2]);
     ImGui::Text("Load Data: %f s", t_LoadData);
     ImGui::Text("Evaluate Vector Fields: %f s", t_EvaluateVectorSlices);
     ImGui::Text("Evaluate Scalar Slices: %f s", t_EvaluateScalarSlices);
@@ -693,16 +688,14 @@ int main(int argc, char** argv)
         ("input", boost::program_options::value<std::string>(&in_filename)->default_value("c.cw"), "output filename for the coupled wave structure")
         ("help", "produce help message")
         ("cuda,c", boost::program_options::value<int>(&in_device)->default_value(0), "cuda device number (-1 is CPU-only)")
-        //("visualization,v", boost::program_options::value<bool>(&in_Visualization)->default_value(true), "false means save without visualization")
         ("nogui", "save an output file without loading the GUI")
 		("verbose,v", "produce verbose output")
         ("sample", "load a 3D sample stored as a grid (*.npy)")
-        ("size", boost::program_options::value<float>(&in_size)->default_value(10), "size of the sample being visualized (initial range in arbitrary units)")
+        ("size", boost::program_options::value<float>(&in_size_c)->default_value(100), "size of the sample being visualized (initial range in arbitrary units)")
         ("resolution", boost::program_options::value<int>(&in_resolution)->default_value(8), "resolution of the sample field (use powers of two, ex. 2^n)")
         ("output", boost::program_options::value<std::string>(&in_savename)->default_value("xz.npy"), "output file written when the --nogui option is used")
-        //("slice", boost::program_options::value<std::vector<int> >(&in_slice)->multitoken()->default_value(std::vector<int>{0, 0, 0}, "{0, 0 0}"), "Which slice to save")
         ("axis", boost::program_options::value<int>(&in_axis)->default_value(1), "axis to cut (0 = X, 1 = Y, 2 = Z")
-        ("center", boost::program_options::value<std::vector<float> >(&in_center)->multitoken()->default_value(std::vector<float>{0, 0, 0}, "{0, 0, 0}"), "center position of the sampled volume")
+        ("center", boost::program_options::value<std::vector<float> >(&in_center)->multitoken()->default_value(std::vector<float>{50, 50, 0}, "{0, 0, 0}"), "center position of the sampled volume")
         ("slice", boost::program_options::value<float>(&in_slice)->default_value(0), "coordinate along the specified axis RELATIVE to the 'center' position")
 		;
 	boost::program_options::variables_map vm;
@@ -713,7 +706,7 @@ int main(int argc, char** argv)
 	
     boost::program_options::notify(vm); 
 
-    extent = in_size;                           // initialize the extent of the visualization to the size of the sample
+    extent = in_size_c;                           // initialize the extent of the visualization to the size of the sample
   
 
 	if (vm.count("help")) {
@@ -732,10 +725,9 @@ int main(int argc, char** argv)
     else if (in_axis == 2)
         plane_position[2] = in_slice;
 
-    center[0] = in_center[0];
-    center[1] = in_center[1];
-    center[2] = in_center[2];
-
+    // Manual correction. Ask Ruijiao before deleting.
+    center[0] += extent / 2;
+    center[1] += extent / 2;
 
     if(vm.count("verbose")){
         verbose = true;
@@ -758,16 +750,18 @@ int main(int argc, char** argv)
     std::chrono::duration<double> duration = end - start;
     t_LoadData = duration.count();
     //std::cout << "done. (" << t_LoadData << " s)" << std::endl;
+    unsigned int N = pow(2, in_resolution);                // The size of the image to be saved
     
 
     cw_allocate(&cw);
     cw_unpack(&cw);
 
+    EvaluateSample(E, center, extent, N);
+
     InitCuda();                                                         // initialize CUDA
 
     if (in_Visualization == false) {
         EvaluateVectorSlices();
-        unsigned int N = pow(2, in_resolution);                // The size of the image to be saved
         // Save the x-z slice (default)
         if (in_axis == 1) {
             const std::vector<long unsigned> shape{ N, N, 3 };
@@ -829,8 +823,8 @@ int main(int argc, char** argv)
 
     
     Material_xy.CreateShader(VertexSource, FragmentSource);         // create a material based on the vertex and fragment shaders
-    Material_xz.CreateShader(VertexSource, FragmentSource);
-    Material_yz.CreateShader(VertexSource, FragmentSource);  
+    Material_yz.CreateShader(VertexSource, FragmentSource); 
+    Material_xz_r.CreateShader(VertexSource, FragmentSource);         // create a material based on the vertex and fragment shaders
 
     SliceGeometry = tira::glGeometry::GenerateRectangle<float>();
     
@@ -875,10 +869,10 @@ int main(int argc, char** argv)
         Material_xy.End();
 
         glViewport(display_w / 2, 0, display_w / 2, display_h / 2);                     // specifies the area of the window where OpenGL can render
-        Material_xz.Begin();
-        Material_xz.SetUniformMat4f("MVP", projection);
+        Material_xz_r.Begin();
+        Material_xz_r.SetUniformMat4f("MVP", projection);
         SliceGeometry.Draw();
-        Material_xz.End();
+        Material_xz_r.End();
 
 
 

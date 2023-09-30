@@ -35,16 +35,16 @@
 //}
 
 // A is the matrix to be eigen-solved. N is the number of rows or columns.
-void MKL_eigensolve(std::complex<double>* A, std::complex<double>* eigenvalues, std::complex<double>* eigenvectors, int N) {
+inline void MKL_eigensolve(std::complex<double>* A, std::complex<double>* eigenvalues, std::complex<double>* eigenvectors, int N) {
 	int LDA = N, LDVL = N, LDVR = N;
 	MKL_INT n = N, lda = LDA, ldvl = LDVL, ldvr = LDVR, info;
-	MKL_Complex16 *w, *vl, *vr;
+	MKL_Complex16* w, * vl, * vr;
 	vl = new MKL_Complex16[LDVL * N];
 	info = LAPACKE_zgeev(LAPACK_COL_MAJOR, 'N', 'V', n, (MKL_Complex16*)A, lda, (MKL_Complex16*)eigenvalues, vl, ldvl, (MKL_Complex16*)eigenvectors, ldvr);
 	delete[] vl;
 }
 
-void MKL_linearsolve(Eigen::MatrixXcd& A, Eigen::VectorXcd& b) {
+inline void MKL_linearsolve(Eigen::MatrixXcd& A, Eigen::VectorXcd& b) {
 	int N = b.size();
 	MKL_INT* x;
 	x = new MKL_INT[N * 2];
@@ -53,7 +53,7 @@ void MKL_linearsolve(Eigen::MatrixXcd& A, Eigen::VectorXcd& b) {
 	int info = LAPACKE_zgesv(LAPACK_COL_MAJOR, N, Nb, (MKL_Complex16*)A.data(), N, x, (MKL_Complex16*)b.data(), N);
 }
 
-Eigen::MatrixXcd MKL_inverse(Eigen::MatrixXcd& A) {
+inline Eigen::MatrixXcd MKL_inverse(Eigen::MatrixXcd A) {
 	int N = A.rows();
 	Eigen::MatrixXcd b = Eigen::MatrixXcd::Identity(N, N);
 	MKL_INT* x;
@@ -64,7 +64,7 @@ Eigen::MatrixXcd MKL_inverse(Eigen::MatrixXcd& A) {
 }
 
 
-Eigen::MatrixXcd MKL_multiply(Eigen::MatrixXcd& A, Eigen::MatrixXcd& B, std::complex<double> alpha) {
+inline Eigen::MatrixXcd MKL_multiply(Eigen::MatrixXcd& A, Eigen::MatrixXcd& B, std::complex<double> alpha) {
 	// This example computes real matrix C=alpha*A*B+beta*C using zgemm.
 	int M = A.rows();
 	int K = A.cols();

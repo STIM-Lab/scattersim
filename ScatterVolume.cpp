@@ -52,7 +52,6 @@ int M[2];	// Set the number of the Fourier Coefficients
 Eigen::MatrixXcd A;
 Eigen::VectorXcd b;
 Eigen::VectorXcd ni;
-std::complex<double>* sz;
 double* z;
 std::complex<double> k;
 std::vector<std::complex<double>> E0;
@@ -64,6 +63,7 @@ std::vector<Eigen::RowVectorXcd> Sz(2);		// 2D vector for the Fourier coefficien
 Eigen::VectorXcd Ex, Ey, Ez;
 int ei = 0;				// The current row for the matrix
 int l;			// The current layer l.
+int in_resolution;
 std::ofstream logfile;
 std::vector<Eigen::MatrixXcd> D;		// The property matrix
 //std::vector<int> fz;					// The coordinates for the sample boundaries
@@ -85,6 +85,7 @@ std::vector<int> M_rowInd;
 std::vector<int> M_colInd;
 std::vector<std::complex<double>> M_val;
 Eigen::MatrixXcd tmp;					// Temposarily store some Eigen::MatrixXcd
+Eigen::MatrixXcd Gc_old;					// Temposarily store some Eigen::MatrixXcd
 std::chrono::duration<double> elapsed_seconds;
 	
 /// Convert a complex vector to a string for display
@@ -231,10 +232,6 @@ void EigenDecompositionD() {
 			Eigen::ComplexEigenSolver<Eigen::MatrixXcd> es(D[i]);
 			eigenvalues_unordered.push_back(es.eigenvalues());
 			eigenvectors_unordered.push_back(es.eigenvectors());
-			std::cout << "eigenvalues from eigen solver: " << std::endl;
-			std::cout << eigenvalues_unordered[i] << std::endl;
-			std::cout << "eigenvectors from eigen solver: " << std::endl;
-			std::cout << eigenvectors_unordered[i] << std::endl;
 		}
 		if (MKL_lapack) {
 			std::complex<double>* A = new std::complex<double>[4 * MF * 4 * MF];
@@ -248,7 +245,6 @@ void EigenDecompositionD() {
 			std::cout << "			 Time for MKL_eigensolve():" << elapsed_seconds.count() << "s" << std::endl;
 			eigenvalues_unordered.push_back(Eigen::Map<Eigen::VectorXcd>(evl, 4 * MF));
 			eigenvectors_unordered.push_back(Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(evt, 4 * MF, 4 * MF));
-
 		}
 
 	}
@@ -260,18 +256,21 @@ void EigenDecompositionD() {
 	Gc.resize(4 * MF, 4 * MF);
 	std::complex<double> Di;
 	std::complex<double> Ci;
-	Beta.resize(num_pixels[2]);
+	Beta.resize(num_pixels[0]);
 	for (size_t i = 0; i < D.size(); i++) {
 		for (size_t j = 0; j < eigenvalues[i].size(); j++) {
-			if (i == 0) {
-				Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(z[1] - z[0]));
-				Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(z[0] - z[1]));
+			if (D.size() == 1) {
+				Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(z[1] - z[0]));
+				Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(z[0] - z[1]));
 			}
 			else {
-				Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(in_size[2]/num_pixels[2]));
-				Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(in_size[2] / num_pixels[2]));
+				//Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>)(in_size[2]) / (std::complex<double>)num_pixels[0]));
+				//Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (-in_size[2]) / (std::complex<double>)num_pixels[0]));
+				Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>)(in_size[1]) / (std::complex<double>) (pow(2, in_resolution)-1)));
+				Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (-in_size[1]) / (std::complex<double>)(pow(2, in_resolution) - 1)));
+
 			}
-			if (j % 2 == 0) {
+			if (j % 2 != 0) {
 				Gd.col(j) = eigenvectors[i].col(j) * Di;
 				Gc.col(j) = eigenvectors[i].col(j);
 			}
@@ -282,14 +281,25 @@ void EigenDecompositionD() {
 			}
 		}
 		GD.push_back(Gd);
+		GC.push_back(Gc);
+
 		if (i == 0)
-			GC.push_back(Gc);
-		else {
+			Gc_old = Gc;
+		else{
 			tmp = MKL_inverse(Gd);
 			tmp = MKL_multiply(Gc, tmp, 1);
-			Gc = MKL_multiply(tmp, GC[i - 1], 1);
-			GC.push_back(Gc);
+			Gc_old = MKL_multiply(tmp, Gc_old, 1);
+			Gc = Gc_old;
 		}
+		//if (i == 0)
+		//	GC.push_back(Gc);
+		//else {
+		//	tmp = MKL_inverse(Gd);
+		//	tmp = MKL_multiply(Gc, tmp, 1);
+		//	Gc = MKL_multiply(tmp, GC[i - 1], 1);
+		//	GC.push_back(Gc);
+		//}
+
 
 		if (logfile) {
 			logfile << "----------For the layer---------- " << std::endl;
@@ -315,7 +325,8 @@ void MatTransfer() {
 	f2.setZero();
 	f3.setZero();
 
-	Eigen::RowVectorXcd phase = (std::complex<double>(0, 1) * k * (std::complex<double>)(z[0] - z[0]) * Eigen::Map<Eigen::RowVectorXcd>(Sz[0].data(), Sz[0].size())).array().exp();
+	// Focus on z=0
+	Eigen::RowVectorXcd phase = (std::complex<double>(0, 1) * k * (std::complex<double>)(z[0] - 0) * Eigen::Map<Eigen::RowVectorXcd>(Sz[0].data(), Sz[0].size())).array().exp();
 	Eigen::MatrixXcd Phase = phase.replicate(MF, 1);		// Phase is the duplicated (by row) matrix from phase.
 
 	Eigen::MatrixXcd SZ0 = Sz[0].replicate(MF, 1);		// neg_SZ0 is the duplicated (by row) matrix from neg_Sz0.
@@ -400,7 +411,7 @@ void SetBoundaryConditions() {
 
 	A.block(2 * MF, 0, 4 * MF, 3 * MF) = f2;
 	//A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = Gd * Gc_inv * f3;
-	tmp = MKL_multiply(Gd, Gc_inv, 1);
+	tmp = MKL_multiply(GD[0], Gc_inv, 1);
 	A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = MKL_multiply(tmp, f3, 1);
 	std::chrono::time_point<std::chrono::system_clock> mul = std::chrono::system_clock::now();
 	elapsed_seconds = mul - inv;
@@ -430,7 +441,6 @@ std::vector<tira::planewave<double>> mat2waves(tira::planewave<double> i, Eigen:
 		x[idx(0, Reflected, Y, p, MF)],
 		x[idx(0, Reflected, Z, p, MF)]
 		);
-
 	tira::planewave<double> t(Sx(p) * k,
 		Sy(p) * k,
 		Sz[1](p) * k,
@@ -457,7 +467,6 @@ std::vector< tira::planewave<double> > RemoveInvalidWaves(std::vector<tira::plan
 
 int main(int argc, char** argv) {
 	std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-	std::cout << "Initialization starts..." << std::endl;
 
 	// Set up all of the input options provided to the user
 	boost::program_options::options_description desc("Allowed options");
@@ -471,8 +480,9 @@ int main(int argc, char** argv) {
 		("n", boost::program_options::value<std::vector<double>>(&in_n)->multitoken()->default_value(std::vector<double>{1.0, 1.0}, "1, 1"), "real refractive index (optical path length) of the upper and lower layers")
 		("kappa", boost::program_options::value<std::vector<double> >(&in_kappa)->multitoken()->default_value(std::vector<double>{0}, "0.00"), "absorbance of the lower layer (upper layer is always 0.0)")
 		// The center of the sample along x/y is always 0/0.
-		("size", boost::program_options::value<std::vector<double>>(&in_size)->multitoken()->default_value(std::vector<double>{100, 100, 10}, "100, 100, 10"), "The real size of the single-layer sample")
-		("z", boost::program_options::value<double >(&in_z)->multitoken()->default_value(-3.0, "-3.0"), "the top boundary of the sample")
+		("resolution", boost::program_options::value<int>(&in_resolution)->default_value(8), "resolution of the sample field (use powers of two, ex. 2^n)")
+		("size", boost::program_options::value<std::vector<double>>(&in_size)->multitoken()->default_value(std::vector<double>{100, 100, 10}, "100, 100, 6"), "The real size of the single-layer sample")
+		("z", boost::program_options::value<double >(&in_z)->multitoken()->default_value(-5.0, "-5.0"), "the top boundary of the sample")
 		("output", boost::program_options::value<std::string>(&in_outfile)->default_value("c.cw"), "output filename for the coupled wave structure")
 		("alpha", boost::program_options::value<double>(&in_alpha)->default_value(1), "angle used to focus the incident field")
 		("beta", boost::program_options::value<double>(&in_beta)->default_value(0.0), "internal obscuration angle (for simulating reflective optics)")
@@ -493,7 +503,7 @@ int main(int argc, char** argv) {
 		std::cout << desc << std::endl;
 		return 1;
 	}
-
+	std::cout << "Initialization starts..." << std::endl;
 
 	if (vm.count("log")) {									// if a log is requested, begin output
 		std::stringstream ss;
@@ -548,14 +558,13 @@ int main(int argc, char** argv) {
 	E0.push_back(std::complex<double>(in_ey[0], in_ey[1]));
 	E0.push_back(std::sqrt(pow(std::complex<double>(1, 0), 2) - pow(E0[0], 2) - pow(E0[1], 2)));
 	std::vector<Eigen::MatrixXcd> Ef(3);
-	Ef[0] = fftw_fft2(E0[0] * Eigen::MatrixXcd::Ones(num_pixels[0], num_pixels[1]), M[1], M[0]);	// M[0]=3 is column. M[1]=1 is row. 
-	Ef[1] = fftw_fft2(E0[1] * Eigen::MatrixXcd::Ones(num_pixels[0], num_pixels[1]), M[1], M[0]);
-	Ef[2] = fftw_fft2(E0[2] * Eigen::MatrixXcd::Ones(num_pixels[0], num_pixels[1]), M[1], M[0]);
+	Ef[0] = fftw_fft2(E0[0] * Eigen::MatrixXcd::Ones(num_pixels[2], num_pixels[1]), M[1], M[0]);	// M[0]=3 is column. M[1]=1 is row. 
+	Ef[1] = fftw_fft2(E0[1] * Eigen::MatrixXcd::Ones(num_pixels[2], num_pixels[1]), M[1], M[0]);
+	Ef[2] = fftw_fft2(E0[2] * Eigen::MatrixXcd::Ones(num_pixels[2], num_pixels[1]), M[1], M[0]);
 	EF.resize(3 * MF);
 	EF.segment(0, MF) = Eigen::Map<Eigen::VectorXcd>(Ef[0].data(), MF);
 	EF.segment(MF, MF) = Eigen::Map<Eigen::VectorXcd>(Ef[1].data(), MF);
 	EF.segment(2 * MF, MF) = Eigen::Map<Eigen::VectorXcd>(Ef[2].data(), MF);
-	//std::cout << "EF:" << EF;
 
 	// Sync the Fourier transform of direction propagation with Volume
 	Sx = Eigen::Map<Eigen::RowVectorXcd>(Volume._meshS0.data(), MF);
@@ -604,6 +613,8 @@ int main(int argc, char** argv) {
 	std::cout << "Linear system solving (MKL)..." << std::endl;
 	MKL_linearsolve(A, b);
 	Eigen::VectorXcd x = b;
+
+	//std::cout << "x: " << x << std::endl;
 	std::cout << "Linear system solved." << std::endl;
 
 	std::chrono::time_point<std::chrono::system_clock> solved = std::chrono::system_clock::now();
@@ -662,23 +673,46 @@ int main(int argc, char** argv) {
 	cw.isHete = true;
 	// Calculate beta according to the GD, GC, and Pt/Pr
 	if (cw.isHete) {
-		cw.Slices.resize(num_pixels[2]);
+		cw.M[0] = M[0];
+		cw.M[1] = M[1];
+		cw.size[0] = in_size[0];
+		cw.size[1] = in_size[1];
+		cw.size[2] = in_size[2];
+		cw.Slices.resize(num_pixels[0]);
+		cw.NIf.resize(num_pixels[0]);
+		for (size_t i = 0; i < num_pixels[0]; i++) {
+			cw.NIf[i].resize(M[0] * M[1]);
+			for (int j = 0; j < M[0] * M[1]; j++) {
+				cw.NIf[i][j] = Volume.NIf[i](j);
+			}
+		}
 		Eigen::MatrixXcd EF_mat;
 		Eigen::MatrixXcd Pr_0;
 		Eigen::MatrixXcd beta;
-		EF_mat.resize(3, MF);
-		Pr_0.resize(3, MF);
-		EF_mat.row(0) = EF.segment(0, MF);
-		EF_mat.row(1) = EF.segment(MF, MF);
-		EF_mat.row(2) = EF.segment(MF * 2, MF);
-		Pr_0.row(0) = x.segment(idx(1, Transmitted, X, 0, MF), MF);
-		Pr_0.row(1) = x.segment(idx(1, Transmitted, Y, 0, MF), MF);
-		Pr_0.row(2) = x.segment(idx(1, Transmitted, Z, 0, MF), MF);
-		for (size_t i = 0; i < num_pixels[2]; i++) {
+
+		EF_mat = Eigen::Map< Eigen::MatrixXcd>(EF.data(), 3 * MF, 1);
+		Pr_0 = Eigen::Map< Eigen::MatrixXcd>(x.data(), 3 * MF, 1);
+		//EF_mat.row(0) = EF.segment(0, MF);
+		//EF_mat.row(1) = EF.segment(MF, MF);
+		//EF_mat.row(2) = EF.segment(MF * 2, MF);
+		//Pr_0.row(0) = x.segment(idx(1, Transmitted, X, 0, MF), MF);
+		//Pr_0.row(1) = x.segment(idx(1, Transmitted, Y, 0, MF), MF);
+		//Pr_0.row(2) = x.segment(idx(1, Transmitted, Z, 0, MF), MF);
+		//std::cout << "GD[0]" << std::endl << GD[0] << std::endl;
+		//std::cout << "f1" << std::endl << f1 << std::endl;
+		//std::cout << "EF_mat" << std::endl << EF_mat << std::endl;
+
+		//std::cout << Pr_0;
+		//std::cout << "f2" << std::endl << f2 << std::endl;
+		//std::cout << "Pr_0" << std::endl << Pr_0 << std::endl;
+
+		for (size_t i = 0; i < num_pixels[0]; i++) {
 			if (i == 0) {
 				tmp = MKL_inverse(GD[0]);
 				tmp = MKL_multiply(tmp, f1, 1);
+
 				beta = MKL_multiply(tmp, EF_mat, 1);
+
 				tmp = MKL_inverse(GD[0]);
 				tmp = MKL_multiply(tmp, f2, 1);
 				beta += MKL_multiply(tmp, Pr_0, 1);
@@ -688,12 +722,10 @@ int main(int argc, char** argv) {
 				tmp = MKL_multiply(tmp, GC[i - 1], 1);
 				beta = MKL_multiply(tmp, beta, 1);
 			}
-			Beta[i] = beta.reshaped<Eigen::RowMajor>();
-
+			Beta[i] = beta;
 		}
-		std::cout << "beta calculated" << std::endl;
 
-		for (size_t i = 0; i < num_pixels[2]; i++) {
+		for (size_t i = 0; i < num_pixels[0]; i++) {
 			cw.Slices[i].beta.resize(MF4);
 			cw.Slices[i].gamma.resize(MF4);
 			cw.Slices[i].gg.resize(MF4 * MF4);
@@ -707,13 +739,14 @@ int main(int argc, char** argv) {
 		}
 	}
 
+
 	std::cout << "Field saved in " << in_outfile << "." << std::endl;
 	std::chrono::time_point<std::chrono::system_clock> simulated = std::chrono::system_clock::now();
 	elapsed_seconds = simulated - solved;
 	std::cout << "Time for saving the field " << elapsed_seconds.count() << "s" << std::endl << std::endl << std::endl;
 
-	std::cout << "Number of pixels (x, y): [" << num_pixels[1] << "," << num_pixels[0]  << "]" << std::endl;
-	std::cout << "Number of sublayers: " << num_pixels[2] << std::endl;
+	std::cout << "Number of pixels (x, y): [" << num_pixels[1] << "," << num_pixels[2]  << "]" << std::endl;
+	std::cout << "Number of sublayers: " << num_pixels[0] << std::endl;
 	std::cout << "Number of Fourier coefficients (Mx, My): [" << M[0] << "," << M[1] << "]" << std::endl;
 	elapsed_seconds = simulated - start;
 	std::cout << "Total time:" << elapsed_seconds.count() << "s" << std::endl;

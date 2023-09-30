@@ -71,7 +71,6 @@ link_directories(${CUDA_BIN_DIRS})
 #create an executable
 add_executable(scatterplane
 					CoupledWaveStructure.h
-					# HeteSaveStructure.h
 					ScatterPlane.cpp
 					cnpy/cnpy.cpp)
 
@@ -82,7 +81,6 @@ add_executable(scattertest
 
 add_executable(scatterlayer
 					CoupledWaveStructure.h
-					# HeteSaveStructure.h
 					ScatterLayer.cpp)
 
 add_executable(scatterthinvolume
@@ -96,13 +94,27 @@ add_executable(scattervolume
 					ScatterVolume.cpp
 					third_Lapack.h)
 
-add_executable(scatterview
+add_executable(scatterviewlive
 					CoupledWaveStructure.h
+					FourierWave.h
+					third_Lapack.h
 					cpuEvaluator.cpp
 					cpuEvaluator.h
 					gpuEvaluator.cu
 					gpuEvaluator.h
-					ScatterView.cpp
+					ScatterViewLive.cpp
+					ImGuiFileDialog/ImGuiFileDialog.cpp
+					cnpy/cnpy.cpp)
+
+add_executable(scatterviewsample
+					CoupledWaveStructure.h
+					FourierWave.h
+					third_Lapack.h
+					cpuEvaluator.cpp
+					cpuEvaluator.h
+					gpuEvaluator.cu
+					gpuEvaluator.h
+					ScatterViewSample.cpp
 					ImGuiFileDialog/ImGuiFileDialog.cpp
 					cnpy/cnpy.cpp)
 
@@ -144,7 +156,7 @@ target_link_libraries(scattervolume
 			MKL::MKL
 )
 
-target_link_libraries(scatterview
+target_link_libraries(scatterviewlive
 			ZLIB::ZLIB
 			glfw
 			glm::glm
@@ -154,4 +166,22 @@ target_link_libraries(scatterview
 			Boost::program_options
 			${JPEG_LIBRARIES}
 			PNG::PNG
+			Eigen3::Eigen
+			FFTW3::fftw3
+			MKL::MKL
+)
+
+target_link_libraries(scatterviewsample
+			ZLIB::ZLIB
+			glfw
+			glm::glm
+			GLEW::GLEW
+			${OPENGL_LIBRARIES}
+			imgui::imgui
+			Boost::program_options
+			${JPEG_LIBRARIES}
+			PNG::PNG
+			Eigen3::Eigen
+			FFTW3::fftw3
+			MKL::MKL
 )

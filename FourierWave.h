@@ -18,8 +18,38 @@
 
 extern std::vector<double> in_size;
 
+/// <summary>
+/// Function: Same as the numpy.meshgrid()
+/// https://blog.csdn.net/weixin_41661099/article/details/105011027
+/// </summary>
+/// <param name="vecX"></param>
+/// <param name="vecY"></param>
+/// <param name="meshX"></param>
+/// <param name="meshY"></param>
+inline void meshgrid(Eigen::VectorXcd& vecX, Eigen::VectorXcd& vecY, Eigen::MatrixXcd& meshX, Eigen::MatrixXcd& meshY) {
+	int vecXLength = vecX.size();
+	int vecYLength = vecY.size();
+	for (size_t i = 0; i < vecYLength; i++) {
+		meshX.row(i) = vecX;
+	}
+	for (size_t i = 0; i < vecXLength; i++) {
+		meshY.col(i) = vecY.transpose();
+	}
+}
+
+inline void meshgrid_d(Eigen::VectorXd& vecX, Eigen::VectorXd& vecY, Eigen::MatrixXd& meshX, Eigen::MatrixXd& meshY) {
+	int vecXLength = vecX.size();
+	int vecYLength = vecY.size();
+	for (size_t i = 0; i < vecYLength; i++) {
+		meshX.row(i) = vecX;
+	}
+	for (size_t i = 0; i < vecXLength; i++) {
+		meshY.col(i) = vecY.transpose();
+	}
+}
+
 // function to compute 2d-fftshift (like MATLAB) of a matrix
-Eigen::MatrixXcd fftShift2d(Eigen::MatrixXcd mat)
+inline Eigen::MatrixXcd fftShift2d(Eigen::MatrixXcd mat)
 {
 	int m, n, p, q;
 	m = mat.rows();
@@ -89,7 +119,7 @@ Eigen::MatrixXcd fftShift2d(Eigen::MatrixXcd mat)
 /// <param name="M1">The kept number of Fourier coefficients along x</param>
 /// <param name="M2">The kept number of Fourier coefficients along y</param>
 /// <returns></returns>
-Eigen::MatrixXcd fftw_fft2(Eigen::MatrixXcd A, int M1, int M2) {
+inline Eigen::MatrixXcd fftw_fft2(Eigen::MatrixXcd A, int M1, int M2) {
 	int N1 = A.rows();
 	int N2 = A.cols();
 
@@ -131,31 +161,64 @@ Eigen::MatrixXcd fftw_fft2(Eigen::MatrixXcd A, int M1, int M2) {
 
 	Eigen::MatrixXcd outnew;
 	outnew = fftShift2d(B);
-	return outnew.block(N1/2-M1/2, N2/2-M2/2, M1, M2);
+	return outnew.block(N1 / 2 - M1 / 2, N2 / 2 - M2 / 2, M1, M2);
 }
 
-/// <summary>
-/// Function: Same as the numpy.meshgrid()
-/// https://blog.csdn.net/weixin_41661099/article/details/105011027
 /// </summary>
-/// <param name="vecX"></param>
-/// <param name="vecY"></param>
-/// <param name="meshX"></param>
-/// <param name="meshY"></param>
-void meshgrid(Eigen::VectorXcd& vecX, Eigen::VectorXcd& vecY, Eigen::MatrixXcd& meshX, Eigen::MatrixXcd& meshY) {
-	int vecXLength = vecX.size();
-	int vecYLength = vecY.size();
-	for (size_t i = 0; i < vecYLength; i++) {
-		meshX.row(i) = vecX;
+/// <param name="A">input image specified as Eiegn::MatrixXcd format</param>
+/// <param name="M1">The kept number of Fourier coefficients along x</param>
+/// <param name="M2">The kept number of Fourier coefficients along y</param>
+/// <returns></returns>
+inline Eigen::MatrixXcd fftw_ift2(Eigen::MatrixXcd A, Eigen::VectorXd& width_x, Eigen::VectorXd& width_y, std::complex<double>* s, std::complex<double> k) {
+	Eigen::MatrixXcd E;
+
+	int N1 = width_x.size();
+	int N2 = width_y.size();
+	int MF_x = A.cols();
+	int MF_y = A.rows();
+
+	Eigen::MatrixXd XX;
+	Eigen::MatrixXd YY;
+
+	XX.resize(N1, N2);
+	YY.resize(N1, N2);
+	E.resize(N1, N2);
+	XX.setZero();
+	YY.setZero();
+	E.setZero();
+	//meshgrid_d(width_x, width_y, XX, YY);
+	Eigen::VectorXd X_vec;
+	Eigen::VectorXd Y_vec;
+	double tmp0 = width_x[width_x.size() - 1] - width_x[0];
+	double tmp1 = width_y[width_y.size() - 1] - width_y[0];
+	X_vec.setLinSpaced(N1, width_x[0], (tmp0 - tmp0 / (double)N1));
+	Y_vec.setLinSpaced(N2, width_y[0], (tmp1 - tmp1 / (double)N2));
+	meshgrid_d(X_vec, Y_vec, XX, YY);
+	//std::cout << "A: " << A << std::endl;
+	//std::cout << "XX: " << XX << std::endl;
+	//std::cout << "YY: " << YY << std::endl;
+	//std::cout << "s0: " << s[0] << std::endl;
+	//std::cout << "s1: " << s[1] << std::endl;
+	//std::cout << "k: " << k << std::endl;
+	double u, w;
+	for (int j = 0; j < MF_y; j++) {
+		w = 2 * PI * (j - MF_y / 2) / (width_y[width_y.size() - 1] - width_y[0]) + (s[1] * k).real();
+		//std::cout << "w: " << w << std::endl;
+		for (int i = 0; i < MF_x; i++) {
+			u = 2 * PI * (i - MF_x / 2) / (width_x[width_x.size() - 1] - width_x[0]) + (s[0] * k).real();
+			//std::cout << "u: " << u << std::endl;
+			E = E + A(i, j) * (std::complex<double>(0, 1) * (std::complex<double>(u) * YY.cast<std::complex<double>>().array() + std::complex<double>(w) * XX.cast<std::complex<double>>().array())).exp().matrix();
+		}
 	}
-	for (size_t i = 0; i < vecXLength; i++) {
-		meshY.col(i) = vecY.transpose();
-	}
+	//std::cout << "E: " << E << std::endl;
+	return E;
 }
 
 template <class T>
 class volume : public tira::field<T> {
 public:
+	std::vector<Eigen::MatrixXcd> NIf;
+	Eigen::MatrixXcd Nif;
 	std::vector<Eigen::MatrixXcd> _Sample;
 	std::vector<size_t> _shape;
 
@@ -189,13 +252,13 @@ public:
 	std::vector<int> _M_colInd;
 	std::vector<std::complex<double>> _M_val;
 
-	volume(std::string filename, 
-		Eigen::VectorXcd n_layers, 
-		double* z, 
-		std::vector<double> center, 
-		std::vector<double> size, 
-		double k, 
-		std::complex<double> n_volume){
+	volume(std::string filename,
+		Eigen::VectorXcd n_layers,
+		double* z,
+		std::vector<double> center,
+		std::vector<double> size,
+		double k,
+		std::complex<double> n_volume) {
 		tira::field<T>::template load_npy<std::complex<double>>(filename);
 
 		// Necessary parameters
@@ -213,18 +276,21 @@ public:
 	/// </summary>
 	std::vector<size_t> reformat() {
 		if (_shape.size() == 3) {
-			_Sample.resize(_shape[2]);
-			for (size_t i = 0; i < _shape[2]; i++) {
-				_Sample[i].resize(_shape[0], _shape[1]); // Orders for resize(): (row, col)
-				_Sample[i] = Eigen::Map<Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>>(&tira::field<T>::_data[i * _shape[0] * _shape[1]], _shape[0], _shape[1]);
+			_Sample.resize(_shape[0]);
+			for (size_t i = 0; i < _shape[0]; i++) {
+				_Sample[i].resize(_shape[1], _shape[2]); // Orders for resize(): (row, col)
+				_Sample[i] = Eigen::Map<Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>>(&tira::field<T>::_data[i * _shape[1] * _shape[2]], _shape[1], _shape[2]);
+				//std::cout << "_Sample[i]: " << _Sample[i] << std::endl;
 			}
 		}
 		else if (_shape.size() == 2) {
 			_Sample.resize(1);
-			_shape.push_back(1);
-			for (size_t i = 0; i < _shape[2]; i++) {
-				_Sample[i].resize(_shape[0], _shape[1]); // Orders for resize(): (row, col)
-				_Sample[i] = Eigen::Map<Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>>(&tira::field<T>::_data[i * _shape[0] * _shape[1]], _shape[0], _shape[1]);
+			_shape.insert(_shape.begin(), 1);
+			for (size_t i = 0; i < _shape[0]; i++) {
+				_Sample[i].resize(_shape[1], _shape[2]); // Orders for resize(): (row, col)
+				_Sample[i] = Eigen::Map<Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>>(&tira::field<T>::_data[i * _shape[1] * _shape[2]], _shape[1], _shape[2]);
+				//std::cout << "_Sample[i]: " << _Sample[i] << std::endl;
+
 			}
 		}
 		return  _shape;
@@ -235,7 +301,7 @@ public:
 		_dir = dir;
 		std::cout << "		The property matrix D starts forming..." << std::endl;
 		clock_t Phi1 = clock();
-		for (size_t i = 0; i < _shape[2]; i++) {
+		for (size_t i = 0; i < _shape[0]; i++) {
 			_Phi.push_back(phi(_Sample[0]));
 		}
 		clock_t Phi2 = clock();
@@ -244,14 +310,16 @@ public:
 	}
 
 private:
-	
+
 	void UpWq_Cal() {
-		_p_series.setLinSpaced(_M[0], -_M[0] / 2, (_M[0] - 1) / 2);
-		_q_series.setLinSpaced(_M[1], -_M[1] / 2, (_M[1] - 1) / 2);
+		_p_series.setLinSpaced(_M[0], -double(_M[0] / 2), double((_M[0] - 1) / 2));
+		_q_series.setLinSpaced(_M[1], -double(_M[1] / 2), double((_M[1] - 1) / 2));
+		//_p_series.setLinSpaced(_M[0], -_M[0] / 2, (_M[0] - 1) / 2);
+		//_q_series.setLinSpaced(_M[1], -_M[1] / 2, (_M[1] - 1) / 2);
 		_up = 2 * PI * _p_series / in_size[0] + _dir[0] * _k * Eigen::VectorXd::Ones(_M[0]);
 		_wq = 2 * PI * _q_series / in_size[1] + _dir[1] * _k * Eigen::VectorXd::Ones(_M[1]);
-		_Sx = (_up / _k).cast<std::complex<double>>();
-		_Sy = (_wq / _k).cast<std::complex<double>>();
+		_Sx = (_up / _k).template cast<std::complex<double>>();
+		_Sy = (_wq / _k).template cast<std::complex<double>>();
 
 		_meshS0.setZero(_M[1], _M[0]);
 		_meshS1.setZero(_M[1], _M[0]);
@@ -268,8 +336,12 @@ private:
 		_M_colInd.reserve(100000);
 		int idx = 0;
 		UpWq_Cal();
+		//std::cout << "sample: " << sample << std::endl;
 		Eigen::MatrixXcd Nf = fftw_fft2(sample.array().pow(2), _M[1], _M[0]);
-		Eigen::MatrixXcd Nif = fftw_fft2(sample.cwiseInverse().array().pow(2), _M[1], _M[0]);
+		Nif = fftw_fft2(sample.cwiseInverse().array().pow(2), _M[1], _M[0]);
+		//std::cout << "Nif: " << Nif << std::endl;
+
+		NIf.push_back(Nif);
 		int MF = _M[0] * _M[1];
 
 		// Calculate phi

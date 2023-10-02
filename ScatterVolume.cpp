@@ -66,7 +66,6 @@ int l;			// The current layer l.
 int in_resolution;
 std::ofstream logfile;
 std::vector<Eigen::MatrixXcd> D;		// The property matrix
-//std::vector<int> fz;					// The coordinates for the sample boundaries
 std::vector<Eigen::VectorXcd> eigenvalues;			// eigen values for current layer
 std::vector<Eigen::MatrixXcd> eigenvectors;			// eigen vectors for current layer
 std::vector<Eigen::VectorXcd> Beta;			// eigen vectors for current layer
@@ -79,8 +78,7 @@ std::vector<Eigen::MatrixXcd> GC;					// Dimension: (layers, coeffs)
 Eigen::MatrixXcd f1;
 Eigen::MatrixXcd f2;
 Eigen::MatrixXcd f3;
-//std::vector<double> z_new(2);
-// For sparse storage
+// For sparse storage. Not in use because lack of methods to calculate eigendecomposition for sparse matrix
 std::vector<int> M_rowInd;
 std::vector<int> M_colInd;
 std::vector<std::complex<double>> M_val;
@@ -219,8 +217,6 @@ bool sorter(EiV const& lhs, EiV const& rhs) {
 // Sort the eigenvectors and eigenvalues by pairs. 
 // Build matrices Gd and Gc.
 void EigenDecompositionD() {
-	//std::cout << "				Eigen solver working..." << std::endl;
-	//std::chrono::time_point<std::chrono::system_clock> essolver1 = std::chrono::system_clock::now();
 	std::vector<Eigen::VectorXcd> eigenvalues_unordered;
 	std::vector<Eigen::MatrixXcd> eigenvectors_unordered;
 	bool EIGEN = false;
@@ -264,6 +260,8 @@ void EigenDecompositionD() {
 				Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(z[0] - z[1]));
 			}
 			else {
+				/// Use the commented version when you don't need the heterogeneous info.
+				/// Reason: Little phase mismatch due to the dif between simulation and physics.
 				//Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>)(in_size[2]) / (std::complex<double>)num_pixels[0]));
 				//Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (-in_size[2]) / (std::complex<double>)num_pixels[0]));
 				Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>)(in_size[1]) / (std::complex<double>) (pow(2, in_resolution)-1)));
@@ -291,15 +289,6 @@ void EigenDecompositionD() {
 			Gc_old = MKL_multiply(tmp, Gc_old, 1);
 			Gc = Gc_old;
 		}
-		//if (i == 0)
-		//	GC.push_back(Gc);
-		//else {
-		//	tmp = MKL_inverse(Gd);
-		//	tmp = MKL_multiply(Gc, tmp, 1);
-		//	Gc = MKL_multiply(tmp, GC[i - 1], 1);
-		//	GC.push_back(Gc);
-		//}
-
 
 		if (logfile) {
 			logfile << "----------For the layer---------- " << std::endl;
@@ -480,9 +469,9 @@ int main(int argc, char** argv) {
 		("n", boost::program_options::value<std::vector<double>>(&in_n)->multitoken()->default_value(std::vector<double>{1.0, 1.0}, "1, 1"), "real refractive index (optical path length) of the upper and lower layers")
 		("kappa", boost::program_options::value<std::vector<double> >(&in_kappa)->multitoken()->default_value(std::vector<double>{0}, "0.00"), "absorbance of the lower layer (upper layer is always 0.0)")
 		// The center of the sample along x/y is always 0/0.
-		("resolution", boost::program_options::value<int>(&in_resolution)->default_value(8), "resolution of the sample field (use powers of two, ex. 2^n)")
-		("size", boost::program_options::value<std::vector<double>>(&in_size)->multitoken()->default_value(std::vector<double>{100, 100, 10}, "100, 100, 6"), "The real size of the single-layer sample")
-		("z", boost::program_options::value<double >(&in_z)->multitoken()->default_value(-5.0, "-5.0"), "the top boundary of the sample")
+		("resolution", boost::program_options::value<int>(&in_resolution)->default_value(7), "resolution of the sample field (use powers of two, ex. 2^n)")
+		("size", boost::program_options::value<std::vector<double>>(&in_size)->multitoken()->default_value(std::vector<double>{100, 100, 6}, "100, 100, 6"), "The real size of the single-layer sample")
+		("z", boost::program_options::value<double >(&in_z)->multitoken()->default_value(-3.0, "-5.0"), "the top boundary of the sample")
 		("output", boost::program_options::value<std::string>(&in_outfile)->default_value("c.cw"), "output filename for the coupled wave structure")
 		("alpha", boost::program_options::value<double>(&in_alpha)->default_value(1), "angle used to focus the incident field")
 		("beta", boost::program_options::value<double>(&in_beta)->default_value(0.0), "internal obscuration angle (for simulating reflective optics)")
@@ -692,19 +681,6 @@ int main(int argc, char** argv) {
 
 		EF_mat = Eigen::Map< Eigen::MatrixXcd>(EF.data(), 3 * MF, 1);
 		Pr_0 = Eigen::Map< Eigen::MatrixXcd>(x.data(), 3 * MF, 1);
-		//EF_mat.row(0) = EF.segment(0, MF);
-		//EF_mat.row(1) = EF.segment(MF, MF);
-		//EF_mat.row(2) = EF.segment(MF * 2, MF);
-		//Pr_0.row(0) = x.segment(idx(1, Transmitted, X, 0, MF), MF);
-		//Pr_0.row(1) = x.segment(idx(1, Transmitted, Y, 0, MF), MF);
-		//Pr_0.row(2) = x.segment(idx(1, Transmitted, Z, 0, MF), MF);
-		//std::cout << "GD[0]" << std::endl << GD[0] << std::endl;
-		//std::cout << "f1" << std::endl << f1 << std::endl;
-		//std::cout << "EF_mat" << std::endl << EF_mat << std::endl;
-
-		//std::cout << Pr_0;
-		//std::cout << "f2" << std::endl << f2 << std::endl;
-		//std::cout << "Pr_0" << std::endl << Pr_0 << std::endl;
 
 		for (size_t i = 0; i < num_pixels[0]; i++) {
 			if (i == 0) {

@@ -147,8 +147,10 @@ void EvaluateSample(std::vector <std::vector< Eigen::MatrixXcd>>& E, float* cent
     points = N;
 
     // Newly added on 09/18/2023
-    int points_z = Beta.size();
-    z_up = unsigned int(((z_layers[0] + (extent / 2.0 - center[2])) * (float)points / (float)extent));
+    unsigned int points_z = (z_layers[1] - z_layers[0]) / extent * (float)(points-1);
+    if (Beta.size() > 1)
+        points_z = Beta.size();
+    z_up = unsigned int(((z_layers[0] - (extent / 2.0 - center[2])) * (float)(points-1) / (float)extent)) + 1;
     z_bo = z_up + points_z;
 
     E.resize(3);
@@ -187,23 +189,20 @@ void EvaluateSample(std::vector <std::vector< Eigen::MatrixXcd>>& E, float* cent
         Eigen::Map<Eigen::MatrixXcd, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> gamma_even(Gamma[i].data(), 1, 2 * _M, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>(2, 1));
         Eigen::Map<Eigen::MatrixXcd, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> gamma_odd(Gamma[i].data() + 1, 1, 2 * _M, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>(2, 1));
 
-        //Eigen::MatrixXcd phase_even = (std::complex<double>(0, 1) * K * (std::complex<double>)((z+z_up) * extent / (float)(points - 1) - z_layers[0]) * gamma_even.array()).exp().matrix();
-        //Eigen::MatrixXcd phase_odd = (std::complex<double>(0, 1) * K * (std::complex<double>)((z+z_up) * extent / (float)(points - 1) - z_layers[1]) * gamma_odd.array()).exp().matrix();
-        Eigen::MatrixXcd phase_even = (std::complex<double>(0, 1) * K * (std::complex<double>)((z + z_up) * extent / (float)(points - 1) - extent / 2.0 - z_layers[0]) * gamma_even.array()).exp().matrix();
-        Eigen::MatrixXcd phase_odd = (std::complex<double>(0, 1) * K * (std::complex<double>)((z + z_up) * extent / (float)(points - 1) - extent / 2.0 - z_layers[1]) * gamma_odd.array()).exp().matrix();
+        //Eigen::MatrixXcd phase_even = (std::complex<double>(0, 1) * K * (std::complex<double>)((z + z_up) * extent / (float)(points - 1) - extent / 2.0 - z_layers[0]) * gamma_even.array()).exp().matrix();
+        //Eigen::MatrixXcd phase_odd = (std::complex<double>(0, 1) * K * (std::complex<double>)((z + z_up) * extent / (float)(points - 1) - extent / 2.0 - z_layers[1]) * gamma_odd.array()).exp().matrix();
+        Eigen::MatrixXcd phase_even = (std::complex<double>(0, 1) * K * (std::complex<double>)((z ) * extent / (float)(points - 1)) * gamma_even.array()).exp().matrix();
+        Eigen::MatrixXcd phase_odd = (std::complex<double>(0, 1) * K * (std::complex<double>)((z) * extent / (float)(points - 1) + z_layers[0] - z_layers[1]) * gamma_odd.array()).exp().matrix();
+
         if (Beta.size() > 1) {
             phase_even = (std::complex<double>(0, 1) * K * (std::complex<double>)(0) * gamma_even.array()).exp().matrix();
             phase_odd = (std::complex<double>(0, 1) * K * (std::complex<double>)(-extent / (float)(points - 1)) * gamma_odd.array()).exp().matrix();
-            //phase_even = (std::complex<double>(0, 1) * K * (std::complex<double>)(extent / (float)(points - 1)) * gamma_even.array()).exp().matrix();
-            //phase_odd = (std::complex<double>(0, 1) * K * (std::complex<double>)(0) * gamma_odd.array()).exp().matrix();
         }
 
         for (int n = 0; n < _M; n++) {
             Eigen::Map<Eigen::MatrixXcd, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> gg_even(GG[i].data() + 4 * _M * n, 1, 2 * _M, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>(2, 1));
             Eigen::Map<Eigen::MatrixXcd, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> gg_odd(GG[i].data() + 4 * _M * n + 1, 1, 2 * _M, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>(2, 1));
             Ef[0][z][n] = (beta_even.array() * gg_even.array() * phase_even.array() + beta_odd.array() * gg_odd.array() * phase_odd.array()).sum();
-            //std::cout << "Ef[0][z][n]" << Ef[0][z][n] << std::endl;
-
 
             gg_even = Eigen::Map<Eigen::MatrixXcd, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(GG[i].data() + 4 * _M * (_M * 1 + n), 1, 2 * _M, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>(2, 1));
             gg_odd = Eigen::Map<Eigen::MatrixXcd, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(GG[i].data() + 4 * _M * (_M * 1 + n) + 1, 1, 2 * _M, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>(2, 1));
@@ -211,8 +210,6 @@ void EvaluateSample(std::vector <std::vector< Eigen::MatrixXcd>>& E, float* cent
 
             gg_even = Eigen::Map<Eigen::MatrixXcd, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(GG[i].data() + 4 * _M * (_M * 2 + n), 1, 2 * _M, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>(2, 1));
             gg_odd = Eigen::Map<Eigen::MatrixXcd, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(GG[i].data() + 4 * _M * (_M * 2 + n) + 1, 1, 2 * _M, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>(2, 1));
-            //std::cout << " gg_even.array()" << gg_even << std::endl;
-            //std::cout << " gg_odd.array()" << gg_odd << std::endl;
             I[n] = (beta_even.array() * gg_even.array() * phase_even.array() + beta_odd.array() * gg_odd.array() * phase_odd.array()).sum();
 
 
@@ -269,17 +266,12 @@ void cpu_cw_evaluate_sample(glm::vec<3, std::complex<float>>* E_xy, glm::vec<3, 
     if (pixel_z >= (unsigned int)points)
         pixel_z = points - 1;
 
-    //unsigned int z_up = unsigned int((z_layers[0] - z_start) * (float)points / (float)extent);
-    ////unsigned int z_bo = unsigned int((z_layers[1] - z_start) * (float)points / (float)extent);
-    //unsigned int z_bo = z_up + E[0].size();
-
     if (pixel_z >= z_up && pixel_z < z_bo)
         for (size_t j = 0; j < points; j++) {
             for (size_t i = 0; i < points; i++) {
                 E_xy[j * points + i][0] += (std::complex<float>)E[0][pixel_z - z_up](i, j);
                 E_xy[j * points + i][1] += (std::complex<float>)E[1][pixel_z - z_up](i, j);
                 E_xy[j * points + i][2] += (std::complex<float>)E[2][pixel_z - z_up](i, j);
-
             }
         }
 

@@ -355,8 +355,8 @@ void EvaluateVectorSlices() {
     unsigned int N = pow(2, in_resolution);                                    // get the resolution of the field N
     float d = extent / (N - 1);                                             // calculate the step size in cartesian coordinates
     float x, y, z;
-    float x_start = center[0] - extent;
-    float y_start = center[1] - extent;
+    float x_start = center[0] - extent / 2;
+    float y_start = center[1] - extent / 2;
     float z_start = center[2] - extent / 2;
 
     if (in_device >= 0)
@@ -722,8 +722,8 @@ int main(int argc, char** argv)
         plane_position[2] = in_slice;
 
     // Manual position (along x, y) correction
-    center[0] = in_center[0] + extent / 2;
-    center[1] = in_center[1] + extent / 2;
+    center[0] = in_center[0];
+    center[1] = in_center[1];
     center[2] = in_center[2];
 
 

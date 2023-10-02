@@ -194,19 +194,11 @@ inline Eigen::MatrixXcd fftw_ift2(Eigen::MatrixXcd A, Eigen::VectorXd& width_x, 
 	X_vec.setLinSpaced(N1, width_x[0], (tmp0 - tmp0 / (double)N1));
 	Y_vec.setLinSpaced(N2, width_y[0], (tmp1 - tmp1 / (double)N2));
 	meshgrid_d(X_vec, Y_vec, XX, YY);
-	//std::cout << "A: " << A << std::endl;
-	//std::cout << "XX: " << XX << std::endl;
-	//std::cout << "YY: " << YY << std::endl;
-	//std::cout << "s0: " << s[0] << std::endl;
-	//std::cout << "s1: " << s[1] << std::endl;
-	//std::cout << "k: " << k << std::endl;
 	double u, w;
 	for (int j = 0; j < MF_y; j++) {
 		w = 2 * PI * (j - MF_y / 2) / (width_y[width_y.size() - 1] - width_y[0]) + (s[1] * k).real();
-		//std::cout << "w: " << w << std::endl;
 		for (int i = 0; i < MF_x; i++) {
 			u = 2 * PI * (i - MF_x / 2) / (width_x[width_x.size() - 1] - width_x[0]) + (s[0] * k).real();
-			//std::cout << "u: " << u << std::endl;
 			E = E + A(i, j) * (std::complex<double>(0, 1) * (std::complex<double>(u) * YY.cast<std::complex<double>>().array() + std::complex<double>(w) * XX.cast<std::complex<double>>().array())).exp().matrix();
 		}
 	}
@@ -280,7 +272,6 @@ public:
 			for (size_t i = 0; i < _shape[0]; i++) {
 				_Sample[i].resize(_shape[1], _shape[2]); // Orders for resize(): (row, col)
 				_Sample[i] = Eigen::Map<Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>>(&tira::field<T>::_data[i * _shape[1] * _shape[2]], _shape[1], _shape[2]);
-				//std::cout << "_Sample[i]: " << _Sample[i] << std::endl;
 			}
 		}
 		else if (_shape.size() == 2) {
@@ -289,7 +280,6 @@ public:
 			for (size_t i = 0; i < _shape[0]; i++) {
 				_Sample[i].resize(_shape[1], _shape[2]); // Orders for resize(): (row, col)
 				_Sample[i] = Eigen::Map<Eigen::Matrix<std::complex<double>, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>>(&tira::field<T>::_data[i * _shape[1] * _shape[2]], _shape[1], _shape[2]);
-				//std::cout << "_Sample[i]: " << _Sample[i] << std::endl;
 
 			}
 		}
@@ -314,8 +304,6 @@ private:
 	void UpWq_Cal() {
 		_p_series.setLinSpaced(_M[0], -double(_M[0] / 2), double((_M[0] - 1) / 2));
 		_q_series.setLinSpaced(_M[1], -double(_M[1] / 2), double((_M[1] - 1) / 2));
-		//_p_series.setLinSpaced(_M[0], -_M[0] / 2, (_M[0] - 1) / 2);
-		//_q_series.setLinSpaced(_M[1], -_M[1] / 2, (_M[1] - 1) / 2);
 		_up = 2 * PI * _p_series / in_size[0] + _dir[0] * _k * Eigen::VectorXd::Ones(_M[0]);
 		_wq = 2 * PI * _q_series / in_size[1] + _dir[1] * _k * Eigen::VectorXd::Ones(_M[1]);
 		_Sx = (_up / _k).template cast<std::complex<double>>();
@@ -336,10 +324,8 @@ private:
 		_M_colInd.reserve(100000);
 		int idx = 0;
 		UpWq_Cal();
-		//std::cout << "sample: " << sample << std::endl;
 		Eigen::MatrixXcd Nf = fftw_fft2(sample.array().pow(2), _M[1], _M[0]);
 		Nif = fftw_fft2(sample.cwiseInverse().array().pow(2), _M[1], _M[0]);
-		//std::cout << "Nif: " << Nif << std::endl;
 
 		NIf.push_back(Nif);
 		int MF = _M[0] * _M[1];
@@ -394,7 +380,6 @@ private:
 				_M_colInd.push_back(j);
 			}
 		}
-		//std::cout << phi << std::endl;
 		return phi;
 	}
 };

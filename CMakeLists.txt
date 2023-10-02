@@ -94,7 +94,7 @@ add_executable(scattervolume
 					ScatterVolume.cpp
 					third_Lapack.h)
 
-add_executable(scatterviewlive
+add_executable(scatterview
 					CoupledWaveStructure.h
 					FourierWave.h
 					third_Lapack.h
@@ -102,7 +102,7 @@ add_executable(scatterviewlive
 					cpuEvaluator.h
 					gpuEvaluator.cu
 					gpuEvaluator.h
-					ScatterViewLive.cpp
+					ScatterView.cpp
 					ImGuiFileDialog/ImGuiFileDialog.cpp
 					cnpy/cnpy.cpp)
 
@@ -156,7 +156,7 @@ target_link_libraries(scattervolume
 			MKL::MKL
 )
 
-target_link_libraries(scatterviewlive
+target_link_libraries(scatterview
 			ZLIB::ZLIB
 			glfw
 			glm::glm

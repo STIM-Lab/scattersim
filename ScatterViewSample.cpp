@@ -691,11 +691,11 @@ int main(int argc, char** argv)
         ("nogui", "save an output file without loading the GUI")
 		("verbose,v", "produce verbose output")
         ("sample", "load a 3D sample stored as a grid (*.npy)")
-        ("size", boost::program_options::value<float>(&in_size_c)->default_value(100), "size of the sample being visualized (initial range in arbitrary units)")
+        ("size", boost::program_options::value<float>(&in_size_c)->default_value(40), "size of the sample being visualized (initial range in arbitrary units)")
         ("resolution", boost::program_options::value<int>(&in_resolution)->default_value(7), "resolution of the sample field (use powers of two, ex. 2^n)")
         ("output", boost::program_options::value<std::string>(&in_savename)->default_value("xz.npy"), "output file written when the --nogui option is used")
         ("axis", boost::program_options::value<int>(&in_axis)->default_value(1), "axis to cut (0 = X, 1 = Y, 2 = Z")
-        ("center", boost::program_options::value<std::vector<float> >(&in_center)->multitoken()->default_value(std::vector<float>{50, 50, 0}, "{0, 0, 0}"), "center position of the sampled volume")
+        ("center", boost::program_options::value<std::vector<float> >(&in_center)->multitoken()->default_value(std::vector<float>{20, 20, 0}, "{0, 0, 0}"), "center position of the sampled volume")
         ("slice", boost::program_options::value<float>(&in_slice)->default_value(0), "coordinate along the specified axis RELATIVE to the 'center' position")
 		;
 	boost::program_options::variables_map vm;
@@ -726,9 +726,10 @@ int main(int argc, char** argv)
         plane_position[2] = in_slice;
 
     // Manual correction for matching phase. Ask Ruijiao before deleting.
-    center[0] += extent / 2;
-    center[1] += extent / 2;
 
+    center[0] = in_center[0];
+    center[1] = in_center[1];
+    center[2] = in_center[2];
     if(vm.count("verbose")){
         verbose = true;
     }

@@ -65,6 +65,7 @@ int ei = 0;				// The current row for the matrix
 int l;			// The current layer l.
 int in_resolution;
 std::ofstream logfile;
+std::ofstream proffile;
 std::vector<Eigen::MatrixXcd> D;		// The property matrix
 std::vector<Eigen::VectorXcd> eigenvalues;			// eigen values for current layer
 std::vector<Eigen::MatrixXcd> eigenvectors;			// eigen vectors for current layer
@@ -83,9 +84,10 @@ std::vector<int> M_rowInd;
 std::vector<int> M_colInd;
 std::vector<std::complex<double>> M_val;
 Eigen::MatrixXcd tmp;					// Temposarily store some Eigen::MatrixXcd
-Eigen::MatrixXcd Gc_old;					// Temposarily store some Eigen::MatrixXcd
+Eigen::MatrixXcd tmp_2;					// Temposarily store additional Eigen::MatrixXcd
+Eigen::MatrixXcd Gc_static;					// Temposarily store some Eigen::MatrixXcd
 std::chrono::duration<double> elapsed_seconds;
-	
+
 /// Convert a complex vector to a string for display
 template <typename T>
 std::string vec2str(glm::vec<3, std::complex<T> > v, int spacing = 20) {
@@ -238,7 +240,7 @@ void EigenDecompositionD() {
 			MKL_eigensolve(A, evl, evt, 4 * MF);
 			std::chrono::time_point<std::chrono::system_clock> e = std::chrono::system_clock::now();
 			elapsed_seconds = e - s;
-			std::cout << "			 Time for MKL_eigensolve():" << elapsed_seconds.count() << "s" << std::endl;
+			proffile << "			 Time for MKL_eigensolve():" << elapsed_seconds.count() << "s" << std::endl;
 			eigenvalues_unordered.push_back(Eigen::Map<Eigen::VectorXcd>(evl, 4 * MF));
 			eigenvectors_unordered.push_back(Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(evt, 4 * MF, 4 * MF));
 		}
@@ -264,7 +266,8 @@ void EigenDecompositionD() {
 				/// Reason: Little phase mismatch due to the dif between simulation and physics.
 				//Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>)(in_size[2]) / (std::complex<double>)num_pixels[0]));
 				//Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (-in_size[2]) / (std::complex<double>)num_pixels[0]));
-				Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>)(in_size[1]) / (std::complex<double>) (pow(2, in_resolution)-1)));
+				// In multi-layer case, let's suppose in_size[1] == extent is true.
+				Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>)(in_size[1]) / (std::complex<double>) (pow(2, in_resolution) - 1)));
 				Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (-in_size[1]) / (std::complex<double>)(pow(2, in_resolution) - 1)));
 
 			}
@@ -278,18 +281,19 @@ void EigenDecompositionD() {
 				Gc.col(j) = eigenvectors[i].col(j) * Ci;
 			}
 		}
+		//std::cout << "Gd: " << Gd << std::endl;
+		//std::cout << "Gc: " << Gc << std::endl;
 		GD.push_back(Gd);
 		GC.push_back(Gc);
 
 		if (i == 0)
-			Gc_old = Gc;
-		else{
+			Gc_static = Gc;
+		else {
 			tmp = MKL_inverse(Gd);
-			tmp = MKL_multiply(Gc, tmp, 1);
-			Gc_old = MKL_multiply(tmp, Gc_old, 1);
-			Gc = Gc_old;
+			tmp_2 = MKL_multiply(Gc, tmp, 1);
+			Gc = MKL_multiply(tmp_2, Gc_static, 1);
+			Gc_static = Gc;
 		}
-
 		if (logfile) {
 			logfile << "----------For the layer---------- " << std::endl;
 			logfile << "Property matrix D: " << std::endl;
@@ -323,6 +327,12 @@ void MatTransfer() {
 	Eigen::MatrixXcd SX = Sx.replicate(MF, 1);		// neg_SX is the duplicated (by row) matrix from phase.
 	Eigen::MatrixXcd SY = Sy.replicate(MF, 1);		// neg_SX is the duplicated (by row) matrix from phase.
 
+
+	std::cout << "Sx0: " << Sx[0] << std::endl;
+	std::cout << "Sx1: " << Sx[1] << std::endl;
+
+	std::cout << "SX: " << SX.array() << std::endl;
+	std::cout << "SY: " << SY.array() << std::endl;
 	Eigen::MatrixXcd identity = Eigen::MatrixXcd::Identity(MF, MF);
 
 	// first constraint (Equation 8)
@@ -332,6 +342,7 @@ void MatTransfer() {
 	f1.block(2 * MF, 2 * MF, MF, MF) = identity.array() * Phase.array() * SY.array();
 	f1.block(3 * MF, 0, MF, MF) = identity.array() * Phase.array() * SZ0.array();
 	f1.block(3 * MF, 2 * MF, MF, MF) = (std::complex<double>(-1, 0)) * identity.array() * Phase.array() * SX.array();
+	//std::cout << "f1: " << f1 << std:: endl;
 
 	// second constraint (Equation 9)
 	f2.block(0, 0, MF, MF) = identity.array();
@@ -340,6 +351,7 @@ void MatTransfer() {
 	f2.block(2 * MF, 2 * MF, MF, MF) = SY.array() * identity.array();
 	f2.block(3 * MF, 0, MF, MF) = std::complex<double>(-1, 0) * SZ0.array() * identity.array();
 	f2.block(3 * MF, 2 * MF, MF, MF) = std::complex<double>(-1, 0) * SX.array() * identity.array();
+	//std::cout << "f2: " << f2 << std::endl;
 
 	// third constraint (Equation 10)	
 	f3.block(0, 0, MF, MF) = -identity.array();
@@ -348,6 +360,7 @@ void MatTransfer() {
 	f3.block(2 * MF, 2 * MF, MF, MF) = -SY.array() * identity.array();
 	f3.block(3 * MF, 0, MF, MF) = -SZ1.array() * identity.array();
 	f3.block(3 * MF, 2 * MF, MF, MF) = SX.array() * identity.array();
+	//std::cout << "f3: " << f3 << std::endl;
 
 	if (logfile) {
 		logfile << "f1: " << std::endl;
@@ -381,22 +394,22 @@ void SetGaussianConstraints() {
 // Force the field within each layer to be equal at the layer boundary
 void SetBoundaryConditions() {
 	std::complex<double> i(0.0, 1.0);
-	std::cout << "		Boundary conditions setting starts..." << std::endl;
+	proffile << "		Boundary conditions setting starts..." << std::endl;
 	std::chrono::time_point<std::chrono::system_clock> eigen1 = std::chrono::system_clock::now();
 	EigenDecompositionD();		// Compute GD and GC
 	std::chrono::time_point<std::chrono::system_clock> eigen2 = std::chrono::system_clock::now();
 	elapsed_seconds = eigen2 - eigen1;
-	std::cout << "			Time for EigenDecompositionD(): " << elapsed_seconds.count() << "s" << std::endl;
+	proffile << "			Time for EigenDecompositionD(): " << elapsed_seconds.count() << "s" << std::endl;
 
 	MatTransfer();				// Achieve the connection between the variable vector and the field vector
 	std::chrono::time_point<std::chrono::system_clock> matTransfer = std::chrono::system_clock::now();
 	elapsed_seconds = matTransfer - eigen2;
-	std::cout << "			Time for MatTransfer(): " << elapsed_seconds.count() << "s" << std::endl;
-	
-	Eigen::MatrixXcd Gc_inv = MKL_inverse(Gc);
+	proffile << "			Time for MatTransfer(): " << elapsed_seconds.count() << "s" << std::endl;
+
+	Eigen::MatrixXcd Gc_inv = MKL_inverse(Gc_static);
 	std::chrono::time_point<std::chrono::system_clock> inv = std::chrono::system_clock::now();
 	elapsed_seconds = inv - matTransfer;
-	std::cout << "			Time for MKL_inverse(): " << elapsed_seconds.count() << "s" << std::endl;
+	proffile << "			Time for MKL_inverse(): " << elapsed_seconds.count() << "s" << std::endl;
 
 	A.block(2 * MF, 0, 4 * MF, 3 * MF) = f2;
 	//A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = Gd * Gc_inv * f3;
@@ -404,7 +417,7 @@ void SetBoundaryConditions() {
 	A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = MKL_multiply(tmp, f3, 1);
 	std::chrono::time_point<std::chrono::system_clock> mul = std::chrono::system_clock::now();
 	elapsed_seconds = mul - inv;
-	std::cout << "			Time for multiplication once: " << elapsed_seconds.count() / 2 << "s" << std::endl;
+	proffile << "			Time for multiplication once: " << elapsed_seconds.count() / 2 << "s" << std::endl;
 
 	b.segment(2 * MF, 4 * MF) = std::complex<double>(-1, 0) * f1 * Eigen::Map<Eigen::VectorXcd>(EF.data(), 3 * MF);
 
@@ -429,14 +442,14 @@ std::vector<tira::planewave<double>> mat2waves(tira::planewave<double> i, Eigen:
 		x[idx(0, Reflected, X, p, MF)],
 		x[idx(0, Reflected, Y, p, MF)],
 		x[idx(0, Reflected, Z, p, MF)]
-		);
+	);
 	tira::planewave<double> t(Sx(p) * k,
 		Sy(p) * k,
 		Sz[1](p) * k,
 		x[idx(1, Transmitted, X, p, MF)],
 		x[idx(1, Transmitted, Y, p, MF)],
 		x[idx(1, Transmitted, Z, p, MF)]
-		);
+	);
 
 	P.push_back(r);
 	P.push_back(t);
@@ -470,8 +483,8 @@ int main(int argc, char** argv) {
 		("kappa", boost::program_options::value<std::vector<double> >(&in_kappa)->multitoken()->default_value(std::vector<double>{0}, "0.00"), "absorbance of the lower layer (upper layer is always 0.0)")
 		// The center of the sample along x/y is always 0/0.
 		("resolution", boost::program_options::value<int>(&in_resolution)->default_value(7), "resolution of the sample field (use powers of two, ex. 2^n)")
-		("size", boost::program_options::value<std::vector<double>>(&in_size)->multitoken()->default_value(std::vector<double>{100, 100, 6}, "100, 100, 6"), "The real size of the single-layer sample")
-		("z", boost::program_options::value<double >(&in_z)->multitoken()->default_value(-3.0, "-5.0"), "the top boundary of the sample")
+		("size", boost::program_options::value<std::vector<double>>(&in_size)->multitoken()->default_value(std::vector<double>{40, 40, 5}, "20, 20, 10"), "The real size of the single-layer sample")
+		("z", boost::program_options::value<double >(&in_z)->multitoken()->default_value(-2.5, "-5.0"), "the top boundary of the sample")
 		("output", boost::program_options::value<std::string>(&in_outfile)->default_value("c.cw"), "output filename for the coupled wave structure")
 		("alpha", boost::program_options::value<double>(&in_alpha)->default_value(1), "angle used to focus the incident field")
 		("beta", boost::program_options::value<double>(&in_beta)->default_value(0.0), "internal obscuration angle (for simulating reflective optics)")
@@ -479,6 +492,7 @@ int main(int argc, char** argv) {
 		("coef", boost::program_options::value<std::vector<int> >(&in_coeff)->multitoken()->default_value(std::vector<int>{1, 3}, "3, 3"), "number of Fouerier coefficients (can be specified in 2 dimensions)")
 		("mode", boost::program_options::value<std::string>(&in_mode)->default_value("polar"), "sampling mode (polar, montecarlo)")
 		("log", "produce a log file")
+		("prof", "produce a profiling file")
 		// input just for scattervolume 
 		;
 	// I have to do some strange stuff in here to allow negative values in the command line. I just wouldn't change any of it if possible.
@@ -492,7 +506,14 @@ int main(int argc, char** argv) {
 		std::cout << desc << std::endl;
 		return 1;
 	}
-	std::cout << "Initialization starts..." << std::endl;
+
+	if (vm.count("prof")) {									// if a log is requested, begin output
+		std::stringstream ss;
+		ss << std::time(0) << "_scattervolume.prof";
+		proffile.open(ss.str());
+	}
+
+	proffile << "Initialization starts..." << std::endl;
 
 	if (vm.count("log")) {									// if a log is requested, begin output
 		std::stringstream ss;
@@ -571,46 +592,48 @@ int main(int argc, char** argv) {
 		logfile << "Sz1 fourier form:" << Sz[1] << std::endl;
 	}
 
-	std::cout << "Initialization finished." << std::endl;
+	proffile << "Initialization finished." << std::endl;
 	std::chrono::time_point<std::chrono::system_clock> initialized = std::chrono::system_clock::now();
 	elapsed_seconds = initialized - start;
-	std::cout << "Time for initialization: " << elapsed_seconds.count() << "s" << std::endl << std::endl;
+	proffile << "Time for initialization: " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 
-	std::cout << "Linear system starts..." << std::endl;
+	proffile << "Linear system starts..." << std::endl;
 	// Build linear system
 	InitMatrices();
 	std::chrono::time_point<std::chrono::system_clock> initDone = std::chrono::system_clock::now();
 	elapsed_seconds = initDone - initialized;
-	std::cout << "		Time for InitMatrices(): " << elapsed_seconds.count() << "s" << std::endl << std::endl;
+	proffile << "		Time for InitMatrices(): " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 
 	SetGaussianConstraints();
 	std::chrono::time_point<std::chrono::system_clock> gauss = std::chrono::system_clock::now();
 	elapsed_seconds = gauss - initDone;
-	std::cout << "		Time for SetGaussianConstraints(): " << elapsed_seconds.count() << "s" << std::endl << std::endl;
+	proffile << "		Time for SetGaussianConstraints(): " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 
 	SetBoundaryConditions();
 	std::chrono::time_point<std::chrono::system_clock> boundary = std::chrono::system_clock::now();
 	elapsed_seconds = boundary - gauss;
-	std::cout << "		Time for SetBoundaryConditions(): " << elapsed_seconds.count() << "s" << std::endl << std::endl;
+	proffile << "		Time for SetBoundaryConditions(): " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 
-	std::cout << "Linear system built." << std::endl;
+	proffile << "Linear system built." << std::endl;
 	std::chrono::time_point<std::chrono::system_clock> built = std::chrono::system_clock::now();
 	elapsed_seconds = built - initialized;
-	std::cout << "Time for building the system: " << elapsed_seconds.count() << "s" << std::endl << std::endl;
+	proffile << "Time for building the system: " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 
 	// MKL solution
-	std::cout << "Linear system solving (MKL)..." << std::endl;
+	proffile << "Linear system solving (MKL)..." << std::endl;
+	//std::cout << "A: " << A << std::endl;
+	//std::cout << "b: " << b << std::endl;
 	MKL_linearsolve(A, b);
 	Eigen::VectorXcd x = b;
 
-	//std::cout << "x: " << x << std::endl;
-	std::cout << "Linear system solved." << std::endl;
+	std::cout << "x: " << x << std::endl;
+	proffile << "Linear system solved." << std::endl;
 
 	std::chrono::time_point<std::chrono::system_clock> solved = std::chrono::system_clock::now();
 	elapsed_seconds = solved - built;
-	std::cout << "Time for solving the system: " << elapsed_seconds.count() << "s" << std::endl << std::endl;
+	proffile << "Time for solving the system: " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 
-	std::cout << "Field reorganization starts..." << std::endl;
+	proffile << "Field reorganization starts..." << std::endl;
 	if (logfile) {
 		logfile << "x = " << x << std::endl;
 		logfile << "Linear system solved." << std::endl << std::endl << std::endl;
@@ -684,19 +707,18 @@ int main(int argc, char** argv) {
 
 		for (size_t i = 0; i < num_pixels[0]; i++) {
 			if (i == 0) {
-				tmp = MKL_inverse(GD[0]);
-				tmp = MKL_multiply(tmp, f1, 1);
+				tmp = MKL_inverse(GD[i]);
+				tmp_2 = MKL_multiply(tmp, f1, 1);
 
-				beta = MKL_multiply(tmp, EF_mat, 1);
+				beta = MKL_multiply(tmp_2, EF_mat, 1);
 
-				tmp = MKL_inverse(GD[0]);
-				tmp = MKL_multiply(tmp, f2, 1);
-				beta += MKL_multiply(tmp, Pr_0, 1);
+				tmp_2 = MKL_multiply(tmp, f2, 1);
+				beta += MKL_multiply(tmp_2, Pr_0, 1);
 			}
 			else {
 				tmp = MKL_inverse(GD[i]);
-				tmp = MKL_multiply(tmp, GC[i - 1], 1);
-				beta = MKL_multiply(tmp, beta, 1);
+				tmp_2 = MKL_multiply(tmp, GC[i - 1], 1);
+				beta = MKL_multiply(tmp_2, beta, 1);
 			}
 			Beta[i] = beta;
 		}
@@ -719,13 +741,13 @@ int main(int argc, char** argv) {
 	std::cout << "Field saved in " << in_outfile << "." << std::endl;
 	std::chrono::time_point<std::chrono::system_clock> simulated = std::chrono::system_clock::now();
 	elapsed_seconds = simulated - solved;
-	std::cout << "Time for saving the field " << elapsed_seconds.count() << "s" << std::endl << std::endl << std::endl;
+	proffile << "Time for saving the field " << elapsed_seconds.count() << "s" << std::endl << std::endl << std::endl;
 
-	std::cout << "Number of pixels (x, y): [" << num_pixels[1] << "," << num_pixels[2]  << "]" << std::endl;
+	std::cout << "Number of pixels (x, y): [" << num_pixels[1] << "," << num_pixels[2] << "]" << std::endl;
 	std::cout << "Number of sublayers: " << num_pixels[0] << std::endl;
 	std::cout << "Number of Fourier coefficients (Mx, My): [" << M[0] << "," << M[1] << "]" << std::endl;
 	elapsed_seconds = simulated - start;
-	std::cout << "Total time:" << elapsed_seconds.count() << "s" << std::endl;
+	proffile << "Total time:" << elapsed_seconds.count() << "s" << std::endl;
 
 	if (in_outfile != "") {
 		cw.save(in_outfile);

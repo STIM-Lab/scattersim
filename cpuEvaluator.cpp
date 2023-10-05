@@ -150,7 +150,7 @@ void EvaluateSample(std::vector <std::vector< Eigen::MatrixXcd>>& E, float* cent
     unsigned int points_z = (z_layers[1] - z_layers[0]) / extent * (float)(points-1);
     if (Beta.size() > 1)
         points_z = Beta.size();
-    z_up = unsigned int(((z_layers[0] - (extent / 2.0 - center[2])) * (float)(points-1) / (float)extent)) + 1;
+    z_up = unsigned int(((z_layers[0] - (center[2] - extent / 2.0)) * (float)(points-1) / (float)extent))+1;
     z_bo = z_up + points_z;
 
     E.resize(3);
@@ -195,8 +195,27 @@ void EvaluateSample(std::vector <std::vector< Eigen::MatrixXcd>>& E, float* cent
         Eigen::MatrixXcd phase_odd = (std::complex<double>(0, 1) * K * (std::complex<double>)((z) * extent / (float)(points - 1) + z_layers[0] - z_layers[1]) * gamma_odd.array()).exp().matrix();
 
         if (Beta.size() > 1) {
-            phase_even = (std::complex<double>(0, 1) * K * (std::complex<double>)(0) * gamma_even.array()).exp().matrix();
-            phase_odd = (std::complex<double>(0, 1) * K * (std::complex<double>)(-extent / (float)(points - 1)) * gamma_odd.array()).exp().matrix();
+            if (i == 0) {
+                //phase_even = (std::complex<double>(0, 1) * K * (std::complex<double>)(z_up * extent / (float)(points - 1) - extent / 2.0 - z_layers[0]) * gamma_even.array()).exp().matrix();
+                //phase_odd = (std::complex<double>(0, 1) * K * (std::complex<double>)(0) * gamma_odd.array()).exp().matrix();
+                phase_even = (std::complex<double>(0, 1) * K * (std::complex<double>)(extent / (float)(points - 1)) * gamma_even.array()).exp().matrix();
+                phase_odd = (std::complex<double>(0, 1) * K * (std::complex<double>)(0) * gamma_odd.array()).exp().matrix();
+            }
+            else if (i == Beta.size() - 1) {
+                //phase_even = (std::complex<double>(0, 1) * K * (std::complex<double>)(0) * gamma_even.array()).exp().matrix();
+                //phase_odd = (std::complex<double>(0, 1) * K * (std::complex<double>)(z_bo * extent / (float)(points - 1) - extent / 2.0 - z_layers[1]) * gamma_odd.array()).exp().matrix();
+                phase_even = (std::complex<double>(0, 1) * K * (std::complex<double>)(0) * gamma_even.array()).exp().matrix();
+                phase_odd = (std::complex<double>(0, 1) * K * (std::complex<double>)(-extent / (float)(points - 1)) * gamma_odd.array()).exp().matrix();
+            }
+            else {
+                phase_even = (std::complex<double>(0, 1) * K * (std::complex<double>)(extent / (float)(points - 1)) * gamma_even.array()).exp().matrix();
+                phase_odd = (std::complex<double>(0, 1) * K * (std::complex<double>)(0) * gamma_odd.array()).exp().matrix();
+            }
+
+            
+
+            //phase_even = (std::complex<double>(0, 1) * K * (std::complex<double>)(0) * gamma_even.array()).exp().matrix();
+            //phase_odd = (std::complex<double>(0, 1) * K * (std::complex<double>)(-extent / (float)(points - 1)) * gamma_odd.array()).exp().matrix();
         }
 
         for (int n = 0; n < _M; n++) {
@@ -236,23 +255,22 @@ void EvaluateSample(std::vector <std::vector< Eigen::MatrixXcd>>& E, float* cent
             }
 
         }
-        Eigen::VectorXd X_vec;
-        Eigen::VectorXd Y_vec;
-        X_vec.setLinSpaced(points, X[0], X[1]);
-        Y_vec.setLinSpaced(points, Y[0], Y[1]);
-        E[0][z] = fftw_ift2(Eigen::Map<Eigen::MatrixXcd>(Ef[0][z].data(), M[0], M[1]), X_vec, Y_vec, S, K);
-        E[1][z] = fftw_ift2(Eigen::Map<Eigen::MatrixXcd>(Ef[1][z].data(), M[0], M[1]), X_vec, Y_vec, S, K);
-        E[2][z] = fftw_ift2(Eigen::Map<Eigen::MatrixXcd>(Ef[2][z].data(), M[0], M[1]), X_vec, Y_vec, S, K);
+        
+        E[0][z] = fftw_ift2(Eigen::Map<Eigen::MatrixXcd>(Ef[0][z].data(), M[0], M[1]), X, Y, points, S, K);
+        E[1][z] = fftw_ift2(Eigen::Map<Eigen::MatrixXcd>(Ef[1][z].data(), M[0], M[1]), X, Y, points, S, K);
+        E[2][z] = fftw_ift2(Eigen::Map<Eigen::MatrixXcd>(Ef[2][z].data(), M[0], M[1]), X, Y, points, S, K);
     }
 }
 
 void cpu_cw_evaluate_sample(glm::vec<3, std::complex<float>>* E_xy, glm::vec<3, std::complex<float>>* E_xz, glm::vec<3, std::complex<float>>* E_yz,
     std::vector<std::vector<Eigen::MatrixXcd>> E,
     float x_start, float y_start, float z_start, float x, float y, float z, float d) {
-
-    unsigned int pixel_x = unsigned int((x - x_start) / (float)extent * (float)points);
-    unsigned int pixel_y = unsigned int((y - y_start) / (float)extent * (float)points);
-    unsigned int pixel_z = unsigned int((z - z_start) / (float)extent * (float)points);
+    //x_start -= extent / 2.0;
+    //y_start -= extent / 2.0;
+    //std::cout << "x_start, y, z: " << x_start << y_start << z_start << std::endl;
+    unsigned int pixel_x = unsigned int((x - x_start) / (float)extent * (float)(points - 1));
+    unsigned int pixel_y = unsigned int((y - y_start) / (float)extent * (float)(points - 1));
+    unsigned int pixel_z = unsigned int((z - z_start) / (float)extent * (float)(points - 1));
     if (pixel_x < 0)
         pixel_x = 0;
     if (pixel_y < 0)

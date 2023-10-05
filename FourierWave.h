@@ -18,6 +18,16 @@
 
 extern std::vector<double> in_size;
 
+//Similar function with numpy.arange
+inline Eigen::VectorXd arange(unsigned int points, double start, double end) {
+	Eigen::VectorXd Res(points);
+	double step = (end - start) / points;
+	for (int i = 0; i < points; i++) {
+		Res[i] = start + i * step;
+	}
+	return Res;
+}
+
 /// <summary>
 /// Function: Same as the numpy.meshgrid()
 /// https://blog.csdn.net/weixin_41661099/article/details/105011027
@@ -169,40 +179,33 @@ inline Eigen::MatrixXcd fftw_fft2(Eigen::MatrixXcd A, int M1, int M2) {
 /// <param name="M1">The kept number of Fourier coefficients along x</param>
 /// <param name="M2">The kept number of Fourier coefficients along y</param>
 /// <returns></returns>
-inline Eigen::MatrixXcd fftw_ift2(Eigen::MatrixXcd A, Eigen::VectorXd& width_x, Eigen::VectorXd& width_y, std::complex<double>* s, std::complex<double> k) {
+inline Eigen::MatrixXcd fftw_ift2(Eigen::MatrixXcd A, double* X, double* Y, unsigned int points, std::complex<double>* s, std::complex<double> k) {
 	Eigen::MatrixXcd E;
 
-	int N1 = width_x.size();
-	int N2 = width_y.size();
 	int MF_x = A.cols();
 	int MF_y = A.rows();
 
 	Eigen::MatrixXd XX;
 	Eigen::MatrixXd YY;
 
-	XX.resize(N1, N2);
-	YY.resize(N1, N2);
-	E.resize(N1, N2);
-	XX.setZero();
-	YY.setZero();
+	XX.resize(points, points);
+	YY.resize(points, points);
+	E.resize(points, points);
 	E.setZero();
-	//meshgrid_d(width_x, width_y, XX, YY);
 	Eigen::VectorXd X_vec;
 	Eigen::VectorXd Y_vec;
-	double tmp0 = width_x[width_x.size() - 1] - width_x[0];
-	double tmp1 = width_y[width_y.size() - 1] - width_y[0];
-	X_vec.setLinSpaced(N1, width_x[0], (tmp0 - tmp0 / (double)N1));
-	Y_vec.setLinSpaced(N2, width_y[0], (tmp1 - tmp1 / (double)N2));
+	X_vec = arange(points - 1, X[0], X[1]);
+	Y_vec = arange(points - 1, Y[0], Y[1]);
+
 	meshgrid_d(X_vec, Y_vec, XX, YY);
 	double u, w;
 	for (int j = 0; j < MF_y; j++) {
-		w = 2 * PI * (j - MF_y / 2) / (width_y[width_y.size() - 1] - width_y[0]) + (s[1] * k).real();
+		w = 2 * PI * (j - MF_y / 2) / (Y[1] - Y[0]) + (s[1] * k).real();
 		for (int i = 0; i < MF_x; i++) {
-			u = 2 * PI * (i - MF_x / 2) / (width_x[width_x.size() - 1] - width_x[0]) + (s[0] * k).real();
-			E = E + A(i, j) * (std::complex<double>(0, 1) * (std::complex<double>(u) * YY.cast<std::complex<double>>().array() + std::complex<double>(w) * XX.cast<std::complex<double>>().array())).exp().matrix();
+			u = 2 * PI * (i - MF_x / 2) / (X[1] - X[0]) + (s[0] * k).real();
+			E = E + A(i, j) * (std::complex<double>(0, 1) * (std::complex<double>(u) * XX.cast<std::complex<double>>().array() + std::complex<double>(w) * YY.cast<std::complex<double>>().array())).exp().matrix();
 		}
 	}
-	//std::cout << "E: " << E << std::endl;
 	return E;
 }
 
@@ -289,13 +292,14 @@ public:
 	std::vector<Eigen::MatrixXcd> CalculateD(int* M, Eigen::VectorXd dir) {
 		_M = M;
 		_dir = dir;
-		std::cout << "		The property matrix D starts forming..." << std::endl;
+		//std::cout << "		The property matrix D starts forming..." << std::endl;
 		clock_t Phi1 = clock();
 		for (size_t i = 0; i < _shape[0]; i++) {
 			_Phi.push_back(phi(_Sample[0]));
 		}
 		clock_t Phi2 = clock();
-		std::cout << "		Time for forming D: " << (Phi2 - Phi1) / CLOCKS_PER_SEC << "s" << std::endl;
+		// This step took almost 0 s. Don't need to profile later. --09302023 Ruijiao
+		// std::cout << "		Time for forming D: " << (Phi2 - Phi1) / CLOCKS_PER_SEC << "s" << std::endl;
 		return _Phi;
 	}
 
@@ -313,6 +317,11 @@ private:
 		_meshS1.setZero(_M[1], _M[0]);
 		// The z components for propagation direction. _Sz[0] is for the upper region while _Sz[1] is for the lower region
 		meshgrid(_Sx, _Sy, _meshS0, _meshS1);
+		//std::cout << "_Sx: " << _Sx << std::endl;
+		//std::cout << "_meshS0: " << _meshS0 << std::endl;
+		//std::cout << "_Sy: " << _Sy << std::endl;
+		//std::cout << "_meshS1: " << _meshS1 << std::endl;
+
 		_Sz.resize(2);
 		_Sz[0] = (pow(_n_layers(0), 2) * Eigen::MatrixXcd::Ones(_M[1], _M[0]).array() - _meshS0.array().pow(2) - _meshS1.array().pow(2)).cwiseSqrt();
 		_Sz[1] = (pow(_n_layers(1), 2) * Eigen::MatrixXcd::Ones(_M[1], _M[0]).array() - _meshS0.array().pow(2) - _meshS1.array().pow(2)).cwiseSqrt();
@@ -326,7 +335,8 @@ private:
 		UpWq_Cal();
 		Eigen::MatrixXcd Nf = fftw_fft2(sample.array().pow(2), _M[1], _M[0]);
 		Nif = fftw_fft2(sample.cwiseInverse().array().pow(2), _M[1], _M[0]);
-
+		//std::cout << "sample.cwiseInverse().array().pow(2): " << sample.cwiseInverse().array().pow(2) << std::endl;
+		//std::cout << "Nif: " << Nif << std::endl;
 		NIf.push_back(Nif);
 		int MF = _M[0] * _M[1];
 

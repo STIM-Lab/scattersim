@@ -55,12 +55,12 @@ inline void MKL_linearsolve(Eigen::MatrixXcd& A, Eigen::VectorXcd& b) {
 
 inline Eigen::MatrixXcd MKL_inverse(Eigen::MatrixXcd A) {
 	int N = A.rows();
-	Eigen::MatrixXcd b = Eigen::MatrixXcd::Identity(N, N);
+	Eigen::MatrixXcd B = Eigen::MatrixXcd::Identity(N, N);
 	MKL_INT* x;
 	x = new MKL_INT[N * 2];
 	// 'N' means no trans
-	int info = LAPACKE_zgesv(LAPACK_COL_MAJOR, N, N, (MKL_Complex16*)A.data(), N, x, (MKL_Complex16*)b.data(), N);
-	return b;
+	int info = LAPACKE_zgesv(LAPACK_COL_MAJOR, N, N, (MKL_Complex16*)A.data(), N, x, (MKL_Complex16*)B.data(), N);
+	return B;
 }
 
 

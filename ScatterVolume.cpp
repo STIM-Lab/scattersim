@@ -3,6 +3,7 @@
 #include "CoupledWaveStructure.h"
 #include "FourierWave.h"
 #include <complex>
+#include <string>
 #include <math.h>
 #include <fstream>
 #include <boost/program_options.hpp>
@@ -15,6 +16,8 @@
 #include <ctime>
 
 
+#include "tira/optics/planewave.h"
+#include "tira/field.h"
 #include "third_Lapack.h"
 
 // workaround issue between gcc >= 4.7 and cuda 5.5
@@ -87,6 +90,8 @@ Eigen::MatrixXcd tmp;					// Temposarily store some Eigen::MatrixXcd
 Eigen::MatrixXcd tmp_2;					// Temposarily store additional Eigen::MatrixXcd
 Eigen::MatrixXcd Gc_static;					// Temposarily store some Eigen::MatrixXcd
 std::chrono::duration<double> elapsed_seconds;
+double points;
+bool saveSampleTexture = true;
 
 /// Convert a complex vector to a string for display
 template <typename T>
@@ -154,6 +159,10 @@ void InitLayerProperties() {
 	z = new double[L];														// allocate space to store z coordinates for each interface
 	z[0] = in_z;
 	z[1] = in_z + in_size[2];
+	//z[0] = -0.64516129;
+	//z[1] = 1.93548387;	
+	//z[0] = -0.23529412;
+	//z[1] = 0.54901961;
 }
 
 // The struct is to integrate eigenvalues and their indices
@@ -171,49 +180,6 @@ bool sorter(EiV const& lhs, EiV const& rhs) {
 	else
 		return lhs.value.imag() < rhs.value.imag();
 }
-
-/// <summary>
-/// Temporarily depreacated.
-/// <summary>
-/// <param name="eigenvalues_unordered"></param>
-/// <param name="eigenvectors_unordered"></param>
-//void Eigen_Sort(Eigen::VectorXcd eigenvalues_unordered, Eigen::MatrixXcd eigenvectors_unordered, i) {
-//	unsigned int len = eigenvalues_unordered.size();
-//	// Sort the unordered eigenvalues and track the indices
-//	std::vector<EiV> eiV(len);
-//	for (size_t i = 0; i < len; i++) {
-//		eiV[i].idx = i;
-//		eiV[i].value = eigenvalues_unordered(i);
-//	}
-//
-//	sort(eiV.begin(), eiV.end(), &sorter);
-//	for (size_t i = 0; i < len; i++)
-//		std::cout << "eiV: " << eiV[i].value << std::endl;
-//	eigenvalues[i].resize(len);
-//	eigenvectors[i].resize(len, len);
-//
-//	if (logfile) {
-//		logfile << "eigenvalues_unordered: " << std::endl;
-//		logfile << eigenvalues_unordered << std::endl << std::endl;
-//		logfile << "eigenvectors_unordered: " << std::endl;
-//		logfile << eigenvectors_unordered << std::endl << std::endl;
-//	}
-//	for (size_t i = 0; i < len / 2; i++) {
-//		eigenvalues[i][2 * i] = eigenvalues_unordered[len - 1 - eiV[i].idx];
-//		eigenvectors[i].col(2 * i) = eigenvectors_unordered.col(len - 1 - eiV[i].idx);
-//		eigenvalues[i][2 * i + 1] = eigenvalues_unordered[eiV[i].idx];
-//		eigenvectors[i].col(2 * i + 1) = eigenvectors_unordered.col(eiV[i].idx);
-//	}
-//	if (logfile) {
-//		logfile << "eigenvalues: " << std::endl;
-//		logfile << eigenvalues << std::endl << std::endl;
-//		logfile << "eigenvectors: " << std::endl;
-//		logfile << eigenvectors << std::endl << std::endl;
-//	}
-//
-//	Eigenvalues.push_back(eigenvalues);				// For computing the inner structure of the sample
-//	Eigenvectors.push_back(eigenvectors);
-//}
 
 // Do eigen decomposition for Phi. 
 // Sort the eigenvectors and eigenvalues by pairs. 
@@ -243,13 +209,62 @@ void EigenDecompositionD() {
 			proffile << "			 Time for MKL_eigensolve():" << elapsed_seconds.count() << "s" << std::endl;
 			eigenvalues_unordered.push_back(Eigen::Map<Eigen::VectorXcd>(evl, 4 * MF));
 			eigenvectors_unordered.push_back(Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(evt, 4 * MF, 4 * MF));
+
 		}
 
 	}
 
 	eigenvalues = eigenvalues_unordered;
 	eigenvectors = eigenvectors_unordered;
+	
+	//std::string fname = "D:/myGit/build/scatter_bld/gamma.npy";
+	//std::vector<unsigned long> shape(1);
+	//shape[0] = 4 * MF;
+	//bool fortran_order = false;
+	//std::vector < std::complex<double>> data1;
+	//std::vector < std::complex<double>> data2;
+	////save it to file
+	//try {
+	//	npy::LoadArrayFromNumpy<std::complex<double>>(fname, shape, fortran_order, data1);
+	//	std::vector<unsigned long> shape2(2);
+	//	shape2[0] = 4 * MF;
+	//	shape2[1] = 4 * MF;
+	//	std::string fname2 = "D:/myGit/build/scatter_bld/gg.npy";
+	//	npy::LoadArrayFromNumpy<std::complex<double>>(fname2, shape2, fortran_order, data2);
+	//}
+	//catch (const std::runtime_error& e) {
+	//	std::cout << "ERROR loading NumPy file: " << e.what() << std::endl;
+	//	exit(1);
+	//}
+	//eigenvalues[0] = Eigen::Map < Eigen::VectorXcd >(&data1[0], 4 * MF);
+	//eigenvectors[0] = Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(&data2[0], 4 * MF, 4 * MF);
+	//eigenvectors[0].transposeInPlace();
 
+	//eigenvalues[1] = Eigen::Map < Eigen::VectorXcd >(&data1[4 * MF], 4 * MF);
+	//eigenvectors[1] = Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(&data2[16 * MF * MF], 4 * MF, 4 * MF);
+	//eigenvectors[1].transposeInPlace();
+
+	//eigenvalues[2] = Eigen::Map < Eigen::VectorXcd >(&data1[8 * MF], 4 * MF);
+	//eigenvectors[2] = Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(&data2[32 * MF * MF], 4 * MF, 4 * MF);
+	//eigenvectors[2].transposeInPlace();
+
+	//eigenvalues[3] = Eigen::Map < Eigen::VectorXcd >(&data1[12 * MF], 4 * MF);
+	//eigenvectors[3] = Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(&data2[48 * MF * MF], 4 * MF, 4 * MF);
+	//eigenvectors[3].transposeInPlace();
+
+	//eigenvalues[4] = Eigen::Map < Eigen::VectorXcd >(&data1[16 * MF], 4 * MF);
+	//eigenvectors[4] = Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(&data2[64 * MF * MF], 4 * MF, 4 * MF);
+	//eigenvectors[4].transposeInPlace();
+
+	//eigenvalues[5] = Eigen::Map < Eigen::VectorXcd >(&data1[20 * MF], 4 * MF);
+	//eigenvectors[5] = Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(&data2[80 * MF * MF], 4 * MF, 4 * MF);
+	//eigenvectors[5].transposeInPlace();
+
+	//std::cout << "GG: " << eigenvectors[0] << std::endl;
+	//std::cout << "evector:" << eigenvectors[0] << std::endl;
+	//std::cout << "evalues:" << eigenvalues[0] << std::endl;
+
+	float z_up, z_bo;
 	Gd.resize(4 * MF, 4 * MF);
 	Gc.resize(4 * MF, 4 * MF);
 	std::complex<double> Di;
@@ -258,8 +273,31 @@ void EigenDecompositionD() {
 	for (size_t i = 0; i < D.size(); i++) {
 		for (size_t j = 0; j < eigenvalues[i].size(); j++) {
 			if (D.size() == 1) {
-				Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(z[1] - z[0]));
-				Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(z[0] - z[1]));
+				if (saveSampleTexture) {
+					float d = in_size[1] / float(points-1);
+					float z_start = -in_size[1] / 2.0;
+					float zi;
+					for (unsigned int iz = 0; iz < points; iz++) {
+						zi = z_start + float(iz) * d;
+						if (zi >= z[0] - pow(10, -3)) {
+							z_up = zi;
+							break;
+						}
+					}
+					for (unsigned int iz = 0; iz < points; iz++) {
+						zi = z_start + float(iz) * d;
+						if (zi >= z[1] - pow(10, -3)) {
+							z_bo = zi;
+							break;
+						}
+					}
+				}
+				else {
+					z_up = z[0];
+					z_bo = z[1];
+				}
+				Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(z_bo - z_up));
+				Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(z_up - z_bo));
 			}
 			else {
 				/// Use the commented version when you don't need the heterogeneous info.
@@ -267,8 +305,8 @@ void EigenDecompositionD() {
 				//Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>)(in_size[2]) / (std::complex<double>)num_pixels[0]));
 				//Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (-in_size[2]) / (std::complex<double>)num_pixels[0]));
 				// In multi-layer case, let's suppose in_size[1] == extent is true.
-				Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>)(in_size[1]) / (std::complex<double>) (pow(2, in_resolution) - 1)));
-				Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (-in_size[1]) / (std::complex<double>)(pow(2, in_resolution) - 1)));
+				Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>)(in_size[1]) / (std::complex<double>)(points - 1.0)));
+				Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (-in_size[1]) / (std::complex<double>)(points - 1.0)));
 
 			}
 			if (j % 2 != 0) {
@@ -285,7 +323,6 @@ void EigenDecompositionD() {
 		//std::cout << "Gc: " << Gc << std::endl;
 		GD.push_back(Gd);
 		GC.push_back(Gc);
-
 		if (i == 0)
 			Gc_static = Gc;
 		else {
@@ -319,7 +356,7 @@ void MatTransfer() {
 	f3.setZero();
 
 	// Focus on z=0
-	Eigen::RowVectorXcd phase = (std::complex<double>(0, 1) * k * (std::complex<double>)(z[0] - 0) * Eigen::Map<Eigen::RowVectorXcd>(Sz[0].data(), Sz[0].size())).array().exp();
+	Eigen::RowVectorXcd phase = (std::complex<double>(0, 1) * k * (std::complex<double>)(z[0] - z[0]) * Eigen::Map<Eigen::RowVectorXcd>(Sz[0].data(), Sz[0].size())).array().exp();
 	Eigen::MatrixXcd Phase = phase.replicate(MF, 1);		// Phase is the duplicated (by row) matrix from phase.
 
 	Eigen::MatrixXcd SZ0 = Sz[0].replicate(MF, 1);		// neg_SZ0 is the duplicated (by row) matrix from neg_Sz0.
@@ -327,12 +364,8 @@ void MatTransfer() {
 	Eigen::MatrixXcd SX = Sx.replicate(MF, 1);		// neg_SX is the duplicated (by row) matrix from phase.
 	Eigen::MatrixXcd SY = Sy.replicate(MF, 1);		// neg_SX is the duplicated (by row) matrix from phase.
 
-
-	std::cout << "Sx0: " << Sx[0] << std::endl;
-	std::cout << "Sx1: " << Sx[1] << std::endl;
-
-	std::cout << "SX: " << SX.array() << std::endl;
-	std::cout << "SY: " << SY.array() << std::endl;
+	//std::cout << "SX: " << SX.array() << std::endl;
+	//std::cout << "SY: " << SY.array() << std::endl;
 	Eigen::MatrixXcd identity = Eigen::MatrixXcd::Identity(MF, MF);
 
 	// first constraint (Equation 8)
@@ -414,6 +447,7 @@ void SetBoundaryConditions() {
 	A.block(2 * MF, 0, 4 * MF, 3 * MF) = f2;
 	//A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = Gd * Gc_inv * f3;
 	tmp = MKL_multiply(GD[0], Gc_inv, 1);
+
 	A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = MKL_multiply(tmp, f3, 1);
 	std::chrono::time_point<std::chrono::system_clock> mul = std::chrono::system_clock::now();
 	elapsed_seconds = mul - inv;
@@ -441,16 +475,29 @@ std::vector<tira::planewave<double>> mat2waves(tira::planewave<double> i, Eigen:
 		-Sz[0](p) * k,
 		x[idx(0, Reflected, X, p, MF)],
 		x[idx(0, Reflected, Y, p, MF)],
-		x[idx(0, Reflected, Z, p, MF)]
+		x[idx(0, Reflected, Z, p, MF)],
+		true
 	);
 	tira::planewave<double> t(Sx(p) * k,
 		Sy(p) * k,
 		Sz[1](p) * k,
 		x[idx(1, Transmitted, X, p, MF)],
 		x[idx(1, Transmitted, Y, p, MF)],
-		x[idx(1, Transmitted, Z, p, MF)]
+		x[idx(1, Transmitted, Z, p, MF)],
+		true
 	);
-
+	//tira::planewave<double> r(Sx(p) * k,
+	//	Sy(p) * k,
+	//	-Sz[0](p) * k,
+	//	x[idx(0, Reflected, X, p, MF)],
+	//	x[idx(0, Reflected, Y, p, MF)]
+	//);
+	//tira::planewave<double> t(Sx(p) * k,
+	//	Sy(p) * k,
+	//	Sz[1](p) * k,
+	//	x[idx(1, Transmitted, X, p, MF)],
+	//	x[idx(1, Transmitted, Y, p, MF)]
+	//);
 	P.push_back(r);
 	P.push_back(t);
 	return P;
@@ -482,9 +529,9 @@ int main(int argc, char** argv) {
 		("n", boost::program_options::value<std::vector<double>>(&in_n)->multitoken()->default_value(std::vector<double>{1.0, 1.0}, "1, 1"), "real refractive index (optical path length) of the upper and lower layers")
 		("kappa", boost::program_options::value<std::vector<double> >(&in_kappa)->multitoken()->default_value(std::vector<double>{0}, "0.00"), "absorbance of the lower layer (upper layer is always 0.0)")
 		// The center of the sample along x/y is always 0/0.
-		("resolution", boost::program_options::value<int>(&in_resolution)->default_value(7), "resolution of the sample field (use powers of two, ex. 2^n)")
-		("size", boost::program_options::value<std::vector<double>>(&in_size)->multitoken()->default_value(std::vector<double>{40, 40, 5}, "20, 20, 10"), "The real size of the single-layer sample")
-		("z", boost::program_options::value<double >(&in_z)->multitoken()->default_value(-2.5, "-5.0"), "the top boundary of the sample")
+		("resolution", boost::program_options::value<int>(&in_resolution)->default_value(8), "resolution of the sample field (use powers of two, ex. 2^n)")
+		("size", boost::program_options::value<std::vector<double>>(&in_size)->multitoken()->default_value(std::vector<double>{40, 40, 2}, "20, 20, 10"), "The real size of the single-layer sample")
+		("z", boost::program_options::value<double >(&in_z)->multitoken()->default_value(-1, "-5.0"), "the top boundary of the sample")
 		("output", boost::program_options::value<std::string>(&in_outfile)->default_value("c.cw"), "output filename for the coupled wave structure")
 		("alpha", boost::program_options::value<double>(&in_alpha)->default_value(1), "angle used to focus the incident field")
 		("beta", boost::program_options::value<double>(&in_beta)->default_value(0.0), "internal obscuration angle (for simulating reflective optics)")
@@ -543,7 +590,7 @@ int main(int argc, char** argv) {
 		M[1] = 1;
 	}
 	MF = M[0] * M[1];
-
+	points = pow(2, in_resolution);
 	Eigen::Vector3d dir(in_dir[0], in_dir[1], in_dir[2]);
 	dir.normalize();																							// set the normalized direction of the incoming source field
 
@@ -626,6 +673,8 @@ int main(int argc, char** argv) {
 	MKL_linearsolve(A, b);
 	Eigen::VectorXcd x = b;
 
+	//x[0] = std::complex<double>(-0.165523, -0.0208056);
+	//x[3] = std::complex<double>(-0.118919, -0.0875914);
 	std::cout << "x: " << x << std::endl;
 	proffile << "Linear system solved." << std::endl;
 
@@ -647,7 +696,7 @@ int main(int argc, char** argv) {
 
 	for (size_t p = 0; p < MF; p++) {															// for each incident plane wave
 		tira::planewave<double> zero(0, 0, 1, 0, 0);																		// store the incident plane wave in i
-		tira::planewave<double> i(Sx(p) * k, Sy(p) * k, -Sz[0](p) * k, EF(p), EF(MF + p));																		// store the incident plane wave in i
+		tira::planewave<double> i(Sx(p) * k, Sy(p) * k, Sz[0](p) * k, EF(p), EF(MF + p));																		// store the incident plane wave in i
 		cw.Pi.push_back(i);
 
 		std::vector<tira::planewave<double>> P = mat2waves(i, x, p);
@@ -657,8 +706,8 @@ int main(int argc, char** argv) {
 		for (size_t l = 0; l < L; l++) {														// for each layer
 			if (l == 0) {
 				cw.Layers[l].z = z[l];
-				r = P[1 + l * 2 + 0].wind(0.0, 0.0, -z[l]);
-				//r = P[1 + l * 2 + 0];
+				//r = P[1 + l * 2 + 0].wind(0.0, 0.0, -z[l]);
+				r = P[1 + l * 2 + 0];
 				cw.Layers[l].Pr.push_back(r);
 				t = zero;
 				cw.Layers[l].Pt.push_back(t);
@@ -667,8 +716,8 @@ int main(int argc, char** argv) {
 				cw.Layers[l].z = z[l];
 				r = zero;
 				cw.Layers[l].Pr.push_back(r);
-				//t = P[1 + (l - 1) * 2 + 1];
-				t = P[1 + (l - 1) * 2 + 1].wind(0.0, 0.0, -z[l]);
+				t = P[1 + (l - 1) * 2 + 1];
+				//t = P[1 + (l - 1) * 2 + 1].wind(0.0, 0.0, -z[l]);
 				cw.Layers[l].Pt.push_back(t);
 			}
 
@@ -682,7 +731,7 @@ int main(int argc, char** argv) {
 
 		}
 	}
-	cw.isHete = true;
+	cw.isHete = saveSampleTexture;
 	// Calculate beta according to the GD, GC, and Pt/Pr
 	if (cw.isHete) {
 		cw.M[0] = M[0];
@@ -709,7 +758,6 @@ int main(int argc, char** argv) {
 			if (i == 0) {
 				tmp = MKL_inverse(GD[i]);
 				tmp_2 = MKL_multiply(tmp, f1, 1);
-
 				beta = MKL_multiply(tmp_2, EF_mat, 1);
 
 				tmp_2 = MKL_multiply(tmp, f2, 1);
@@ -718,7 +766,8 @@ int main(int argc, char** argv) {
 			else {
 				tmp = MKL_inverse(GD[i]);
 				tmp_2 = MKL_multiply(tmp, GC[i - 1], 1);
-				beta = MKL_multiply(tmp_2, beta, 1);
+				tmp = MKL_multiply(tmp_2, beta, 1);
+				beta = tmp;
 			}
 			Beta[i] = beta;
 		}

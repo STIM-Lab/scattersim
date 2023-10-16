@@ -64,7 +64,7 @@ inline Eigen::MatrixXcd MKL_inverse(Eigen::MatrixXcd A) {
 }
 
 
-inline Eigen::MatrixXcd MKL_multiply(Eigen::MatrixXcd& A, Eigen::MatrixXcd& B, std::complex<double> alpha) {
+inline Eigen::MatrixXcd MKL_multiply(Eigen::MatrixXcd A, Eigen::MatrixXcd B, std::complex<double> alpha) {
 	// This example computes real matrix C=alpha*A*B+beta*C using zgemm.
 	int M = A.rows();
 	int K = A.cols();

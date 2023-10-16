@@ -21,7 +21,7 @@ extern std::vector<double> in_size;
 //Similar function with numpy.arange
 inline Eigen::VectorXd arange(unsigned int points, double start, double end) {
 	Eigen::VectorXd Res(points);
-	double step = (end - start) / points;
+	double step = (end - start) / (points);
 	for (int i = 0; i < points; i++) {
 		Res[i] = start + i * step;
 	}
@@ -194,16 +194,15 @@ inline Eigen::MatrixXcd fftw_ift2(Eigen::MatrixXcd A, double* X, double* Y, unsi
 	E.setZero();
 	Eigen::VectorXd X_vec;
 	Eigen::VectorXd Y_vec;
-	X_vec = arange(points - 1, X[0], X[1]);
-	Y_vec = arange(points - 1, Y[0], Y[1]);
-
+	X_vec = arange(points, X[0], X[1]);
+	Y_vec = arange(points, Y[0], Y[1]);
 	meshgrid_d(X_vec, Y_vec, XX, YY);
 	double u, w;
-	for (int j = 0; j < MF_y; j++) {
-		w = 2 * PI * (j - MF_y / 2) / (Y[1] - Y[0]) + (s[1] * k).real();
-		for (int i = 0; i < MF_x; i++) {
-			u = 2 * PI * (i - MF_x / 2) / (X[1] - X[0]) + (s[0] * k).real();
-			E = E + A(i, j) * (std::complex<double>(0, 1) * (std::complex<double>(u) * XX.cast<std::complex<double>>().array() + std::complex<double>(w) * YY.cast<std::complex<double>>().array())).exp().matrix();
+	for (int q = 0; q < MF_y; q++) {
+		w = 2 * PI * (q - MF_y / 2) / (Y[1] - Y[0]) + (s[1] * k).real();
+		for (int p = 0; p < MF_x; p++) {
+			u = 2 * PI * (p - MF_x / 2) / (X[1] - X[0]) + (s[0] * k).real();
+			E = E + A(p, q) * (std::complex<double>(0, 1) * (std::complex<double>(u) * XX.cast<std::complex<double>>().array() + std::complex<double>(w) * YY.cast<std::complex<double>>().array())).exp().matrix();
 		}
 	}
 	return E;
@@ -295,11 +294,9 @@ public:
 		//std::cout << "		The property matrix D starts forming..." << std::endl;
 		clock_t Phi1 = clock();
 		for (size_t i = 0; i < _shape[0]; i++) {
-			_Phi.push_back(phi(_Sample[0]));
+			_Phi.push_back(phi(_Sample[i]));
 		}
 		clock_t Phi2 = clock();
-		// This step took almost 0 s. Don't need to profile later. --09302023 Ruijiao
-		// std::cout << "		Time for forming D: " << (Phi2 - Phi1) / CLOCKS_PER_SEC << "s" << std::endl;
 		return _Phi;
 	}
 
@@ -316,11 +313,7 @@ private:
 		_meshS0.setZero(_M[1], _M[0]);
 		_meshS1.setZero(_M[1], _M[0]);
 		// The z components for propagation direction. _Sz[0] is for the upper region while _Sz[1] is for the lower region
-		meshgrid(_Sx, _Sy, _meshS0, _meshS1);
-		//std::cout << "_Sx: " << _Sx << std::endl;
-		//std::cout << "_meshS0: " << _meshS0 << std::endl;
-		//std::cout << "_Sy: " << _Sy << std::endl;
-		//std::cout << "_meshS1: " << _meshS1 << std::endl;
+		meshgrid(_Sx, _Sy, _meshS1, _meshS0);
 
 		_Sz.resize(2);
 		_Sz[0] = (pow(_n_layers(0), 2) * Eigen::MatrixXcd::Ones(_M[1], _M[0]).array() - _meshS0.array().pow(2) - _meshS1.array().pow(2)).cwiseSqrt();

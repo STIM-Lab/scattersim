@@ -92,7 +92,8 @@ add_executable(scattervolume
 					CoupledWaveStructure.h
 					FourierWave.h
 					ScatterVolume.cpp
-					third_Lapack.h)
+					third_Lapack.h
+					cnpy/cnpy.cpp)
 
 add_executable(scatterview
 					CoupledWaveStructure.h

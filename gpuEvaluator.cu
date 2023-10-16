@@ -7,6 +7,7 @@ int* gpu_waves_begin;
 int* gpu_waves_end;
 thrust::complex<float>* gpu_W;
 
+//extern float z_up, z_bo;
 extern size_t free_gpu_memory;
 extern size_t total_gpu_memory;
 
@@ -27,12 +28,14 @@ void gpu_initialize(){
 __device__ void evaluate(thrust::complex<float>& Ex, thrust::complex<float>& Ey, thrust::complex<float>& Ez,
     float x, float y, float z,
     thrust::complex<float>* W, float* z_layers, int* waves_begin, int* waves_end, int layers) {
-
+    float z_boundary;
     // find the current layer
     size_t l = 0;
+    z_boundary = z_layers[0];
     for (size_t li = 0; li < layers; li++) {
-        if (z >= z_layers[li]) {
+        if (z >= z_layers[li] - 0.001) {
             l = li + 1;
+            z_boundary = z_layers[li];
         }
     }
 
@@ -49,6 +52,12 @@ __device__ void evaluate(thrust::complex<float>& Ex, thrust::complex<float>& Ey,
     Ex = 0;
     Ey = 0;
     Ez = 0;
+    
+    // Added on 10/10
+    int MF = end - begin;
+    int MF_x = 14;
+
+
     for (int idx = begin; idx < end; idx++) {
         E0x = W[idx * size_W + 0];                                      // load the plane wave E vector
         E0y = W[idx * size_W + 1];
@@ -56,7 +65,11 @@ __device__ void evaluate(thrust::complex<float>& Ex, thrust::complex<float>& Ey,
         kx = W[idx * size_W + 3];                                       // load the plane wave k vector
         ky = W[idx * size_W + 4];
         kz = W[idx * size_W + 5];
-        k_dot_r = kx * x + ky * y + kz * z;
+        int p = (idx - begin) % MF_x;
+        int q = (idx - begin) / MF_x;
+
+        k_dot_r = kx * x + ky * y + kz * abs(z - z_boundary);
+        //k_dot_r = (2 * PI * float(p -MF_x/2) / 40.0 + kx) * (x + 20) + (2 * PI * float(q - MF_x/2) / 40.0 + ky) * (y + 20) + kz * abs(z - z_boundary);
         phase = thrust::exp(i * k_dot_r);
         Ex += E0x * phase;
         Ey += E0y * phase;

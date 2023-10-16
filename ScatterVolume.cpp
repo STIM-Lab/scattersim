@@ -161,8 +161,6 @@ void InitLayerProperties() {
 	z[1] = in_z + in_size[2];
 	//z[0] = -0.64516129;
 	//z[1] = 1.93548387;	
-	//z[0] = -0.23529412;
-	//z[1] = 0.54901961;
 }
 
 // The struct is to integrate eigenvalues and their indices
@@ -217,6 +215,7 @@ void EigenDecompositionD() {
 	eigenvalues = eigenvalues_unordered;
 	eigenvectors = eigenvectors_unordered;
 	
+	// For importing eigenvalues and eigenvectors from outside
 	//std::string fname = "D:/myGit/build/scatter_bld/gamma.npy";
 	//std::vector<unsigned long> shape(1);
 	//shape[0] = 4 * MF;
@@ -239,30 +238,6 @@ void EigenDecompositionD() {
 	//eigenvalues[0] = Eigen::Map < Eigen::VectorXcd >(&data1[0], 4 * MF);
 	//eigenvectors[0] = Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(&data2[0], 4 * MF, 4 * MF);
 	//eigenvectors[0].transposeInPlace();
-
-	//eigenvalues[1] = Eigen::Map < Eigen::VectorXcd >(&data1[4 * MF], 4 * MF);
-	//eigenvectors[1] = Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(&data2[16 * MF * MF], 4 * MF, 4 * MF);
-	//eigenvectors[1].transposeInPlace();
-
-	//eigenvalues[2] = Eigen::Map < Eigen::VectorXcd >(&data1[8 * MF], 4 * MF);
-	//eigenvectors[2] = Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(&data2[32 * MF * MF], 4 * MF, 4 * MF);
-	//eigenvectors[2].transposeInPlace();
-
-	//eigenvalues[3] = Eigen::Map < Eigen::VectorXcd >(&data1[12 * MF], 4 * MF);
-	//eigenvectors[3] = Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(&data2[48 * MF * MF], 4 * MF, 4 * MF);
-	//eigenvectors[3].transposeInPlace();
-
-	//eigenvalues[4] = Eigen::Map < Eigen::VectorXcd >(&data1[16 * MF], 4 * MF);
-	//eigenvectors[4] = Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(&data2[64 * MF * MF], 4 * MF, 4 * MF);
-	//eigenvectors[4].transposeInPlace();
-
-	//eigenvalues[5] = Eigen::Map < Eigen::VectorXcd >(&data1[20 * MF], 4 * MF);
-	//eigenvectors[5] = Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(&data2[80 * MF * MF], 4 * MF, 4 * MF);
-	//eigenvectors[5].transposeInPlace();
-
-	//std::cout << "GG: " << eigenvectors[0] << std::endl;
-	//std::cout << "evector:" << eigenvectors[0] << std::endl;
-	//std::cout << "evalues:" << eigenvalues[0] << std::endl;
 
 	float z_up, z_bo;
 	Gd.resize(4 * MF, 4 * MF);
@@ -302,8 +277,6 @@ void EigenDecompositionD() {
 			else {
 				/// Use the commented version when you don't need the heterogeneous info.
 				/// Reason: Little phase mismatch due to the dif between simulation and physics.
-				//Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>)(in_size[2]) / (std::complex<double>)num_pixels[0]));
-				//Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (-in_size[2]) / (std::complex<double>)num_pixels[0]));
 				// In multi-layer case, let's suppose in_size[1] == extent is true.
 				Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>)(in_size[1]) / (std::complex<double>)(points - 1.0)));
 				Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (-in_size[1]) / (std::complex<double>)(points - 1.0)));
@@ -319,8 +292,6 @@ void EigenDecompositionD() {
 				Gc.col(j) = eigenvectors[i].col(j) * Ci;
 			}
 		}
-		//std::cout << "Gd: " << Gd << std::endl;
-		//std::cout << "Gc: " << Gc << std::endl;
 		GD.push_back(Gd);
 		GC.push_back(Gc);
 		if (i == 0)
@@ -363,9 +334,6 @@ void MatTransfer() {
 	Eigen::MatrixXcd SZ1 = Sz[1].replicate(MF, 1);		// neg_SZ0 is the duplicated (by row) matrix from neg_Sz0.
 	Eigen::MatrixXcd SX = Sx.replicate(MF, 1);		// neg_SX is the duplicated (by row) matrix from phase.
 	Eigen::MatrixXcd SY = Sy.replicate(MF, 1);		// neg_SX is the duplicated (by row) matrix from phase.
-
-	//std::cout << "SX: " << SX.array() << std::endl;
-	//std::cout << "SY: " << SY.array() << std::endl;
 	Eigen::MatrixXcd identity = Eigen::MatrixXcd::Identity(MF, MF);
 
 	// first constraint (Equation 8)
@@ -375,7 +343,6 @@ void MatTransfer() {
 	f1.block(2 * MF, 2 * MF, MF, MF) = identity.array() * Phase.array() * SY.array();
 	f1.block(3 * MF, 0, MF, MF) = identity.array() * Phase.array() * SZ0.array();
 	f1.block(3 * MF, 2 * MF, MF, MF) = (std::complex<double>(-1, 0)) * identity.array() * Phase.array() * SX.array();
-	//std::cout << "f1: " << f1 << std:: endl;
 
 	// second constraint (Equation 9)
 	f2.block(0, 0, MF, MF) = identity.array();
@@ -384,7 +351,6 @@ void MatTransfer() {
 	f2.block(2 * MF, 2 * MF, MF, MF) = SY.array() * identity.array();
 	f2.block(3 * MF, 0, MF, MF) = std::complex<double>(-1, 0) * SZ0.array() * identity.array();
 	f2.block(3 * MF, 2 * MF, MF, MF) = std::complex<double>(-1, 0) * SX.array() * identity.array();
-	//std::cout << "f2: " << f2 << std::endl;
 
 	// third constraint (Equation 10)	
 	f3.block(0, 0, MF, MF) = -identity.array();
@@ -393,7 +359,6 @@ void MatTransfer() {
 	f3.block(2 * MF, 2 * MF, MF, MF) = -SY.array() * identity.array();
 	f3.block(3 * MF, 0, MF, MF) = -SZ1.array() * identity.array();
 	f3.block(3 * MF, 2 * MF, MF, MF) = SX.array() * identity.array();
-	//std::cout << "f3: " << f3 << std::endl;
 
 	if (logfile) {
 		logfile << "f1: " << std::endl;
@@ -445,7 +410,6 @@ void SetBoundaryConditions() {
 	proffile << "			Time for MKL_inverse(): " << elapsed_seconds.count() << "s" << std::endl;
 
 	A.block(2 * MF, 0, 4 * MF, 3 * MF) = f2;
-	//A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = Gd * Gc_inv * f3;
 	tmp = MKL_multiply(GD[0], Gc_inv, 1);
 
 	A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = MKL_multiply(tmp, f3, 1);
@@ -470,34 +434,35 @@ std::vector<tira::planewave<double>> mat2waves(tira::planewave<double> i, Eigen:
 
 	P.push_back(i);											// push the incident plane wave into the P array
 	glm::vec<3, double> s = i.getDirection();
-	tira::planewave<double> r(Sx(p) * k,
-		Sy(p) * k,
-		-Sz[0](p) * k,
-		x[idx(0, Reflected, X, p, MF)],
-		x[idx(0, Reflected, Y, p, MF)],
-		x[idx(0, Reflected, Z, p, MF)],
-		true
-	);
-	tira::planewave<double> t(Sx(p) * k,
-		Sy(p) * k,
-		Sz[1](p) * k,
-		x[idx(1, Transmitted, X, p, MF)],
-		x[idx(1, Transmitted, Y, p, MF)],
-		x[idx(1, Transmitted, Z, p, MF)],
-		true
-	);
+	// Ruijiao on Oct.16 2023: hidden error in tira::planewave.h: _cMul() introduced erro.
 	//tira::planewave<double> r(Sx(p) * k,
 	//	Sy(p) * k,
 	//	-Sz[0](p) * k,
 	//	x[idx(0, Reflected, X, p, MF)],
-	//	x[idx(0, Reflected, Y, p, MF)]
+	//	x[idx(0, Reflected, Y, p, MF)],
+	//	x[idx(0, Reflected, Z, p, MF)],
+	//	true
 	//);
 	//tira::planewave<double> t(Sx(p) * k,
 	//	Sy(p) * k,
 	//	Sz[1](p) * k,
 	//	x[idx(1, Transmitted, X, p, MF)],
-	//	x[idx(1, Transmitted, Y, p, MF)]
+	//	x[idx(1, Transmitted, Y, p, MF)],
+	//	x[idx(1, Transmitted, Z, p, MF)],
+	//	true
 	//);
+	tira::planewave<double> r(Sx(p) * k,
+		Sy(p) * k,
+		-Sz[0](p) * k,
+		x[idx(0, Reflected, X, p, MF)],
+		x[idx(0, Reflected, Y, p, MF)]
+	);
+	tira::planewave<double> t(Sx(p) * k,
+		Sy(p) * k,
+		Sz[1](p) * k,
+		x[idx(1, Transmitted, X, p, MF)],
+		x[idx(1, Transmitted, Y, p, MF)]
+	);
 	P.push_back(r);
 	P.push_back(t);
 	return P;
@@ -602,7 +567,6 @@ int main(int argc, char** argv) {
 	// Define sample volume, reformat, and reorgnize.
 	volume < std::complex< double> > Volume(in_sample, ni, z, in_center, in_size, k.real(), std::complex<double>(in_n_sample, in_kappa_sample));
 	num_pixels = Volume.reformat();
-	//fz = Volume.reorg();				// Form fz and flag
 	D = Volume.CalculateD(M, dir);	// Calculate the property matrix for the sample
 
 	// For sparse storage
@@ -668,13 +632,9 @@ int main(int argc, char** argv) {
 
 	// MKL solution
 	proffile << "Linear system solving (MKL)..." << std::endl;
-	//std::cout << "A: " << A << std::endl;
-	//std::cout << "b: " << b << std::endl;
 	MKL_linearsolve(A, b);
 	Eigen::VectorXcd x = b;
 
-	//x[0] = std::complex<double>(-0.165523, -0.0208056);
-	//x[3] = std::complex<double>(-0.118919, -0.0875914);
 	std::cout << "x: " << x << std::endl;
 	proffile << "Linear system solved." << std::endl;
 

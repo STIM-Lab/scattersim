@@ -18,10 +18,11 @@
 
 extern std::vector<double> in_size;
 
-//Similar function with numpy.arange
+// Similar function with numpy.arange.
+// Special adjustment on Oct.16: Different from np.arange, the step in this function need to match with all the steps in spuEvaluate.cpp.
 inline Eigen::VectorXd arange(unsigned int points, double start, double end) {
 	Eigen::VectorXd Res(points);
-	double step = (end - start) / (points);
+	double step = (end - start) / (points-1);
 	for (int i = 0; i < points; i++) {
 		Res[i] = start + i * step;
 	}
@@ -328,8 +329,6 @@ private:
 		UpWq_Cal();
 		Eigen::MatrixXcd Nf = fftw_fft2(sample.array().pow(2), _M[1], _M[0]);
 		Nif = fftw_fft2(sample.cwiseInverse().array().pow(2), _M[1], _M[0]);
-		//std::cout << "sample.cwiseInverse().array().pow(2): " << sample.cwiseInverse().array().pow(2) << std::endl;
-		//std::cout << "Nif: " << Nif << std::endl;
 		NIf.push_back(Nif);
 		int MF = _M[0] * _M[1];
 

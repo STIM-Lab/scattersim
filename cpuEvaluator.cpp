@@ -287,9 +287,9 @@ void cpu_cw_evaluate_sample(glm::vec<3, std::complex<float>>* E_xy, glm::vec<3, 
     std::vector<std::vector<Eigen::MatrixXcd>> E,
     float x_start, float y_start, float z_start, float x, float y, float z, float d) {
 
-    unsigned int pixel_x = unsigned int((x - x_start) / d);
-    unsigned int pixel_y = unsigned int((y - y_start) / d);
-    unsigned int pixel_z = unsigned int((z - z_up + pow(10, -3)) / d);
+    int pixel_x = int((x - x_start) / d);
+    int pixel_y = int((y - y_start) / d);
+    int pixel_z = int((z - z_up + pow(10, -3)) / d);
     if (pixel_x < 0)
         pixel_x = 0;
     if (pixel_y < 0)

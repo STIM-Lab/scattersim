@@ -560,7 +560,7 @@ int main(int argc, char** argv) {
 	dir.normalize();																							// set the normalized direction of the incoming source field
 
 	// wavenumber
-	k = (std::complex<double>)(2 * M_PI / in_lambda * in_n[0]);
+	k = (std::complex<double>)(2 * PI / in_lambda * in_n[0]);
 
 	// store all of the layer positions and refractive indices
 	InitLayerProperties();

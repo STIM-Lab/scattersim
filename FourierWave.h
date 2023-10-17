@@ -15,7 +15,6 @@
 #include "fftw3.h"
 
 #define PI 3.141592653
-
 extern std::vector<double> in_size;
 
 // Similar function with numpy.arange.

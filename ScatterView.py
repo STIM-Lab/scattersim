@@ -2,6 +2,17 @@ import numpy as np
 import struct
 import matplotlib.pyplot as plt
 
+
+def circle():
+    # Refer to: https://blog.csdn.net/yuzeyuan12/article/details/108572868
+    X = np.linspace(-20, 20, 256).reshape([1, 256])
+    Y = np.linspace(-20, 20, 256).reshape([256, 1])
+    sample = (X - 0) ** 2 + (Y - 0) ** 2 <= 1 ** 2
+    index = np.ones((256, 256), dtype='complex128') * 1.0
+    index[sample] = 1.6
+    return index
+
+
 class planewave:
     def read(self, file, precision=8):
         
@@ -153,18 +164,18 @@ class coupledwave:
         RI = np.zeros((len(self.layers), self.M[1], self.M[0]), dtype=np.complex128)
         
         for li in range(len(self.layers)):
-            #fourier_image = np.reshape(self.layers[li].ft_n2, (self.M[1], self.M[0]))
-            #image = np.fft.ifft2(np.fft.ifftshift(fourier_image))
-            #RI[li, :, :] = 1.0 / np.sqrt(image)
-            
             fourier_image = np.reshape(self.layers[li].ft_n2, (self.M[1], self.M[0]))
-            fourier_ri = 1.0 / np.sqrt(fourier_image)
-            ri = np.fft.ifft2(np.fft.ifftshift(fourier_ri))
-            RI[li, :, :] = ri
-            
+            image = np.fft.ifft2(np.fft.ifftshift(fourier_image)) * self.M[0] * self.M[1]
+            RI[li, :, :] = 1.0 / np.sqrt(image)
+
         return RI
-            
-        
+
 cw = coupledwave()
 cw.load("data/c_10_10.cw")
 RefractiveIndex = cw.getVolume()
+
+plt.imshow(np.real(RefractiveIndex[0]))
+plt.colorbar()
+plt.show()
+
+

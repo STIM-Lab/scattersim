@@ -37,12 +37,12 @@ double in_z;
 std::vector<double> in_size;
 std::vector<size_t> num_pixels;
 std::vector<double> in_normal;
-double in_na;
+//double in_na;
 std::string in_outfile;
-double in_alpha;
-double in_beta;
+//double in_alpha;
+//double in_beta;
 std::string in_sample;
-std::string in_mode;
+//std::string in_mode;
 std::vector<int> in_coeff;
 double in_n_sample;
 double in_kappa_sample;
@@ -498,11 +498,11 @@ int main(int argc, char** argv) {
 		("size", boost::program_options::value<std::vector<double>>(&in_size)->multitoken()->default_value(std::vector<double>{40, 40, 2}, "20, 20, 10"), "The real size of the single-layer sample")
 		("z", boost::program_options::value<double >(&in_z)->multitoken()->default_value(-1, "-5.0"), "the top boundary of the sample")
 		("output", boost::program_options::value<std::string>(&in_outfile)->default_value("c.cw"), "output filename for the coupled wave structure")
-		("alpha", boost::program_options::value<double>(&in_alpha)->default_value(1), "angle used to focus the incident field")
-		("beta", boost::program_options::value<double>(&in_beta)->default_value(0.0), "internal obscuration angle (for simulating reflective optics)")
-		("na", boost::program_options::value<double>(&in_na), "focus angle expressed as a numerical aperture (overrides --alpha)")
+		//("alpha", boost::program_options::value<double>(&in_alpha)->default_value(1), "angle used to focus the incident field")
+		//("beta", boost::program_options::value<double>(&in_beta)->default_value(0.0), "internal obscuration angle (for simulating reflective optics)")
+		//("na", boost::program_options::value<double>(&in_na), "focus angle expressed as a numerical aperture (overrides --alpha)")
 		("coef", boost::program_options::value<std::vector<int> >(&in_coeff)->multitoken()->default_value(std::vector<int>{1, 3}, "3, 3"), "number of Fouerier coefficients (can be specified in 2 dimensions)")
-		("mode", boost::program_options::value<std::string>(&in_mode)->default_value("polar"), "sampling mode (polar, montecarlo)")
+		//("mode", boost::program_options::value<std::string>(&in_mode)->default_value("polar"), "sampling mode (polar, montecarlo)")
 		("log", "produce a log file")
 		("prof", "produce a profiling file")
 		// input just for scattervolume 
@@ -534,9 +534,9 @@ int main(int argc, char** argv) {
 	}
 
 	// override alpha with NA if specified
-	if (vm.count("na")) {
-		in_alpha = asin(in_na);
-	}
+	//if (vm.count("na")) {
+	//	in_alpha = asin(in_na);
+	//}
 
 	// Calculate the number of layers based on input parameters (take the maximum of all layer-specific command-line options)
 	L = in_n.size();

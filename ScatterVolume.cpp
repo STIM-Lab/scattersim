@@ -666,8 +666,8 @@ int main(int argc, char** argv) {
 		for (size_t l = 0; l < L; l++) {														// for each layer
 			if (l == 0) {
 				cw.Layers[l].z = z[l];
-				//r = P[1 + l * 2 + 0].wind(0.0, 0.0, -z[l]);
-				r = P[1 + l * 2 + 0];
+				r = P[1 + l * 2 + 0].wind(0.0, 0.0, -z[l]);
+				//r = P[1 + l * 2 + 0];
 				cw.Layers[l].Pr.push_back(r);
 				t = zero;
 				cw.Layers[l].Pt.push_back(t);
@@ -676,8 +676,8 @@ int main(int argc, char** argv) {
 				cw.Layers[l].z = z[l];
 				r = zero;
 				cw.Layers[l].Pr.push_back(r);
-				t = P[1 + (l - 1) * 2 + 1];
-				//t = P[1 + (l - 1) * 2 + 1].wind(0.0, 0.0, -z[l]);
+				//t = P[1 + (l - 1) * 2 + 1];
+				t = P[1 + (l - 1) * 2 + 1].wind(0.0, 0.0, -z[l]);
 				cw.Layers[l].Pt.push_back(t);
 			}
 

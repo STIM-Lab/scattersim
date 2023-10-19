@@ -68,7 +68,7 @@ __device__ void evaluate(thrust::complex<float>& Ex, thrust::complex<float>& Ey,
         int p = (idx - begin) % MF_x;
         int q = (idx - begin) / MF_x;
 
-        k_dot_r = kx * x + ky * y + kz * (z - z_boundary);
+        k_dot_r = kx * x + ky * y + kz * z;
         phase = thrust::exp(i * k_dot_r);
         Ex += E0x * phase;
         Ey += E0y * phase;

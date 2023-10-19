@@ -190,9 +190,6 @@ void SetBoundaryConstraints(tira::planewave<double> p) {
 
 		// first constraint (Equation 8)
 		Mat(start_row + l * 4 + 0, l, Transmitted, X) = std::exp(i * k * sz[l] * zn);
-		std::cout << std::exp(i * k * sz[l] * zn) << std::endl;
-		std::cout << std::exp(i * k * sz[l] * zn) << std::endl;
-		std::cout << std::exp(i * k * sz[l] * zn) << std::endl;
 		Mat(start_row + l * 4 + 0, l, Reflected, X) = 1.0;
 		Mat(start_row + l * 4 + 0, l + 1, Transmitted, X) = -1.0;
 		Mat(start_row + l * 4 + 0, l + 1, Reflected, X) = -std::exp(-i * k * sz[l + 1] * zp);
@@ -379,6 +376,7 @@ int main(int argc, char** argv) {
 		InitSz(i);																				// initialize the model matrix
 		SetGaussianConstraints(i);
 		SetBoundaryConditions(i);
+		SetBoundaryConstraints(i);
 
 		Eigen::VectorXcd x = A.colPivHouseholderQr().solve(b);												// solve the linear system
 		std::vector<tira::planewave<double>> P = mat2waves(i, x);									// generate plane waves from the solution vector

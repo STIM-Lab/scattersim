@@ -170,12 +170,10 @@ class coupledwave:
 
         return RI
 
-cw = coupledwave()
-cw.load("data/c_10_10.cw")
-RefractiveIndex = cw.getVolume()
+layer = coupledwave()
+layer.load("C:/Users/david/Documents/build/scattersim-bld/simple_layer.cw")
 
-plt.imshow(np.real(RefractiveIndex[0]))
-plt.colorbar()
-plt.show()
+volume = coupledwave()
+volume.load("C:/Users/david/Documents/build/scattersim-bld/simple_volume.cw")
 
 

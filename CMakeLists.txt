@@ -44,6 +44,8 @@ endif ( MSVC )
 
 configure_file(data/sphere.npy 
 				sphere.npy COPYONLY)
+configure_file(data/layers.npy 
+				layers.npy COPYONLY)
 configure_file(data/RecSquare.npy 
 				RecSquare.npy COPYONLY)
 configure_file(data/target.npy 

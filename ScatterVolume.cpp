@@ -461,15 +461,15 @@ int main(int argc, char** argv) {
 		("sample", boost::program_options::value<std::string>(&in_sample), "input sample as an .npy file")
 		("lambda", boost::program_options::value<double>(&in_lambda)->default_value(1.0), "incident field vacuum wavelength")
 		("direction", boost::program_options::value<std::vector<double> >(&in_dir)->multitoken()->default_value(std::vector<double>{0, 0, 1}, "0, 0, 1"), "incoming field direction")
-		("ex", boost::program_options::value<std::vector<double> >(&in_ex)->multitoken()->default_value(std::vector<double>{1, 0}, "0, 0"), "incoming field direction")
-		("ey", boost::program_options::value<std::vector<double> >(&in_ey)->multitoken()->default_value(std::vector<double>{0, 0}, "1, 0"), "incoming field direction")
+		("ex", boost::program_options::value<std::vector<double> >(&in_ex)->multitoken()->default_value(std::vector<double>{0, 0}, "0, 0"), "incoming field direction")
+		("ey", boost::program_options::value<std::vector<double> >(&in_ey)->multitoken()->default_value(std::vector<double>{1, 0}, "1, 0"), "incoming field direction")
 		("n", boost::program_options::value<std::vector<double>>(&in_n)->multitoken()->default_value(std::vector<double>{1.0, 1.0}, "1, 1"), "real refractive index (optical path length) of the upper and lower layers")
 		("kappa", boost::program_options::value<std::vector<double> >(&in_kappa)->multitoken()->default_value(std::vector<double>{0}, "0.00"), "absorbance of the lower layer (upper layer is always 0.0)")
 		// The center of the sample along x/y is always 0/0.
 		("size", boost::program_options::value<std::vector<double>>(&in_size)->multitoken()->default_value(std::vector<double>{30, 30, 2}, "20, 20, 10"), "The real size of the single-layer sample")
 		("z", boost::program_options::value<double >(&in_z)->multitoken()->default_value(0, "0.0"), "the center of the sample along z-axis")
 		("output", boost::program_options::value<std::string>(&in_outfile)->default_value("c.cw"), "output filename for the coupled wave structure")
-		("coef", boost::program_options::value<std::vector<int> >(&in_coeff)->multitoken()->default_value(std::vector<int>{1, 3}, "3, 3"), "number of Fouerier coefficients (can be specified in 2 dimensions)")
+		("coef", boost::program_options::value<std::vector<int> >(&in_coeff)->multitoken(), "number of Fourier coefficients (can be specified in 2 dimensions)")
 		("log", "produce a log file")
 		("prof", "produce a profiling file")
 		// input just for scattervolume 
@@ -508,20 +508,7 @@ int main(int argc, char** argv) {
 	// Calculate the number of layers based on input parameters (take the maximum of all layer-specific command-line options)
 	L = in_n.size();
 
-	// Get the number of the Fourier Coefficients
-	if (in_coeff.size() == 1) {
-		M[0] = std::sqrt(in_coeff[0]);
-		M[1] = std::sqrt(in_coeff[0]);
-	}
-	else if (in_coeff.size() == 2) {
-		M[0] = in_coeff[0];
-		M[1] = in_coeff[1];
-	}
-	else {
-		M[0] = 1;
-		M[1] = 1;
-	}
-	MF = M[0] * M[1];
+	
 	Eigen::Vector3d dir(in_dir[0], in_dir[1], in_dir[2]);
 	dir.normalize();																							// set the normalized direction of the incoming source field
 
@@ -533,6 +520,22 @@ int main(int argc, char** argv) {
 	// Define sample volume, reformat, and reorgnize.
 	volume < std::complex< double> > Volume(in_sample, ni, z, in_center, in_size, k.real(), std::complex<double>(in_n_sample, in_kappa_sample));
 	num_pixels = Volume.reformat();
+
+	// Get the number of the Fourier Coefficients
+	if (in_coeff.size() == 0) {
+		M[0] = num_pixels[2];
+		M[1] = num_pixels[1];
+	}
+	else if (in_coeff.size() == 1) {
+		M[0] = std::sqrt(in_coeff[0]);
+		M[1] = std::sqrt(in_coeff[0]);
+	}
+	else if (in_coeff.size() == 2) {
+		M[0] = in_coeff[0];
+		M[1] = in_coeff[1];
+	}
+	MF = M[0] * M[1];
+
 	D = Volume.CalculateD(M, dir);	// Calculate the property matrix for the sample
 
 	// For sparse storage

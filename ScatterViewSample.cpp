@@ -37,7 +37,7 @@ ImVec4 clear_color = ImVec4(0.0f, 0.0f, 0.0f, 1.00f);   // specify the OpenGL co
 float ui_scale = 1.5f;                                  // scale value for the UI and UI text
 double xpos, ypos;                                      // cursor positions
 
-float extent = 10;                                      // extent of the field being displayed (think of this as a zoom value)
+float extent = 10;                                      // size of the field being displayed (think of this as a zoom value)
 float center[] = {0, 0, 0};                             // center of the display field
 float float_high = 1000;                                // store the maximum float value
 unsigned int res_step = 1;
@@ -99,7 +99,7 @@ std::vector<float> in_center;
 float in_slice;
 // CUDA device information and management
 int in_device;
-float in_size_c;                                          // size of the sample being visualized (in arbitrary units specified during simulation)
+float in_extent;                                          // size of the sample being visualized (in arbitrary units specified during simulation)
 size_t free_gpu_memory;
 size_t total_gpu_memory;
 
@@ -114,7 +114,7 @@ double t_UpdateTextures;
 double t_EvaluateColorSlices;
 double t_EvaluateScalarSlices;
 double t_EvaluateVectorSlices;
-
+unsigned int N;
 
 std::string VertexSource =                                  // Source code for the default vertex shader
 "# version 330 core\n"
@@ -353,7 +353,6 @@ void EvaluateScalarSlices() {
 
 void EvaluateVectorSlices() {
     auto start = std::chrono::steady_clock::now();
-    unsigned int N = pow(2, in_resolution);                                    // get the resolution of the field N
     float d = extent / (N-1);                                             // calculate the step size in cartesian coordinates
     float x, y, z;
     float x_start = center[0] - extent / 2;
@@ -380,16 +379,8 @@ void EvaluateVectorSlices() {
 
 void RenderGui(){
     ImGui::Begin("Display Controls");                                       // Create a window for all ImGui controls
-    //if(ImGui::DragFloat("Extent", &extent, 0.05, 0, float_high)){
-    //    EvaluateVectorSlices();
-    //}
-    //if(ImGui::DragFloat3("Center", center, 0.05, -float_high, float_high)){
-    //    EvaluateVectorSlices();
-    //}
-
-    
-    
-    if (ImGui::GetIO().MouseClicked[1])
+   
+     if (ImGui::GetIO().MouseClicked[1])
     {
         glfwGetCursorPos(window, &xpos, &ypos);
         ImGui::OpenPopup("save_slice");
@@ -691,11 +682,11 @@ int main(int argc, char** argv)
         ("nogui", "save an output file without loading the GUI")
 		("verbose,v", "produce verbose output")
         ("sample", "load a 3D sample stored as a grid (*.npy)")
-        ("size", boost::program_options::value<float>(&in_size_c)->default_value(40), "size of the sample being visualized (initial range in arbitrary units)")
         ("resolution", boost::program_options::value<int>(&in_resolution)->default_value(8), "resolution of the sample field (use powers of two, ex. 2^n)")
+        ("extent", boost::program_options::value<float>(&in_extent)->default_value(30), "size of the sample being visualized (initial range in arbitrary units)")
         ("output", boost::program_options::value<std::string>(&in_savename)->default_value("xz.npy"), "output file written when the --nogui option is used")
         ("axis", boost::program_options::value<int>(&in_axis)->default_value(1), "axis to cut (0 = X, 1 = Y, 2 = Z")
-        ("center", boost::program_options::value<std::vector<float> >(&in_center)->multitoken()->default_value(std::vector<float>{20, 20, 0}, "{0, 0, 0}"), "center position of the sampled volume")
+        ("center", boost::program_options::value<std::vector<float> >(&in_center)->multitoken()->default_value(std::vector<float>{0, 0, 0}, "{0, 0, 0}"), "center position of the sampled volume")
         ("slice", boost::program_options::value<float>(&in_slice)->default_value(0), "coordinate along the specified axis RELATIVE to the 'center' position")
 		;
 	boost::program_options::variables_map vm;
@@ -706,7 +697,8 @@ int main(int argc, char** argv)
 	
     boost::program_options::notify(vm); 
 
-    extent = in_size_c;                           // initialize the extent of the visualization to the size of the sample
+    extent = in_extent;                           // initialize the size of the visualization to the size of the sample
+    N = pow(2, in_resolution);                    // The size of the image to be saved
   
 
 	if (vm.count("help")) {
@@ -727,8 +719,8 @@ int main(int argc, char** argv)
 
     // Manual correction for matching phase. Ask Ruijiao before deleting.
 
-    center[0] = in_center[0];
-    center[1] = in_center[1];
+    center[0] = in_center[0] + extent / 2.0;
+    center[1] = in_center[1] + extent / 2.0;
     center[2] = in_center[2];
     if(vm.count("verbose")){
         verbose = true;
@@ -751,7 +743,7 @@ int main(int argc, char** argv)
     std::chrono::duration<double> duration = end - start;
     t_LoadData = duration.count();
     //std::cout << "done. (" << t_LoadData << " s)" << std::endl;
-    unsigned int N = pow(2, in_resolution);                // The size of the image to be saved
+    N = pow(2, in_resolution);                // The size of the image to be saved
     
 
     cw_allocate(&cw);

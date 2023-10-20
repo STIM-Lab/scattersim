@@ -66,7 +66,6 @@ std::vector<Eigen::RowVectorXcd> Sz(2);		// 2D vector for the Fourier coefficien
 Eigen::VectorXcd Ex, Ey, Ez;
 int ei = 0;				// The current row for the matrix
 int l;			// The current layer l.
-int in_resolution;
 std::ofstream logfile;
 std::ofstream proffile;
 std::vector<Eigen::MatrixXcd> D;		// The property matrix
@@ -90,7 +89,6 @@ Eigen::MatrixXcd tmp;					// Temposarily store some Eigen::MatrixXcd
 Eigen::MatrixXcd tmp_2;					// Temposarily store additional Eigen::MatrixXcd
 Eigen::MatrixXcd Gc_static;					// Temposarily store some Eigen::MatrixXcd
 std::chrono::duration<double> elapsed_seconds;
-double points;
 bool saveSampleTexture = true;
 
 /// Convert a complex vector to a string for display
@@ -157,10 +155,8 @@ void InitLayerProperties() {
 	for (size_t l = 1; l < L; l++)
 		ni[l] = std::complex<double>(in_n[l], in_kappa[l - 1]);			// store the complex refractive index for each layer
 	z = new double[L];														// allocate space to store z coordinates for each interface
-	z[0] = in_z;
-	z[1] = in_z + in_size[2];
-	//z[0] = -0.64516129;
-	//z[1] = 1.93548387;	
+	z[0] = in_z - in_size[2] / 2.0;
+	z[1] = in_z + in_size[2] / 2.0;
 }
 
 // The struct is to integrate eigenvalues and their indices
@@ -239,7 +235,6 @@ void EigenDecompositionD() {
 	//eigenvectors[0] = Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(&data2[0], 4 * MF, 4 * MF);
 	//eigenvectors[0].transposeInPlace();
 
-	float z_up, z_bo;
 	Gd.resize(4 * MF, 4 * MF);
 	Gc.resize(4 * MF, 4 * MF);
 	std::complex<double> Di;
@@ -248,38 +243,15 @@ void EigenDecompositionD() {
 	for (size_t i = 0; i < D.size(); i++) {
 		for (size_t j = 0; j < eigenvalues[i].size(); j++) {
 			if (D.size() == 1) {
-				if (saveSampleTexture) {
-					float d = in_size[1] / float(points-1);
-					float z_start = -in_size[1] / 2.0;
-					float zi;
-					for (unsigned int iz = 0; iz < points; iz++) {
-						zi = z_start + float(iz) * d;
-						if (zi >= z[0] - pow(10, -3)) {
-							z_up = zi;
-							break;
-						}
-					}
-					for (unsigned int iz = 0; iz < points; iz++) {
-						zi = z_start + float(iz) * d;
-						if (zi >= z[1] - pow(10, -3)) {
-							z_bo = zi;
-							break;
-						}
-					}
-				}
-				else {
-					z_up = z[0];
-					z_bo = z[1];
-				}
-				Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(z_bo - z_up));
-				Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(z_up - z_bo));
+				Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(in_size[2]));
+				Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(-in_size[2]));
 			}
 			else {
 				/// Use the commented version when you don't need the heterogeneous info.
 				/// Reason: Little phase mismatch due to the dif between simulation and physics.
 				// In multi-layer case, let's suppose in_size[1] == extent is true.
-				Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>)(in_size[1]) / (std::complex<double>)(points - 1.0)));
-				Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (-in_size[1]) / (std::complex<double>)(points - 1.0)));
+				Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>)(in_size[2]) / (std::complex<double>)(num_pixels[0])));
+				Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (-in_size[2]) / (std::complex<double>)(num_pixels[0])));
 
 			}
 			if (j % 2 != 0) {
@@ -494,15 +466,10 @@ int main(int argc, char** argv) {
 		("n", boost::program_options::value<std::vector<double>>(&in_n)->multitoken()->default_value(std::vector<double>{1.0, 1.0}, "1, 1"), "real refractive index (optical path length) of the upper and lower layers")
 		("kappa", boost::program_options::value<std::vector<double> >(&in_kappa)->multitoken()->default_value(std::vector<double>{0}, "0.00"), "absorbance of the lower layer (upper layer is always 0.0)")
 		// The center of the sample along x/y is always 0/0.
-		("resolution", boost::program_options::value<int>(&in_resolution)->default_value(8), "resolution of the sample field (use powers of two, ex. 2^n)")
-		("size", boost::program_options::value<std::vector<double>>(&in_size)->multitoken()->default_value(std::vector<double>{40, 40, 2}, "20, 20, 10"), "The real size of the single-layer sample")
-		("z", boost::program_options::value<double >(&in_z)->multitoken()->default_value(-1, "-5.0"), "the top boundary of the sample")
+		("size", boost::program_options::value<std::vector<double>>(&in_size)->multitoken()->default_value(std::vector<double>{30, 30, 2}, "20, 20, 10"), "The real size of the single-layer sample")
+		("z", boost::program_options::value<double >(&in_z)->multitoken()->default_value(0, "0.0"), "the center of the sample along z-axis")
 		("output", boost::program_options::value<std::string>(&in_outfile)->default_value("c.cw"), "output filename for the coupled wave structure")
-		//("alpha", boost::program_options::value<double>(&in_alpha)->default_value(1), "angle used to focus the incident field")
-		//("beta", boost::program_options::value<double>(&in_beta)->default_value(0.0), "internal obscuration angle (for simulating reflective optics)")
-		//("na", boost::program_options::value<double>(&in_na), "focus angle expressed as a numerical aperture (overrides --alpha)")
 		("coef", boost::program_options::value<std::vector<int> >(&in_coeff)->multitoken()->default_value(std::vector<int>{1, 3}, "3, 3"), "number of Fouerier coefficients (can be specified in 2 dimensions)")
-		//("mode", boost::program_options::value<std::string>(&in_mode)->default_value("polar"), "sampling mode (polar, montecarlo)")
 		("log", "produce a log file")
 		("prof", "produce a profiling file")
 		// input just for scattervolume 
@@ -555,7 +522,6 @@ int main(int argc, char** argv) {
 		M[1] = 1;
 	}
 	MF = M[0] * M[1];
-	points = pow(2, in_resolution);
 	Eigen::Vector3d dir(in_dir[0], in_dir[1], in_dir[2]);
 	dir.normalize();																							// set the normalized direction of the incoming source field
 
@@ -579,9 +545,9 @@ int main(int argc, char** argv) {
 	E0.push_back(std::complex<double>(in_ey[0], in_ey[1]));
 	E0.push_back(std::sqrt(pow(std::complex<double>(1, 0), 2) - pow(E0[0], 2) - pow(E0[1], 2)));
 	std::vector<Eigen::MatrixXcd> Ef(3);
-	Ef[0] = fftw_fft2(E0[0] * Eigen::MatrixXcd::Ones(num_pixels[2], num_pixels[1]), M[1], M[0]);	// M[0]=3 is column. M[1]=1 is row. 
-	Ef[1] = fftw_fft2(E0[1] * Eigen::MatrixXcd::Ones(num_pixels[2], num_pixels[1]), M[1], M[0]);
-	Ef[2] = fftw_fft2(E0[2] * Eigen::MatrixXcd::Ones(num_pixels[2], num_pixels[1]), M[1], M[0]);
+	Ef[0] = fftw_fft2(E0[0] * Eigen::MatrixXcd::Ones(num_pixels[1], num_pixels[2]), M[1], M[0]);	// M[0]=3 is column. M[1]=1 is row. 
+	Ef[1] = fftw_fft2(E0[1] * Eigen::MatrixXcd::Ones(num_pixels[1], num_pixels[2]), M[1], M[0]);
+	Ef[2] = fftw_fft2(E0[2] * Eigen::MatrixXcd::Ones(num_pixels[1], num_pixels[2]), M[1], M[0]);
 	EF.resize(3 * MF);
 	EF.segment(0, MF) = Eigen::Map<Eigen::VectorXcd>(Ef[0].data(), MF);
 	EF.segment(MF, MF) = Eigen::Map<Eigen::VectorXcd>(Ef[1].data(), MF);
@@ -752,7 +718,7 @@ int main(int argc, char** argv) {
 	elapsed_seconds = simulated - solved;
 	proffile << "Time for saving the field " << elapsed_seconds.count() << "s" << std::endl << std::endl << std::endl;
 
-	std::cout << "Number of pixels (x, y): [" << num_pixels[1] << "," << num_pixels[2] << "]" << std::endl;
+	std::cout << "Number of pixels (x, y): [" << num_pixels[2] << "," << num_pixels[1] << "]" << std::endl;
 	std::cout << "Number of sublayers: " << num_pixels[0] << std::endl;
 	std::cout << "Number of Fourier coefficients (Mx, My): [" << M[0] << "," << M[1] << "]" << std::endl;
 	elapsed_seconds = simulated - start;

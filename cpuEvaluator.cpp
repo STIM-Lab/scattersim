@@ -132,6 +132,12 @@ void cw_unpack(CoupledWaveStructure<double>* cw) {
     }
 }
 
+unsigned int idx(int num) {
+    float z_cur = (float)num * d;
+    float step = size[2] / slices;
+    return unsigned int(float(z_cur) / step);
+}
+
 void EvaluateSample(std::vector <std::vector< Eigen::MatrixXcd>>& E, float* center, float Extent, unsigned int N) {
     // Visualization boundaries. Eg: extent=100, center=[50, 50, 0]. X=Y=[0, 100]
     extent = Extent;
@@ -163,7 +169,7 @@ void EvaluateSample(std::vector <std::vector< Eigen::MatrixXcd>>& E, float* cent
         }
     }
     int points_z = pixels_bo - pixels_up;
-
+    float step = (z_layers[1] - z_layers[0]) / (float) slices;
     E.resize(3);
     E[0].resize(points_z);
     E[1].resize(points_z);
@@ -189,12 +195,11 @@ void EvaluateSample(std::vector <std::vector< Eigen::MatrixXcd>>& E, float* cent
     std::complex<double> S[2];
     S[0] = s[0];
     S[1] = s[1];
-
+    unsigned int i;
     for (int z = 0; z < points_z; z++) {
-        unsigned int i = 0;     // For single-layered sample
+        i = 0;     // For single-layered sample
         if (Beta.size() > 1)
-            i = (unsigned int)z;
-
+            i = idx(z);
         Eigen::MatrixXcd Beta_cur = Beta[i];
         Eigen::MatrixXcd Gamma_cur = Gamma[i];
         Eigen::MatrixXcd G_cur = GG[i];
@@ -211,8 +216,9 @@ void EvaluateSample(std::vector <std::vector< Eigen::MatrixXcd>>& E, float* cent
         Eigen::MatrixXcd phase_odd = (std::complex<double>(0, 1) * K * (std::complex<double>)((z)*d + z_up - z_bo) * gamma_odd.array()).exp().matrix();
 
         if (Beta.size() > 1) {
-            phase_even = (std::complex<double>(0, 1) * K * (std::complex<double>)(0) * gamma_even.array()).exp().matrix();
-            phase_odd = (std::complex<double>(0, 1) * K * (std::complex<double>)(-d) * gamma_odd.array()).exp().matrix();
+            phase_even = (std::complex<double>(0, 1) * K * (std::complex<double>)((z)*d + z_up - z_up - i * step) * gamma_even.array()).exp().matrix();
+            phase_odd = (std::complex<double>(0, 1) * K * (std::complex<double>)((z)*d + z_up - z_up - (i + 1) * step) * gamma_odd.array()).exp().matrix();
+
         }
 
         for (int n = 0; n < _M; n++) {

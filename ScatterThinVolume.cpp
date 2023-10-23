@@ -671,12 +671,12 @@ int main(int argc, char** argv) {
 	SizeInBytes += sizeof(D);
 
 	// For sparse storage
-	M_rowInd = Volume._M_rowInd;
-	M_colInd = Volume._M_colInd;
-	M_val = Volume._M_val;
-	SizeInBytes += sizeof(M_rowInd);
-	SizeInBytes += sizeof(M_colInd);
-	SizeInBytes += sizeof(M_val);
+	//M_rowInd = Volume._M_rowInd;
+	//M_colInd = Volume._M_colInd;
+	//M_val = Volume._M_val;
+	//SizeInBytes += sizeof(M_rowInd);
+	//SizeInBytes += sizeof(M_colInd);
+	//SizeInBytes += sizeof(M_val);
 
 	// Fourier transform for the incident waves
 	E0.push_back(std::complex<double>(in_ex[0], in_ex[1]));

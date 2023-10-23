@@ -424,6 +424,7 @@ int main(int argc, char** argv) {
 
 	int spacing1 = 30;
 	int spacing2 = 30;
+	int spacing3 = 10;
 	// incident field parameters
 	std::cout << std::setw(spacing1) << std::left << "vacuum wavelength: " << in_lambda << std::endl;
 
@@ -433,6 +434,22 @@ int main(int argc, char** argv) {
 		if(in_beta > 0.0)
 			std::cout << std::setw(spacing1) << std::left << "obscuration angle: " << in_beta << " (" << std::sin(in_beta) * in_n[0] << " NA)" << std::endl;
 	}
+	std::cout << std::endl;
+	std::cout << std::setw(spacing1) << std::left << "layers: " << L << std::endl;
+	for (size_t l = 0; l < L; l++) {
+		float z_start, z_end;
+		if (l == 0) z_start = -INFINITY;
+		else z_start = z[l - 1];
+
+
+		if (l == L - 1) z_end = INFINITY;
+		else z_end = z[l];
+
+		std::cout << l << "     [" << z_start << ", " << z_end << "]: " << ri[l].real() << " + " << ri[l].imag() << "i" << std::endl;
+	}
+
+	std::cout << std::endl;
+
 	std::cout << std::setw(spacing1) << std::left << "samples: " << N[0] << " x " << N[1] << " = " << N[0] * N[1] << std::endl;
 	std::cout << std::setw(spacing1) << std::left << "sampling mode: " << in_mode << std::endl;
 	std::cout << std::endl;

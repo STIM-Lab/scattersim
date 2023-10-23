@@ -53,7 +53,7 @@ void cw_allocate(CoupledWaveStructure<double>* cw) {
             }
         }
 
-        glm::vec<3, std::complex<float> > k = cw->Pi[M[1] / 2 * M[0] + M[0] / 2].getK();
+        glm::vec<3, std::complex<float> > k = cw->Pi[0].getK();
         K = sqrt(pow(k[0], 2) + pow(k[1], 2) + pow(k[2], 2));
         Beta.resize(slices);
         Gamma.resize(slices);
@@ -70,7 +70,7 @@ void cw_allocate(CoupledWaveStructure<double>* cw) {
     waves_end.reserve(1000);
     waves_begin.push_back(0);
     int total_waves = cw->Pi.size();
-    s = cw->Pi[M[1] / 2 * M[0] + M[0] / 2].getDirection();
+    s = cw->Pi[0].getDirection();
 
     for (int li = 0; li < cw->Layers.size(); li++) {
         z_layers[li] = cw->Layers[li].z;
@@ -105,30 +105,28 @@ void cw_unpack(CoupledWaveStructure<double>* cw) {
         idx++;
     }
 
-    for (size_t li = 0; li < cw->Layers.size(); li++) {
-        for (size_t ri = 0; ri < cw->Layers[li].Pr.size(); ri++) {
-            E0 = cw->Layers[li].Pr[ri].getE0();
-            k = cw->Layers[li].Pr[ri].getK();
-            W[idx].E0[0] = E0[0];
-            W[idx].E0[1] = E0[1];
-            W[idx].E0[2] = E0[2];
-            W[idx].k[0] = k[0];
-            W[idx].k[1] = k[1];
-            W[idx].k[2] = k[2];
-            idx++;
-        }
+    for (size_t ri = 0; ri < cw->Layers[0].Pr.size(); ri++) {
+        E0 = cw->Layers[0].Pr[ri].getE0();
+        k = cw->Layers[0].Pr[ri].getK();
+        W[idx].E0[0] = E0[0];
+        W[idx].E0[1] = E0[1];
+        W[idx].E0[2] = E0[2];
+        W[idx].k[0] = k[0];
+        W[idx].k[1] = k[1];
+        W[idx].k[2] = k[2];
+        idx++;
+    }
 
-        for (size_t ti = 0; ti < cw->Layers[li].Pt.size(); ti++) {
-            E0 = cw->Layers[li].Pt[ti].getE0();
-            k = cw->Layers[li].Pt[ti].getK();
-            W[idx].E0[0] = E0[0];
-            W[idx].E0[1] = E0[1];
-            W[idx].E0[2] = E0[2];
-            W[idx].k[0] = k[0];
-            W[idx].k[1] = k[1];
-            W[idx].k[2] = k[2];
-            idx++;
-        }
+    for (size_t ti = 0; ti < cw->Layers[1].Pt.size(); ti++) {
+        E0 = cw->Layers[1].Pt[ti].getE0();
+        k = cw->Layers[1].Pt[ti].getK();
+        W[idx].E0[0] = E0[0];
+        W[idx].E0[1] = E0[1];
+        W[idx].E0[2] = E0[2];
+        W[idx].k[0] = k[0];
+        W[idx].k[1] = k[1];
+        W[idx].k[2] = k[2];
+        idx++;
     }
 }
 

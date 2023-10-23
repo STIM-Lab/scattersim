@@ -89,15 +89,16 @@ public:
 			file.write((char*)&Pi[iPi], sizeof(tira::planewave<T>));
 		}
 		size_t sizeof_Layers = Layers.size();
+		size_t sizeof_Pr, sizeof_Pt;
 		file.write((char*)&sizeof_Layers, sizeof(size_t));	// output the number of homogeneous layers
 		for (size_t iLayers = 0; iLayers < Layers.size(); iLayers++) {
 			file.write((char*)&Layers[iLayers].z, sizeof(T));		// output the layer position
-			size_t sizeof_Pr = Layers[iLayers].Pr.size();
+			sizeof_Pr = Layers[iLayers].Pr.size();
 			file.write((char*)&sizeof_Pr, sizeof(size_t));		// output the number of reflected plane waves
 			for (size_t iPr = 0; iPr < Layers[iLayers].Pr.size(); iPr++) {
 				file.write((char*)&Layers[iLayers].Pr[iPr], sizeof(tira::planewave<T>));
 			}
-			size_t sizeof_Pt = Layers[iLayers].Pt.size();
+			sizeof_Pt = Layers[iLayers].Pt.size();
 			file.write((char*)&sizeof_Pt, sizeof(size_t));		// output the number of transmitted plane waves
 			for (size_t iPt = 0; iPt < Layers[iLayers].Pt.size(); iPt++) {
 				file.write((char*)&Layers[iLayers].Pt[iPt], sizeof(tira::planewave<T>));
@@ -111,7 +112,7 @@ public:
 
 			unsigned int sizeof_Slices = Slices.size();
 			file.write((char*)&sizeof_Slices, sizeof(unsigned int));
-			int MF4 = sizeof_Pi * 4;
+			int MF4 = sizeof_Pt * 4;
 			for (int iSlices = 0; iSlices < sizeof_Slices; iSlices++) {
 				for (int m = 0; m < MF4; m++) {
 					file.write((char*)&Slices[iSlices].beta[m], sizeof(std::complex<T>));
@@ -144,17 +145,16 @@ public:
 			file.read((char*)&Pi[iPi], sizeof(tira::planewave<T>));
 		}
 		size_t sizeof_Layers;
+		size_t sizeof_Pr, sizeof_Pt;
 		file.read((char*)&sizeof_Layers, sizeof(size_t));					// read the number of homogeneous layers
 		Layers.resize(sizeof_Layers);										// allocate space for the layer structures
 		for (size_t iLayers = 0; iLayers < Layers.size(); iLayers++) {
 			file.read((char*)&Layers[iLayers].z, sizeof(T));				// read the layer position
-			size_t sizeof_Pr;
 			file.read((char*)&sizeof_Pr, sizeof(size_t));					// read the number of reflected plane waves
 			Layers[iLayers].Pr.resize(sizeof_Pr);							// allocate space for the reflected waves
 			for (size_t iPr = 0; iPr < Layers[iLayers].Pr.size(); iPr++) {
 				file.read((char*)&Layers[iLayers].Pr[iPr], sizeof(tira::planewave<T>));
 			}
-			size_t sizeof_Pt;
 			file.read((char*)&sizeof_Pt, sizeof(size_t));					// read the number of transmitted plane waves
 			Layers[iLayers].Pt.resize(sizeof_Pt);							// allocate space for the transmitted plane waves
 			for (size_t iPt = 0; iPt < Layers[iLayers].Pt.size(); iPt++) {
@@ -172,7 +172,7 @@ public:
 			file.read((char*)&sizeof_Slices, sizeof(unsigned int));
 			Slices.resize(sizeof_Slices);
 			NIf.resize(sizeof_Slices);
-			int MF4 = sizeof_Pi * 4;
+			int MF4 = sizeof_Pt * 4;
 			for (int iSlices = 0; iSlices < sizeof_Slices; iSlices++) {
 				Slices[iSlices].beta.resize(MF4);
 				Slices[iSlices].gamma.resize(MF4);

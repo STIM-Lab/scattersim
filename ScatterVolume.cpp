@@ -81,10 +81,6 @@ std::vector<Eigen::MatrixXcd> GC;					// Dimension: (layers, coeffs)
 Eigen::MatrixXcd f1;
 Eigen::MatrixXcd f2;
 Eigen::MatrixXcd f3;
-// For sparse storage. Not in use because lack of methods to calculate eigendecomposition for sparse matrix
-std::vector<int> M_rowInd;
-std::vector<int> M_colInd;
-std::vector<std::complex<double>> M_val;
 Eigen::MatrixXcd tmp;					// Temposarily store some Eigen::MatrixXcd
 Eigen::MatrixXcd tmp_2;					// Temposarily store additional Eigen::MatrixXcd
 Eigen::MatrixXcd Gc_static;					// Temposarily store some Eigen::MatrixXcd
@@ -538,11 +534,6 @@ int main(int argc, char** argv) {
 
 	D = Volume.CalculateD(M, dir);	// Calculate the property matrix for the sample
 
-	// For sparse storage
-	M_rowInd = Volume._M_rowInd;
-	M_colInd = Volume._M_colInd;
-	M_val = Volume._M_val;
-
 	// Fourier transform for the incident waves
 	E0.push_back(std::complex<double>(in_ex[0], in_ex[1]));
 	E0.push_back(std::complex<double>(in_ey[0], in_ey[1]));
@@ -623,11 +614,11 @@ int main(int argc, char** argv) {
 	cw.Layers.resize(L);
 	size_t MF4 = MF * 4;																			// M is the length of beta/gamma/gg
 
+	// store the incident plane wave
+	int ind = (M[1] / 2) * M[0] + (M[0] / 2);
+	tira::planewave<double> i(Sx(ind) * k, Sy(ind) * k, Sz[0](ind) * k, EF(ind), EF(MF + ind));
+	cw.Pi.push_back(i);
 	for (size_t p = 0; p < MF; p++) {															// for each incident plane wave
-		tira::planewave<double> zero(0, 0, 1, 0, 0);																		// store the incident plane wave in i
-		tira::planewave<double> i(Sx(p) * k, Sy(p) * k, Sz[0](p) * k, EF(p), EF(MF + p));																		// store the incident plane wave in i
-		cw.Pi.push_back(i);
-
 		std::vector<tira::planewave<double>> P = mat2waves(i, x, p);
 
 		// generate plane waves from the solution vector
@@ -638,13 +629,9 @@ int main(int argc, char** argv) {
 				r = P[1 + l * 2 + 0].wind(0.0, 0.0, -z[l]);
 				//r = P[1 + l * 2 + 0];
 				cw.Layers[l].Pr.push_back(r);
-				t = zero;
-				cw.Layers[l].Pt.push_back(t);
 			}
 			if (l == L - 1) {
 				cw.Layers[l].z = z[l];
-				r = zero;
-				cw.Layers[l].Pr.push_back(r);
 				//t = P[1 + (l - 1) * 2 + 1];
 				t = P[1 + (l - 1) * 2 + 1].wind(0.0, 0.0, -z[l]);
 				cw.Layers[l].Pt.push_back(t);

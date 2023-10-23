@@ -241,11 +241,6 @@ public:
 
 	Eigen::VectorXd _dir;
 
-	// For sparse storage
-	std::vector<int> _M_rowInd;
-	std::vector<int> _M_colInd;
-	std::vector<std::complex<double>> _M_val;
-
 	volume(std::string filename,
 		Eigen::VectorXcd n_layers,
 		double* z,
@@ -321,9 +316,6 @@ private:
 	}
 
 	Eigen::MatrixXcd phi(Eigen::MatrixXcd sample) {
-		_M_val.reserve(100000);
-		_M_rowInd.reserve(100000);
-		_M_colInd.reserve(100000);
 		int idx = 0;
 		UpWq_Cal();
 		Eigen::MatrixXcd Nf = fftw_fft2(sample.array().pow(2), _M[1], _M[0]);
@@ -372,13 +364,6 @@ private:
 				phi.row(qi * _M[0] + pi + 3 * MF).segment(0, MF) = A[0];
 				phi(qi * _M[0] + pi + 3 * MF, qi * _M[0] + pi) += -wq * wq * k_inv;
 				phi(qi * _M[0] + pi + 3 * MF, MF + qi * _M[0] + pi) += up * wq * k_inv;
-			}
-		}
-		for (size_t i = 0; i < phi.rows(); i++) {
-			for (size_t j = 0; j < phi.cols(); j++) {
-				_M_val.push_back(phi(i, j));
-				_M_rowInd.push_back(i);
-				_M_colInd.push_back(j);
 			}
 		}
 		return phi;

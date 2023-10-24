@@ -19,6 +19,7 @@ std::vector<double> in_n;
 std::vector<double> in_kappa;
 std::vector<double> in_ex;
 std::vector<double> in_ey;
+std::vector<double> in_ez;
 std::vector<double> in_z;
 std::vector<double> in_normal;
 double in_na;
@@ -264,6 +265,17 @@ std::vector< tira::planewave<double> > RemoveInvalidWaves(std::vector<tira::plan
 
 
 int main(int argc, char** argv) {
+	tira::planewave<double> p(-0.03333, -0.03333, -0.99889,
+		std::complex<double>(-0.00000000220187, 0.0000000745673),
+		std::complex<double>(-0.00000159341, -0.0000806996),
+		std::complex<double>(0.0000000532462, 0.00000269049));
+	
+
+	//tira::planewave<double> p(0, 0, -1,
+	//	std::complex<double>(0.500),
+	//	std::complex<double>(0),
+	//	std::complex<double>(0));
+	std::cout << p.str() << std::endl;
 
 	// Declare the supported options.
 	boost::program_options::options_description desc("Allowed options");
@@ -271,8 +283,9 @@ int main(int argc, char** argv) {
 		("help", "produce help message")
 		("lambda", boost::program_options::value<double>(&in_lambda)->default_value(1.0), "incident field vacuum wavelength")
 		("direction", boost::program_options::value<std::vector<double> >(&in_dir)->multitoken()->default_value(std::vector<double>{0, 0, 1}, "0, 0, 1"), "incoming field direction")
-		("ex", boost::program_options::value<std::vector<double> >(&in_ex)->multitoken()->default_value(std::vector<double>{0, 0}, "0, 0"), "x component of electrical field")
-		("ey", boost::program_options::value<std::vector<double> >(&in_ey)->multitoken()->default_value(std::vector<double>{1, 0}, "1, 0"), "y component of electrical field")
+		("ex", boost::program_options::value<std::vector<double> >(&in_ex)->multitoken()->default_value(std::vector<double>{0, 0}, "0, 0"), "x component of the electrical field")
+		("ey", boost::program_options::value<std::vector<double> >(&in_ey)->multitoken()->default_value(std::vector<double>{1, 0}, "1, 0"), "y component of the electrical field")
+		("ez", boost::program_options::value<std::vector<double> >(&in_ez)->multitoken()->default_value(std::vector<double>{0, 0}, "0 0"), "z component of the electrical field")
 		("n", boost::program_options::value<std::vector<double>>(&in_n)->multitoken()->default_value(std::vector<double>{1, 1.4, 1.4, 1.0}, "1, 1.4, 1.4, 1.0"), "real refractive index (optical path length) of all L layers")
 		("kappa", boost::program_options::value<std::vector<double> >(&in_kappa)->multitoken()->default_value(std::vector<double>{0.05}, "0.05, 0.00, 0.00"), "absorbance of layers 2+ (layer 1 is always 0.0)")
 		("z", boost::program_options::value<std::vector<double> >(&in_z)->multitoken()->default_value(std::vector<double>{-3.0, 0.0, 3.0}, "-3.0, 0.0, 3.0"), "position of each layer boundary")
@@ -328,7 +341,10 @@ int main(int argc, char** argv) {
 	glm::tvec3<double> dir = glm::normalize(glm::tvec3<double>(in_dir[0], in_dir[1], in_dir[2]));				// set the direction of the incoming source field
 
 	k = 2 * M_PI / (in_lambda * in_n[0]);
-	tira::planewave<double> i_ref(dir[0] * k, dir[1] * k, dir[2] * k, std::complex<double>(in_ex[0], in_ex[1]), std::complex<double>(in_ey[0], in_ey[1]));
+	tira::planewave<double> i_ref(dir[0] * k, dir[1] * k, dir[2] * k, 
+		std::complex<double>(in_ex[0], in_ex[1]), 
+		std::complex<double>(in_ey[0], in_ey[1]),
+		std::complex<double>(in_ez[0], in_ez[1]));
 	//
 	//InitMatrices();
 	//InitLayerProperties();

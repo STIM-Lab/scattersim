@@ -33,6 +33,7 @@ std::vector<double> in_n;
 std::vector<double> in_kappa;
 std::vector<double> in_ex;
 std::vector<double> in_ey;
+std::vector<double> in_ez;
 double in_z;
 std::vector<double> in_size;
 std::vector<size_t> num_pixels;
@@ -402,34 +403,20 @@ std::vector<tira::planewave<double>> mat2waves(tira::planewave<double> i, Eigen:
 
 	P.push_back(i);											// push the incident plane wave into the P array
 	glm::vec<3, double> s = i.getDirection();
-	// Ruijiao on Oct.16 2023: hidden error in tira::planewave.h: _cMul() introduced erro.
-	//tira::planewave<double> r(Sx(p) * k,
-	//	Sy(p) * k,
-	//	-Sz[0](p) * k,
-	//	x[idx(0, Reflected, X, p, MF)],
-	//	x[idx(0, Reflected, Y, p, MF)],
-	//	x[idx(0, Reflected, Z, p, MF)],
-	//	true
-	//);
-	//tira::planewave<double> t(Sx(p) * k,
-	//	Sy(p) * k,
-	//	Sz[1](p) * k,
-	//	x[idx(1, Transmitted, X, p, MF)],
-	//	x[idx(1, Transmitted, Y, p, MF)],
-	//	x[idx(1, Transmitted, Z, p, MF)],
-	//	true
-	//);
+
 	tira::planewave<double> r(Sx(p) * k,
 		Sy(p) * k,
 		-Sz[0](p) * k,
 		x[idx(0, Reflected, X, p, MF)],
-		x[idx(0, Reflected, Y, p, MF)]
+		x[idx(0, Reflected, Y, p, MF)],
+		x[idx(0, Reflected, Z, p, MF)]
 	);
 	tira::planewave<double> t(Sx(p) * k,
 		Sy(p) * k,
 		Sz[1](p) * k,
 		x[idx(1, Transmitted, X, p, MF)],
-		x[idx(1, Transmitted, Y, p, MF)]
+		x[idx(1, Transmitted, Y, p, MF)],
+		x[idx(0, Transmitted, Z, p, MF)]
 	);
 	P.push_back(r);
 	P.push_back(t);
@@ -457,8 +444,9 @@ int main(int argc, char** argv) {
 		("sample", boost::program_options::value<std::string>(&in_sample), "input sample as an .npy file")
 		("lambda", boost::program_options::value<double>(&in_lambda)->default_value(1.0), "incident field vacuum wavelength")
 		("direction", boost::program_options::value<std::vector<double> >(&in_dir)->multitoken()->default_value(std::vector<double>{0, 0, 1}, "0, 0, 1"), "incoming field direction")
-		("ex", boost::program_options::value<std::vector<double> >(&in_ex)->multitoken()->default_value(std::vector<double>{0, 0}, "0, 0"), "incoming field direction")
-		("ey", boost::program_options::value<std::vector<double> >(&in_ey)->multitoken()->default_value(std::vector<double>{1, 0}, "1, 0"), "incoming field direction")
+		("ex", boost::program_options::value<std::vector<double> >(&in_ex)->multitoken()->default_value(std::vector<double>{0, 0}, "0, 0"), "x component of the electrical field")
+		("ey", boost::program_options::value<std::vector<double> >(&in_ey)->multitoken()->default_value(std::vector<double>{1, 0}, "1, 0"), "y component of the electrical field")
+		("ez", boost::program_options::value<std::vector<double> >(&in_ez)->multitoken()->default_value(std::vector<double>{0, 0}, "0 0"), "z component of the electrical field")
 		("n", boost::program_options::value<std::vector<double>>(&in_n)->multitoken()->default_value(std::vector<double>{1.0, 1.0}, "1, 1"), "real refractive index (optical path length) of the upper and lower layers")
 		("kappa", boost::program_options::value<std::vector<double> >(&in_kappa)->multitoken()->default_value(std::vector<double>{0}, "0.00"), "absorbance of the lower layer (upper layer is always 0.0)")
 		// The center of the sample along x/y is always 0/0.
@@ -616,7 +604,7 @@ int main(int argc, char** argv) {
 
 	// store the incident plane wave
 	int ind = (M[1] / 2) * M[0] + (M[0] / 2);
-	tira::planewave<double> i(Sx(ind) * k, Sy(ind) * k, Sz[0](ind) * k, EF(ind), EF(MF + ind));
+	tira::planewave<double> i(Sx(ind) * k, Sy(ind) * k, Sz[0](ind) * k, EF(ind), EF(MF + ind), EF(2 * MF + ind));
 	cw.Pi.push_back(i);
 	for (size_t p = 0; p < MF; p++) {															// for each incident plane wave
 		std::vector<tira::planewave<double>> P = mat2waves(i, x, p);

@@ -29,6 +29,7 @@ std::vector<double> in_n;
 std::vector<double> in_kappa;
 std::vector<double> in_ex;
 std::vector<double> in_ey;
+std::vector<double> in_ez;
 double in_z;
 std::vector<double> in_size;
 std::vector<size_t> in_num_pixels;
@@ -545,28 +546,6 @@ std::vector<tira::planewave<double>> mat2waves(tira::planewave<double> i, Eigen:
 		x[idx(1, Transmitted, Y, p, MF)],
 		x[idx(1, Transmitted, Z, p, MF)]
 		);
-
-	//std::cout << "x: " << x << std::endl;
-	//std::cout << "id for r: " << idx(0, Reflected, X, p, MF) << std::endl;
-	//std::cout << "id for r: " << idx(0, Reflected, Y, p, MF) << std::endl;
-	//std::cout << "id for r: " << idx(0, Reflected, Z, p, MF) << std::endl;
-	//std::cout << "Sx(p) * k for r: " << Sx(p) * k << std::endl;
-	//std::cout << "Sy(p) * k for r: " << Sy(p) * k << std::endl;
-	//std::cout << "-Sz[0](p) * k for r: " << -Sz[0](p) * k << std::endl;
-	//std::cout << "x for r: " << x[idx(0, Reflected, X, p, MF)] << std::endl;
-	//std::cout << "x for r: " << x[idx(0, Reflected, Y, p, MF)] << std::endl;
-	//std::cout << "x for r: " << x[idx(0, Reflected, Z, p, MF)] << std::endl;
-
-	//std::cout << "id for t: " << idx(1, Transmitted, X, p, MF) << std::endl;
-	//std::cout << "id for t: " << idx(1, Transmitted, Y, p, MF) << std::endl;
-	//std::cout << "id for t: " << idx(1, Transmitted, Z, p, MF) << std::endl;
-	//std::cout << "Sx(p) * k for r: " << Sx(p) * k << std::endl;
-	//std::cout << "Sy(p) * k for r: " << Sy(p) * k << std::endl;
-	//std::cout << "Sz[1](p) * k for r: " << Sz[1](p) * k << std::endl;
-	//std::cout << "x for t: " << x[idx(1, Transmitted, X, p, MF)] << std::endl;
-	//std::cout << "x for t: " << x[idx(1, Transmitted, Y, p, MF)] << std::endl;
-	//std::cout << "x for t: " << x[idx(1, Transmitted, Z, p, MF)] << std::endl;
-
 	P.push_back(r);
 	P.push_back(t);
 	SizeInBytes += sizeof(P);
@@ -595,8 +574,9 @@ int main(int argc, char** argv) {
 		("sample", boost::program_options::value<std::string>(&in_sample), "input sample as an .npy file")
 		("lambda", boost::program_options::value<double>(&in_lambda)->default_value(1.0), "incident field vacuum wavelength")
 		("direction", boost::program_options::value<std::vector<double> >(&in_dir)->multitoken()->default_value(std::vector<double>{0, 0, 1}, "0, 0, 1"), "incoming field direction")
-		("ex", boost::program_options::value<std::vector<double> >(&in_ex)->multitoken()->default_value(std::vector<double>{1, 0}, "0, 0"), "incoming field direction")
-		("ey", boost::program_options::value<std::vector<double> >(&in_ey)->multitoken()->default_value(std::vector<double>{0, 0}, "1, 0"), "incoming field direction")
+		("ex", boost::program_options::value<std::vector<double> >(&in_ex)->multitoken()->default_value(std::vector<double>{0, 0}, "0, 0"), "x component of the electrical field")
+		("ey", boost::program_options::value<std::vector<double> >(&in_ey)->multitoken()->default_value(std::vector<double>{1, 0}, "1, 0"), "y component of the electrical field")
+		("ez", boost::program_options::value<std::vector<double> >(&in_ez)->multitoken()->default_value(std::vector<double>{0, 0}, "0 0"), "z component of the electrical field")
 		("n", boost::program_options::value<std::vector<double>>(&in_n)->multitoken()->default_value(std::vector<double>{1.0, 1.0}, "1, 1"), "real refractive index (optical path length) of the upper and lower layers")
 		("kappa", boost::program_options::value<std::vector<double> >(&in_kappa)->multitoken()->default_value(std::vector<double>{0}, "0.00"), "absorbance of the lower layer (upper layer is always 0.0)")
 		// The center of the sample along x/y is always 0/0.
@@ -786,8 +766,8 @@ int main(int argc, char** argv) {
 	cw.Layers.resize(L);
 
 	for (size_t p = 0; p < MF; p++) {															// for each incident plane wave
-		tira::planewave<double> zero(0, 0, 1, 0, 0);																		// store the incident plane wave in i
-		tira::planewave<double> i(Sx(p) * k, Sy(p) * k, -Sz[0](p) * k, EF(p), EF(MF + p));																		// store the incident plane wave in i
+		tira::planewave<double> zero(0, 0, 1, 0, 0, 0);																		// store the incident plane wave in i
+		tira::planewave<double> i(Sx(p) * k, Sy(p) * k, -Sz[0](p) * k, EF(p), EF(MF + p) , EF(2 * MF + p));																		// store the incident plane wave in i
 		cw.Pi.push_back(i);
 
 		std::vector<tira::planewave<double>> P = mat2waves(i, x, p);

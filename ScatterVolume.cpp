@@ -416,7 +416,7 @@ std::vector<tira::planewave<double>> mat2waves(tira::planewave<double> i, Eigen:
 		Sz[1](p) * k,
 		x[idx(1, Transmitted, X, p, MF)],
 		x[idx(1, Transmitted, Y, p, MF)],
-		x[idx(0, Transmitted, Z, p, MF)]
+		x[idx(1, Transmitted, Z, p, MF)]
 	);
 	P.push_back(r);
 	P.push_back(t);

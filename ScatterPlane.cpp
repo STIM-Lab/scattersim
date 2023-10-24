@@ -22,6 +22,7 @@ double in_kappa;
 std::vector<double> in_n;
 std::vector<double> in_ex;
 std::vector<double> in_ey;
+std::vector<double> in_ez;
 double in_z;
 std::vector<double> in_normal;
 std::string in_outfile;
@@ -89,8 +90,9 @@ int main(int argc, char** argv) {
 		("lambda,l", boost::program_options::value<double>(&in_lambda)->default_value(1.0), "incident field vacuum wavelength")
 		("direction,d", boost::program_options::value<std::vector<double> >(&in_dir)->multitoken()->default_value(std::vector<double>{1, 0, 1}, "1, 0, 1"), "incoming field direction")
 		("focus,f", boost::program_options::value<std::vector<double> >(&in_focus)->multitoken()->default_value(std::vector<double>{0, 0, 0}, "0, 0, 0"), "focal point for the incident field")
-		("ex", boost::program_options::value<std::vector<double> >(&in_ex)->multitoken()->default_value(std::vector<double>{0, 0}, "0 0"), "incoming field direction")
-		("ey", boost::program_options::value<std::vector<double> >(&in_ey)->multitoken()->default_value(std::vector<double>{1, 0}, "1 0"), "incoming field direction")
+		("ex", boost::program_options::value<std::vector<double> >(&in_ex)->multitoken()->default_value(std::vector<double>{0, 0}, "0 0"), "x component of the electrical field")
+		("ey", boost::program_options::value<std::vector<double> >(&in_ey)->multitoken()->default_value(std::vector<double>{1, 0}, "1 0"), "y component of the electrical field")
+		("ez", boost::program_options::value<std::vector<double> >(&in_ez)->multitoken()->default_value(std::vector<double>{0, 0}, "0 0"), "z component of the electrical field")
 		("n", boost::program_options::value<std::vector<double>>(&in_n)->multitoken()->default_value(std::vector<double>{1.0, 1.4}, "1.0 1.4"), "layer refractive indices")
 		("kappa", boost::program_options::value<double>(&in_kappa)->default_value(0.05), "transmitted material absorption coefficient")
 		("z,z", boost::program_options::value<double>(&in_z)->default_value(0.0), "position of the plane along the z axis")
@@ -145,7 +147,8 @@ int main(int argc, char** argv) {
 
 	tira::planewave<double> i0(k * dir[0], k * dir[1], k * dir[2],				// create the incident plane wave
 							  std::complex<double>(in_ex[0], in_ex[1]), 
-							  std::complex<double>(in_ey[0], in_ey[1]));
+							  std::complex<double>(in_ey[0], in_ey[1]),
+							  std::complex<double>(in_ez[0], in_ez[1]));
 
 	tira::planewave<double> i = i0.wind(-f[0], -f[1], -f[2]);					// wind the plane wave to the focal point
 	glm::vec<3, std::complex<double> > E0 = i.getE0();

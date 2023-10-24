@@ -64,13 +64,13 @@ void cw_allocate(CoupledWaveStructure<double>* cw) {
             GG[i] = Eigen::Map< Eigen::MatrixXcd>(cw->Slices[i].gg.data(), 4 * _M, 4 * _M);
             GG[i].transposeInPlace();
         }
+        s = cw->Pi[0].getDirection();
     }
 
     waves_begin.reserve(1000);
     waves_end.reserve(1000);
     waves_begin.push_back(0);
     int total_waves = cw->Pi.size();
-    s = cw->Pi[0].getDirection();
 
     for (int li = 0; li < cw->Layers.size(); li++) {
         z_layers[li] = cw->Layers[li].z;
@@ -105,28 +105,30 @@ void cw_unpack(CoupledWaveStructure<double>* cw) {
         idx++;
     }
 
-    for (size_t ri = 0; ri < cw->Layers[0].Pr.size(); ri++) {
-        E0 = cw->Layers[0].Pr[ri].getE0();
-        k = cw->Layers[0].Pr[ri].getK();
-        W[idx].E0[0] = E0[0];
-        W[idx].E0[1] = E0[1];
-        W[idx].E0[2] = E0[2];
-        W[idx].k[0] = k[0];
-        W[idx].k[1] = k[1];
-        W[idx].k[2] = k[2];
-        idx++;
-    }
+    for (size_t li = 0; li < cw->Layers.size(); li++) {
+        for (size_t ri = 0; ri < cw->Layers[li].Pr.size(); ri++) {
+            E0 = cw->Layers[li].Pr[ri].getE0();
+            k = cw->Layers[li].Pr[ri].getK();
+            W[idx].E0[0] = E0[0];
+            W[idx].E0[1] = E0[1];
+            W[idx].E0[2] = E0[2];
+            W[idx].k[0] = k[0];
+            W[idx].k[1] = k[1];
+            W[idx].k[2] = k[2];
+            idx++;
+        }
 
-    for (size_t ti = 0; ti < cw->Layers[1].Pt.size(); ti++) {
-        E0 = cw->Layers[1].Pt[ti].getE0();
-        k = cw->Layers[1].Pt[ti].getK();
-        W[idx].E0[0] = E0[0];
-        W[idx].E0[1] = E0[1];
-        W[idx].E0[2] = E0[2];
-        W[idx].k[0] = k[0];
-        W[idx].k[1] = k[1];
-        W[idx].k[2] = k[2];
-        idx++;
+        for (size_t ti = 0; ti < cw->Layers[li].Pt.size(); ti++) {
+            E0 = cw->Layers[li].Pt[ti].getE0();
+            k = cw->Layers[li].Pt[ti].getK();
+            W[idx].E0[0] = E0[0];
+            W[idx].E0[1] = E0[1];
+            W[idx].E0[2] = E0[2];
+            W[idx].k[0] = k[0];
+            W[idx].k[1] = k[1];
+            W[idx].k[2] = k[2];
+            idx++;
+        }
     }
 }
 
@@ -147,7 +149,7 @@ void EvaluateSample(std::vector <std::vector< Eigen::MatrixXcd>>& E, float* cent
     points = N;
 
     // Newly added on 10/05/2023
-    d = extent / float(N-1);
+    d = extent / float(N - 1);
     float z_start = center[2] - extent / 2.0;
     float z;
     for (unsigned int iz = 0; iz < N; iz++) {
@@ -167,7 +169,7 @@ void EvaluateSample(std::vector <std::vector< Eigen::MatrixXcd>>& E, float* cent
         }
     }
     int points_z = pixels_bo - pixels_up;
-    float step = (z_layers[1] - z_layers[0]) / (float) slices;
+    float step = (z_layers[1] - z_layers[0]) / (float)slices;
     E.resize(3);
     E[0].resize(points_z);
     E[1].resize(points_z);
@@ -221,7 +223,7 @@ void EvaluateSample(std::vector <std::vector< Eigen::MatrixXcd>>& E, float* cent
 
         for (int n = 0; n < _M; n++) {
             Eigen::Map<Eigen::MatrixXcd, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> gg_even(G_cur.data() + 4 * _M * (n), 1, 2 * _M, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>(2, 1));
-            Eigen::Map<Eigen::MatrixXcd, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> gg_odd(G_cur.data() + 4 * _M * (n) + 1, 1, 2 * _M, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>(2, 1));
+            Eigen::Map<Eigen::MatrixXcd, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>> gg_odd(G_cur.data() + 4 * _M * (n)+1, 1, 2 * _M, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>(2, 1));
             temp = (beta_even.array() * gg_even.array() * phase_even.array() + beta_odd.array() * gg_odd.array() * phase_odd.array()).sum();
             Ef[0][z][n] = temp;
 
@@ -418,7 +420,7 @@ void cpu_cw_evaluate_xz(glm::vec<3, std::complex<float>>* E_xz,
 
             glm::vec<3, std::complex<double>> E(0, 0, 0);
             for (size_t cwi = begin; cwi < end; cwi++) {
-                k_dot_r = x * W[cwi].k[0] + y * W[cwi].k[1] + (z-z_boundary) * W[cwi].k[2];
+                k_dot_r = x * W[cwi].k[0] + y * W[cwi].k[1] + (z - z_boundary) * W[cwi].k[2];
                 phase = std::exp(i * k_dot_r);
                 E[0] += W[cwi].E0[0] * phase;
                 E[1] += W[cwi].E0[1] * phase;

@@ -484,17 +484,15 @@ int main(int argc, char** argv) {
 		logfile.open(ss.str());
 	}
 
-	// override alpha with NA if specified
-	//if (vm.count("na")) {
-	//	in_alpha = asin(in_na);
-	//}
-
 	// Calculate the number of layers based on input parameters (take the maximum of all layer-specific command-line options)
 	L = in_n.size();
-
 	
 	Eigen::Vector3d dir(in_dir[0], in_dir[1], in_dir[2]);
 	dir.normalize();																							// set the normalized direction of the incoming source field
+	glm::tvec3<std::complex<double>> e = glm::tvec3<std::complex<double>>(std::complex<double>(in_ex[0], in_ex[1]),
+		std::complex<double>(in_ey[0], in_ey[1]),
+		std::complex<double>(in_ez[0], in_ez[1]));				// set the input electrical field
+	orthogonalize(e, glm::tvec3<double>(dir(0), dir(1), dir(2)));
 
 	// wavenumber
 	k = (std::complex<double>)(2 * PI / in_lambda * in_n[0]);
@@ -523,9 +521,9 @@ int main(int argc, char** argv) {
 	D = Volume.CalculateD(M, dir);	// Calculate the property matrix for the sample
 
 	// Fourier transform for the incident waves
-	E0.push_back(std::complex<double>(in_ex[0], in_ex[1]));
-	E0.push_back(std::complex<double>(in_ey[0], in_ey[1]));
-	E0.push_back(std::sqrt(pow(std::complex<double>(1, 0), 2) - pow(E0[0], 2) - pow(E0[1], 2)));
+	E0.push_back(e[0]);
+	E0.push_back(e[1]);
+	E0.push_back(e[2]);
 	std::vector<Eigen::MatrixXcd> Ef(3);
 	Ef[0] = fftw_fft2(E0[0] * Eigen::MatrixXcd::Ones(num_pixels[1], num_pixels[2]), M[1], M[0]);	// M[0]=3 is column. M[1]=1 is row. 
 	Ef[1] = fftw_fft2(E0[1] * Eigen::MatrixXcd::Ones(num_pixels[1], num_pixels[2]), M[1], M[0]);

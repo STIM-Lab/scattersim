@@ -583,11 +583,7 @@ int main(int argc, char** argv) {
 		("size", boost::program_options::value<std::vector<double>>(&in_size)->multitoken()->default_value(std::vector<double>{100, 100, 10}, "100, 100, 10"), "The real size of the single-layer sample")
 		("z", boost::program_options::value<double >(&in_z)->multitoken()->default_value(-3.0, "-3.0"), "the top boundary of the sample")
 		("output", boost::program_options::value<std::string>(&in_outfile)->default_value("c.cw"), "output filename for the coupled wave structure")
-		//("alpha", boost::program_options::value<double>(&in_alpha)->default_value(1), "angle used to focus the incident field")
-		//("beta", boost::program_options::value<double>(&in_beta)->default_value(0.0), "internal obscuration angle (for simulating reflective optics)")
-		//("na", boost::program_options::value<double>(&in_na), "focus angle expressed as a numerical aperture (overrides --alpha)")
 		("coef", boost::program_options::value<std::vector<int> >(&in_coeff)->multitoken()->default_value(std::vector<int>{2, 2}, "2, 2"), "number of Fouerier coefficients (can be specified in 2 dimensions)")
-		//("mode", boost::program_options::value<std::string>(&in_mode)->default_value("polar"), "sampling mode (polar, montecarlo)")
 		("log", "produce a log file")
 		("OutMat", boost::program_options::value<std::string>(&out_mat), "Output the property matrix as an .npy file")
 
@@ -637,6 +633,10 @@ int main(int argc, char** argv) {
 
 	Eigen::Vector3d dir(in_dir[0], in_dir[1], in_dir[2]);
 	dir.normalize();																							// set the normalized direction of the incoming source field
+	glm::tvec3<std::complex<double>> e = glm::tvec3<std::complex<double>>(std::complex<double>(in_ex[0], in_ex[1]),
+		std::complex<double>(in_ey[0], in_ey[1]),
+		std::complex<double>(in_ez[0], in_ez[1]));				// set the input electrical field
+	orthogonalize(e, glm::tvec3<double>(dir(0), dir(1), dir(2)));
 
 	// wavenumber
 	k = (std::complex<double>)(2 * M_PI / in_lambda * in_n[0]);
@@ -650,18 +650,10 @@ int main(int argc, char** argv) {
 	D = Volume.CalculateD(M, dir);	// Calculate the property matrix for the sample
 	SizeInBytes += sizeof(D);
 
-	// For sparse storage
-	//M_rowInd = Volume._M_rowInd;
-	//M_colInd = Volume._M_colInd;
-	//M_val = Volume._M_val;
-	//SizeInBytes += sizeof(M_rowInd);
-	//SizeInBytes += sizeof(M_colInd);
-	//SizeInBytes += sizeof(M_val);
-
 	// Fourier transform for the incident waves
-	E0.push_back(std::complex<double>(in_ex[0], in_ex[1]));
-	E0.push_back(std::complex<double>(in_ey[0], in_ey[1]));
-	E0.push_back(std::sqrt(pow(std::complex<double>(1, 0), 2) - pow(E0[0], 2) - pow(E0[1], 2)));
+	E0.push_back(e[0]);
+	E0.push_back(e[1]);
+	E0.push_back(e[2]);
 	std::vector<Eigen::MatrixXcd> Ef(3);
 	Ef[0] = fftw_fft2(E0[0] * Eigen::MatrixXcd::Ones(in_num_pixels[0], in_num_pixels[1]), M[1], M[0]);	// M[0]=3 is column. M[1]=1 is row. 
 	Ef[1] = fftw_fft2(E0[1] * Eigen::MatrixXcd::Ones(in_num_pixels[0], in_num_pixels[1]), M[1], M[0]);

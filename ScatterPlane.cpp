@@ -1,13 +1,10 @@
 #include <iostream>
 #include <tira/optics/planewave.h>
 #include "CoupledWaveStructure.h"
-//#include <tira/optics/beam.h>
-//#include <tira/geometry/plane.h>
-//#include <numbers>
+#include "FourierWave.h"
+
 #include <complex>
 #include <math.h>
-//#include <tira/geometry/vec3.h>
-//#include "ScatterIO.h"
 #include <fstream>
 #include <boost/program_options.hpp>
 #include <random>
@@ -129,6 +126,11 @@ int main(int argc, char** argv) {
 	}
 
 	glm::tvec3<double> dir = glm::normalize(glm::tvec3<double>(in_dir[0], in_dir[1], in_dir[2]));				// set the direction of the incoming source field
+	glm::tvec3<std::complex<double>> e = glm::tvec3<std::complex<double>>(std::complex<double>(in_ex[0], in_ex[1]),
+		std::complex<double>(in_ey[0], in_ey[1]),
+		std::complex<double>(in_ez[0], in_ez[1]));				// set the input electrical field
+	orthogonalize(e, dir);
+	
 	double k = 2 * M_PI / (in_lambda * in_n[0]);								// calculate the wavenumber (2 pi / lambda)
 	
 	
@@ -145,10 +147,7 @@ int main(int argc, char** argv) {
 
 	glm::tvec3<double> f(in_focus[0], in_focus[1], in_focus[2]);				// focal point for the incident field
 
-	tira::planewave<double> i0(k * dir[0], k * dir[1], k * dir[2],				// create the incident plane wave
-							  std::complex<double>(in_ex[0], in_ex[1]), 
-							  std::complex<double>(in_ey[0], in_ey[1]),
-							  std::complex<double>(in_ez[0], in_ez[1]));
+	tira::planewave<double> i0(k * dir[0], k * dir[1], k * dir[2], e[0], e[1], e[2]);
 
 	tira::planewave<double> i = i0.wind(-f[0], -f[1], -f[2]);					// wind the plane wave to the focal point
 	glm::vec<3, std::complex<double> > E0 = i.getE0();
@@ -236,9 +235,9 @@ int main(int argc, char** argv) {
 	else {
 		std::vector< tira::planewave<double> > I;
 		if(in_mode == "montecarlo")
-			I = tira::planewave<double>::SolidAngleMC(in_alpha, k * dir[0], k * dir[1], k * dir[2], std::complex<double>(in_ex[0], in_ex[1]), std::complex<double>(in_ey[0], in_ey[1]), N[0] * N[1], in_beta, n);
+			I = tira::planewave<double>::SolidAngleMC(in_alpha, k * dir[0], k * dir[1], k * dir[2], e[0], e[1], e[2], N[0] * N[1], in_beta, n);
 		else if(in_mode == "polar")
-			I = tira::planewave<double>::SolidAnglePolar(in_alpha, k * dir[0], k * dir[1], k * dir[2], std::complex<double>(in_ex[0], in_ex[1]), std::complex<double>(in_ey[0], in_ey[1]), N[0], N[1], in_beta, n);
+			I = tira::planewave<double>::SolidAnglePolar(in_alpha, k * dir[0], k * dir[1], k * dir[2], e[0], e[1], e[2], N[0], N[1], in_beta, n);
 
 		for (size_t idx = 0; idx < I.size(); idx++) {
 			i = I[idx].wind(-f[0], -f[1], -f[2]);

@@ -6,6 +6,7 @@
 #include <fstream>
 #include <complex>
 #include "fftw3.h"
+#include "glm/glm.hpp"
 #include "Eigen/Eigen"
 #include "Eigen/Dense"
 #include "Eigen/Core"
@@ -17,6 +18,22 @@
 #define PI 3.141592653
 extern std::vector<double> in_size;
 
+inline glm::tvec3<std::complex<double>> cross(glm::tvec3<std::complex<double>> E, glm::tvec3 < std::complex<double>> d) {
+	glm::tvec3<std::complex<double>> out(3);
+	out[0] = E[1] * d[2] - E[2] * d[1];
+	out[1] = E[2] * d[0] - E[0] * d[2];
+	out[2] = E[0] * d[1] - E[1] * d[0];
+	return out;
+}
+
+inline void orthogonalize(glm::tvec3<std::complex<double>>& E, glm::tvec3 < double>& d) {
+	std::complex<double> mag = std::sqrt(pow(E[0], 2) + pow(E[1], 2) + pow(E[2], 2));
+	E = E / mag;
+	glm::tvec3<std::complex<double>> d_complex = glm::tvec3<std::complex<double>>(std::complex<double>(d[0], 0),
+		std::complex<double>(d[1], 0), std::complex<double>(d[2], 0) );
+	glm::tvec3<std::complex<double>> s = cross(E, d_complex);
+	E = cross(d_complex, s);
+}
 // Similar function with numpy.arange.
 // Special adjustment on Oct.16: Different from np.arange, the step in this function need to match with all the steps in spuEvaluate.cpp.
 inline Eigen::VectorXd arange(unsigned int points, double start, double end) {

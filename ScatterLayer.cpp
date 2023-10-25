@@ -1,6 +1,7 @@
 #include <iostream>
 #include <tira/optics/planewave.h>
 #include "CoupledWaveStructure.h"
+#include "FourierWave.h"
 
 #include <complex>
 #include <math.h>
@@ -8,7 +9,6 @@
 #include <boost/program_options.hpp>
 #include <random>
 #include <iomanip>
-#include "glm/glm.hpp"
 #include "glm/gtc/quaternion.hpp"
 #include "Eigen/Dense"
 
@@ -183,7 +183,7 @@ void SetBoundaryConstraints(tira::planewave<double> p) {
 
 	for (size_t l = 0; l < L - 1; l++) {
 
-		if (l == 0) zn = z[l];
+		if (l == 0) zn = 0;
 		else zn = z[l] - z[l - 1];
 
 		if (l == L - 2) zp = 0;
@@ -326,17 +326,14 @@ int main(int argc, char** argv) {
 			in_z.push_back(in_z.back() + 10.0);											// add additional layers in increments of 10 units
 		}
 	}
-
+	
 	glm::tvec3<double> dir = glm::normalize(glm::tvec3<double>(in_dir[0], in_dir[1], in_dir[2]));				// set the direction of the incoming source field
-
-	k = 2 * M_PI / (in_lambda * in_n[0]);
-	tira::planewave<double> i_ref(dir[0] * k, dir[1] * k, dir[2] * k,
-		std::complex<double>(in_ex[0], in_ex[1]),
+	glm::tvec3<std::complex<double>> e = glm::tvec3<std::complex<double>>(std::complex<double>(in_ex[0], in_ex[1]),
 		std::complex<double>(in_ey[0], in_ey[1]),
-		std::complex<double>(in_ez[0], in_ez[1]));
-	//InitMatrices();
-	//InitLayerProperties();
-
+		std::complex<double>(in_ez[0], in_ez[1]));				// set the input electrical field
+	orthogonalize(e, dir);
+	k = 2 * M_PI / (in_lambda * in_n[0]);
+	tira::planewave<double> i_ref(dir[0] * k, dir[1] * k, dir[2] * k, e[0], e[1], e[2]);
 	
 	unsigned int N[2];										// calculate the number of samples
 	if (in_samples.size() == 1) {
@@ -365,9 +362,9 @@ int main(int argc, char** argv) {
 		I.push_back(i_ref);
 	}
 	else if (in_mode == "montecarlo")
-		I = tira::planewave<double>::SolidAngleMC(in_alpha, k * dir[0], k * dir[1], k * dir[2], std::complex<double>(in_ex[0], in_ex[1]), std::complex<double>(in_ey[0], in_ey[1]), N[0] * N[1], in_beta, glm::vec<3, double>(0, 0, -1));
+		I = tira::planewave<double>::SolidAngleMC(in_alpha, k * dir[0], k * dir[1], k * dir[2], e[0], e[1], e[2], N[0] * N[1], in_beta, glm::vec<3, double>(0, 0, -1));
 	else if (in_mode == "polar")
-		I = tira::planewave<double>::SolidAnglePolar(in_alpha, k * dir[0], k * dir[1], k * dir[2], std::complex<double>(in_ex[0], in_ex[1]), std::complex<double>(in_ey[0], in_ey[1]), N[0], N[1], in_beta, glm::vec<3, double>(0, 0, -1));
+		I = tira::planewave<double>::SolidAnglePolar(in_alpha, k * dir[0], k * dir[1], k * dir[2], e[0], e[1], e[2], N[0], N[1], in_beta, glm::vec<3, double>(0, 0, -1));
 														
 
 	CoupledWaveStructure<double> cw;																// allocate a coupled wave structure to store simulation results

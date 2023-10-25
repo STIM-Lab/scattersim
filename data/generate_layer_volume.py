@@ -3,6 +3,6 @@
 
 import numpy as np
 
-V = np.array((complex(1.4, 0)))
-V = np.reshape(V, (1, 1, 1))
+V = np.array((complex(1.4, 0.05), complex(1.4, 0)))
+V = np.reshape(V, (2, 1, 1))
 np.save("layers.npy", V)

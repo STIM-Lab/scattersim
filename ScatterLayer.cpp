@@ -183,7 +183,7 @@ void SetBoundaryConstraints(tira::planewave<double> p) {
 
 	for (size_t l = 0; l < L - 1; l++) {
 
-		if (l == 0) zn = 0;
+		if (l == 0) zn = z[l];
 		else zn = z[l] - z[l - 1];
 
 		if (l == L - 2) zp = 0;

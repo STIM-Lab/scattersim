@@ -296,7 +296,7 @@ void MatTransfer() {
 	f3.setZero();
 
 	// Focus on z=0
-	Eigen::RowVectorXcd phase = (std::complex<double>(0, 1) * k * (std::complex<double>)(z[0] - z[0]) * Eigen::Map<Eigen::RowVectorXcd>(Sz[0].data(), Sz[0].size())).array().exp();
+	Eigen::RowVectorXcd phase = (std::complex<double>(0, 1) * k * (std::complex<double>)(z[0]) * Eigen::Map<Eigen::RowVectorXcd>(Sz[0].data(), Sz[0].size())).array().exp();
 	Eigen::MatrixXcd Phase = phase.replicate(MF, 1);		// Phase is the duplicated (by row) matrix from phase.
 
 	Eigen::MatrixXcd SZ0 = Sz[0].replicate(MF, 1);		// neg_SZ0 is the duplicated (by row) matrix from neg_Sz0.
@@ -492,7 +492,8 @@ int main(int argc, char** argv) {
 	glm::tvec3<std::complex<double>> e = glm::tvec3<std::complex<double>>(std::complex<double>(in_ex[0], in_ex[1]),
 		std::complex<double>(in_ey[0], in_ey[1]),
 		std::complex<double>(in_ez[0], in_ez[1]));				// set the input electrical field
-	orthogonalize(e, glm::tvec3<double>(dir(0), dir(1), dir(2)));
+	glm::tvec3<double> dirvec(dir(0), dir(1), dir(2));
+	orthogonalize(e, dirvec);
 
 	// wavenumber
 	k = (std::complex<double>)(2 * PI / in_lambda * in_n[0]);

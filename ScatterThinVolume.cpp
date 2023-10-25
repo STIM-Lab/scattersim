@@ -636,7 +636,8 @@ int main(int argc, char** argv) {
 	glm::tvec3<std::complex<double>> e = glm::tvec3<std::complex<double>>(std::complex<double>(in_ex[0], in_ex[1]),
 		std::complex<double>(in_ey[0], in_ey[1]),
 		std::complex<double>(in_ez[0], in_ez[1]));				// set the input electrical field
-	orthogonalize(e, glm::tvec3<double>(dir(0), dir(1), dir(2)));
+	glm::tvec3<double> dirvec(dir(0), dir(1), dir(2));
+	orthogonalize(e, dirvec);
 
 	// wavenumber
 	k = (std::complex<double>)(2 * M_PI / in_lambda * in_n[0]);

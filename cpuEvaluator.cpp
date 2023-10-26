@@ -216,8 +216,8 @@ void EvaluateSample(std::vector <std::vector< Eigen::MatrixXcd>>& E, float* cent
         Eigen::MatrixXcd phase_odd = (std::complex<double>(0, 1) * K * (std::complex<double>)((z)*d + z_up - z_bo) * gamma_odd.array()).exp().matrix();
 
         if (Beta.size() > 1) {
-            phase_even = (std::complex<double>(0, 1) * K * (std::complex<double>)((z)*d + z_up - z_up - i * step) * gamma_even.array()).exp().matrix();
-            phase_odd = (std::complex<double>(0, 1) * K * (std::complex<double>)((z)*d + z_up - z_up - (i + 1) * step) * gamma_odd.array()).exp().matrix();
+            phase_even = (std::complex<double>(0, 1) * K * (std::complex<double>)((z)*d - i * step) * gamma_even.array()).exp().matrix();
+            phase_odd = (std::complex<double>(0, 1) * K * (std::complex<double>)((z)*d - (i + 1) * step) * gamma_odd.array()).exp().matrix();
 
         }
 
@@ -291,9 +291,9 @@ void cpu_cw_evaluate_sample(glm::vec<3, std::complex<float>>* E_xy, glm::vec<3, 
     if (z >= z_up - pow(10, -3) && z < z_bo - pow(10, -3))
         for (size_t j = 0; j < points; j++) {
             for (size_t i = 0; i < points; i++) {
-                E_xy[j * points + i][0] += (std::complex<float>)E[0][pixel_z](i, j);
-                E_xy[j * points + i][1] += (std::complex<float>)E[1][pixel_z](i, j);
-                E_xy[j * points + i][2] += (std::complex<float>)E[2][pixel_z](i, j);
+                E_xy[j * points + i][0] += (std::complex<float>)E[0][pixel_z](j, i);
+                E_xy[j * points + i][1] += (std::complex<float>)E[1][pixel_z](j, i);
+                E_xy[j * points + i][2] += (std::complex<float>)E[2][pixel_z](j, i);
             }
         }
 

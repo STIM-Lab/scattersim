@@ -46,16 +46,8 @@ configure_file(data/sphere.npy
 				sphere.npy COPYONLY)
 configure_file(data/layers.npy 
 				layers.npy COPYONLY)
-configure_file(data/RecSquare.npy 
-				RecSquare.npy COPYONLY)
-configure_file(data/target.npy 
-				target.npy COPYONLY)
-configure_file(data/triangle.npy 
-				triangle.npy COPYONLY)
-configure_file(data/psf.cw 
-				psf.cw COPYONLY)
-configure_file(data/triangle.png 
-				triangle.png COPYONLY)
+configure_file(data/cylinder.npy 
+				cylinder.npy COPYONLY)
 
 
 #set the include directories

@@ -132,9 +132,8 @@ void cw_unpack(CoupledWaveStructure<double>* cw) {
     }
 }
 
-unsigned int idx(int num) {
+unsigned int idx(int num, float step) {
     float z_cur = (float)num * d;
-    float step = size[2] / slices;
     return unsigned int(float(z_cur) / step);
 }
 
@@ -169,7 +168,7 @@ void EvaluateSample(std::vector <std::vector< Eigen::MatrixXcd>>& E, float* cent
         }
     }
     int points_z = pixels_bo - pixels_up;
-    float step = (z_layers[1] - z_layers[0]) / (float)slices;
+    float step = (z_bo - z_up) / (float)slices;
     E.resize(3);
     E[0].resize(points_z);
     E[1].resize(points_z);
@@ -199,7 +198,7 @@ void EvaluateSample(std::vector <std::vector< Eigen::MatrixXcd>>& E, float* cent
     for (int z = 0; z < points_z; z++) {
         i = 0;     // For single-layered sample
         if (Beta.size() > 1)
-            i = idx(z);
+            i = idx(z, step);
         Eigen::MatrixXcd Beta_cur = Beta[i];
         Eigen::MatrixXcd Gamma_cur = Gamma[i];
         Eigen::MatrixXcd G_cur = GG[i];
@@ -262,9 +261,9 @@ void EvaluateSample(std::vector <std::vector< Eigen::MatrixXcd>>& E, float* cent
 
         }
 
-        E[0][z] = fftw_ift2(Eigen::Map<Eigen::MatrixXcd>(Ef[0][z].data(), M[0], M[1]), X, Y, points, S, K);
-        E[1][z] = fftw_ift2(Eigen::Map<Eigen::MatrixXcd>(Ef[1][z].data(), M[0], M[1]), X, Y, points, S, K);
-        E[2][z] = fftw_ift2(Eigen::Map<Eigen::MatrixXcd>(Ef[2][z].data(), M[0], M[1]), X, Y, points, S, K);
+        E[0][z] = fftw_ift2(Eigen::Map<Eigen::MatrixXcd>(Ef[0][z].data(), M[1], M[0]), X, Y, points, S, K);
+        E[1][z] = fftw_ift2(Eigen::Map<Eigen::MatrixXcd>(Ef[1][z].data(), M[1], M[0]), X, Y, points, S, K);
+        E[2][z] = fftw_ift2(Eigen::Map<Eigen::MatrixXcd>(Ef[2][z].data(), M[1], M[0]), X, Y, points, S, K);
     }
 }
 

@@ -326,7 +326,6 @@ private:
 		_meshS1.setZero(_M[1], _M[0]);
 		// The z components for propagation direction. _Sz[0] is for the upper region while _Sz[1] is for the lower region
 		meshgrid(_Sx, _Sy, _meshS0, _meshS1);
-
 		_Sz.resize(2);
 		_Sz[0] = (pow(_n_layers(0), 2) * Eigen::MatrixXcd::Ones(_M[1], _M[0]).array() - _meshS0.array().pow(2) - _meshS1.array().pow(2)).cwiseSqrt();
 		_Sz[1] = (pow(_n_layers(1), 2) * Eigen::MatrixXcd::Ones(_M[1], _M[0]).array() - _meshS0.array().pow(2) - _meshS1.array().pow(2)).cwiseSqrt();

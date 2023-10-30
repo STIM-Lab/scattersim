@@ -17,6 +17,7 @@
 
 #define PI 3.141592653
 extern std::vector<double> in_size;
+extern std::ofstream proffile;
 
 inline glm::tvec3<std::complex<double>> cross(glm::tvec3<std::complex<double>> E, glm::tvec3 < std::complex<double>> d) {
 	glm::tvec3<std::complex<double>> out(3);
@@ -334,10 +335,17 @@ private:
 	Eigen::MatrixXcd phi(Eigen::MatrixXcd sample) {
 		int idx = 0;
 		UpWq_Cal();
+
+		std::chrono::time_point<std::chrono::system_clock> fft_before = std::chrono::system_clock::now();
 		Eigen::MatrixXcd Nf = fftw_fft2(sample.array().pow(2), _M[1], _M[0]);
 		Nif = fftw_fft2(sample.cwiseInverse().array().pow(2), _M[1], _M[0]);
+		std::chrono::time_point<std::chrono::system_clock> fft_after = std::chrono::system_clock::now();
+		elapsed_seconds = fft_after - fft_before;
+		proffile << "		Time for fft transform: " << elapsed_seconds.count() << " s. " << std::endl << std::endl;
+
 		NIf.push_back(Nif);
 		int MF = _M[0] * _M[1];
+		std::chrono::time_point<std::chrono::system_clock> D_before = std::chrono::system_clock::now();
 
 		// Calculate phi
 		Eigen::MatrixXcd phi;
@@ -382,6 +390,9 @@ private:
 				phi(qi * _M[0] + pi + 3 * MF, MF + qi * _M[0] + pi) += up * wq * k_inv;
 			}
 		}
+		std::chrono::time_point<std::chrono::system_clock> D_after = std::chrono::system_clock::now();
+		elapsed_seconds = D_after - D_before;
+		proffile << "		Time for forming D: " << elapsed_seconds.count() << " s. " << std::endl << std::endl;
 		return phi;
 	}
 };

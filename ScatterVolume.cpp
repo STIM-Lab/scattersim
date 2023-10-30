@@ -197,7 +197,7 @@ void EigenDecompositionD() {
 			MKL_eigensolve(A, evl, evt, 4 * MF);
 			std::chrono::time_point<std::chrono::system_clock> e = std::chrono::system_clock::now();
 			elapsed_seconds = e - s;
-			proffile << "			 Time for MKL_eigensolve():" << elapsed_seconds.count() << "s" << std::endl;
+			proffile << "						Time for MKL_eigensolve():" << elapsed_seconds.count() << "s" << std::endl;
 			eigenvalues_unordered.push_back(Eigen::Map<Eigen::VectorXcd>(evl, 4 * MF));
 			eigenvectors_unordered.push_back(Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(evt, 4 * MF, 4 * MF));
 
@@ -519,7 +519,18 @@ int main(int argc, char** argv) {
 	}
 	MF = M[0] * M[1];
 
+	// Give warning if the decomposed wave goes opposite.
+	std::complex<double> n_min = std::min(in_n[0], in_n[1]);
+	if (pow((double(M[0] / 2) / in_size[0] + dir[0]), 2) + (pow((double(M[1] / 2) / in_size[1] + dir[1]), 2)) >= pow(n_min.real() / in_lambda, 2)) {
+		std::cout << "[ERROR] " << "Propagation directions for decomposed waves are not all downward. We suggest to increase in_size or decrease to tolerate higher Fourier coefficients. Constraints: (float(M[0]/2)/size[2])^2 + (float(M[1]/2)/size[1])^2 < (n/lambda)^2" << std::endl;
+		exit(1);
+	}
+
+	std::chrono::time_point<std::chrono::system_clock> D_before = std::chrono::system_clock::now();
 	D = Volume.CalculateD(M, dir);	// Calculate the property matrix for the sample
+	std::chrono::time_point<std::chrono::system_clock> D_after = std::chrono::system_clock::now();
+	elapsed_seconds = D_after - D_before;
+	proffile << "Time for property matrix D: " << elapsed_seconds.count() << " s. " << std::endl << std::endl;
 
 	// Fourier transform for the incident waves
 	E0.push_back(e[0]);
@@ -583,7 +594,7 @@ int main(int argc, char** argv) {
 	MKL_linearsolve(A, b);
 	Eigen::VectorXcd x = b;
 
-	std::cout << "x: " << x << std::endl;
+	//std::cout << "x: " << x << std::endl;
 	proffile << "Linear system solved." << std::endl;
 
 	std::chrono::time_point<std::chrono::system_clock> solved = std::chrono::system_clock::now();

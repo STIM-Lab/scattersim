@@ -661,6 +661,8 @@ int main(int argc, char** argv) {
 				cw.NIf[i][j] = Volume.NIf[i](j);
 			}
 		}
+		std::chrono::time_point<std::chrono::system_clock> beta_before = std::chrono::system_clock::now();
+
 		Eigen::MatrixXcd EF_mat;
 		Eigen::MatrixXcd Pr_0;
 		Eigen::MatrixXcd beta;
@@ -685,7 +687,9 @@ int main(int argc, char** argv) {
 			}
 			Beta[i] = beta;
 		}
-
+		std::chrono::time_point<std::chrono::system_clock> beta_end = std::chrono::system_clock::now();
+		elapsed_seconds = beta_end - beta_before;
+		proffile << "Solving beta takes:" << elapsed_seconds.count() << "s" << std::endl;
 		for (size_t i = 0; i < num_pixels[0]; i++) {
 			cw.Slices[i].beta.resize(MF4);
 			cw.Slices[i].gamma.resize(MF4);
@@ -699,20 +703,18 @@ int main(int argc, char** argv) {
 			}
 		}
 	}
-
-
 	std::cout << "Field saved in " << in_outfile << "." << std::endl;
-	std::chrono::time_point<std::chrono::system_clock> simulated = std::chrono::system_clock::now();
-	elapsed_seconds = simulated - solved;
-	proffile << "Time for saving the field " << elapsed_seconds.count() << "s" << std::endl << std::endl << std::endl;
-
 	std::cout << "Number of pixels (x, y): [" << num_pixels[2] << "," << num_pixels[1] << "]" << std::endl;
 	std::cout << "Number of sublayers: " << num_pixels[0] << std::endl;
 	std::cout << "Number of Fourier coefficients (Mx, My): [" << M[0] << "," << M[1] << "]" << std::endl;
-	elapsed_seconds = simulated - start;
-	proffile << "Total time:" << elapsed_seconds.count() << "s" << std::endl;
 
+	std::chrono::time_point<std::chrono::system_clock> save_before = std::chrono::system_clock::now();
 	if (in_outfile != "") {
 		cw.save(in_outfile);
 	}
+	std::chrono::time_point<std::chrono::system_clock> save_end = std::chrono::system_clock::now();
+	elapsed_seconds = save_end - save_before;
+	proffile << "Time for saving the field " << elapsed_seconds.count() << "s" << std::endl << std::endl << std::endl;
+	elapsed_seconds = save_end - start;
+	proffile << "Total time:" << elapsed_seconds.count() << "s" << std::endl;
 }

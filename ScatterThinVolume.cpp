@@ -88,6 +88,7 @@ std::vector<std::complex<double>> M_val;
 std::string out_mat;
 long long SizeInBytes = 0;
 std::chrono::duration<double> elapsed_seconds;
+std::ofstream proffile;
 
 /// Convert a complex vector to a string for display
 //template <typename T>

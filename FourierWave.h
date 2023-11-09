@@ -18,6 +18,7 @@
 #define PI 3.141592653
 extern std::vector<double> in_size;
 extern std::ofstream proffile;
+extern std::chrono::duration<double> elapsed_seconds;
 
 inline glm::tvec3<std::complex<double>> cross(glm::tvec3<std::complex<double>> E, glm::tvec3 < std::complex<double>> d) {
 	glm::tvec3<std::complex<double>> out(3);

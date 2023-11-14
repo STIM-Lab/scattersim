@@ -131,7 +131,7 @@ int main(int argc, char** argv) {
 		std::complex<double>(in_ez[0], in_ez[1]));				// set the input electrical field
 	orthogonalize(e, dir);
 	
-	double k = 2 * M_PI / (in_lambda * in_n[0]);								// calculate the wavenumber (2 pi / lambda)
+	double k = 2 * M_PI * in_n[0] / (in_lambda);								// calculate the wavenumber (2 pi * n / lambda) in the incident plane (accounting for refractive index)
 	
 	
 	glm::tvec3<double> n = glm::normalize(glm::tvec3<double>(0, 0, -1));		// calculate the normal for the plane

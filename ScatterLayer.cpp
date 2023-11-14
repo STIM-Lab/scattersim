@@ -33,9 +33,10 @@ unsigned int L;
 Eigen::MatrixXcd A;
 Eigen::VectorXcd b;
 std::vector<std::complex<double>> ri;
-std::complex<double>* sz;
+std::vector< std::complex<double>> sz;
 double* z;
-double k;
+double k;				// wavenumber in the incident layer
+double k_vac;			// free space (vacuum) wavenumber
 
 std::ofstream logfile;
 
@@ -121,9 +122,13 @@ void InitLayerProperties() {
 		z[l] = in_z[l];
 }
 
-void InitSz(tira::planewave<double> p) {
-	glm::vec<3, double> s = p.getDirection();
-	sz = new std::complex<double>[L];										// allocate space to store the sz coordinate for each layer
+/// <summary>
+/// Calculate the z component of the direction vector for each layer. This is how the refractive index is stored for each layer.
+/// </summary>
+/// <param name="p"></param>
+void InitSz(tira::planewave<double> p, double incident_refractive_index) {
+	glm::vec<3, double> s = p.getDirection() * incident_refractive_index;
+	sz.resize(L);										// allocate space to store the sz coordinate for each layer
 
 	if(logfile){
 		logfile<<"sx = "<<s[0]<<", sy = "<<s[1]<<std::endl;
@@ -223,22 +228,28 @@ void SetBoundaryConstraints(tira::planewave<double> p) {
 	}
 }
 
+/// <summary>
+/// Convert the solution matrix to a set of waves
+/// </summary>
+/// <param name="i"></param>
+/// <param name="x"></param>
+/// <returns></returns>
 std::vector<tira::planewave<double>> mat2waves(tira::planewave<double> i, Eigen::VectorXcd x) {
 	std::vector<tira::planewave<double>> P;
 
 	P.push_back(i);											// push the incident plane wave into the P array
 	for (size_t l = 0; l < L - 1; l++) {						// for each layer
 		glm::vec<3, double> s = i.getDirection();
-		tira::planewave<double> r(s[0] * k,
-			s[1] * k,
-			-sz[l] * k,
+		tira::planewave<double> r(s[0] * k_vac,
+			s[1] * k_vac,
+			-sz[l] * k_vac,
 			x[idx(l, Reflected, X)],
 			x[idx(l, Reflected, Y)],
 			x[idx(l, Reflected, Z)]);
 
-		tira::planewave<double> t(s[0] * k,
-			s[1] * k,
-			sz[l + 1] * k,
+		tira::planewave<double> t(s[0] * k_vac,
+			s[1] * k_vac,
+			sz[l + 1] * k_vac,
 			x[idx(l + 1, Transmitted, X)],
 			x[idx(l + 1, Transmitted, Y)],
 			x[idx(l + 1, Transmitted, Z)]);
@@ -307,7 +318,7 @@ int main(int argc, char** argv) {
 
 	// override alpha with NA if specified
 	if (vm.count("na")) {
-		in_alpha = asin(in_na);
+		in_alpha = asin(in_na / in_n[0]);
 	}
 
 	// calculate the number of layers based on input parameters (take the maximum of all layer-specific command-line options)
@@ -332,10 +343,11 @@ int main(int argc, char** argv) {
 		std::complex<double>(in_ey[0], in_ey[1]),
 		std::complex<double>(in_ez[0], in_ez[1]));				// set the input electrical field
 	orthogonalize(e, dir);
-	k = 2 * M_PI / (in_lambda * in_n[0]);
+	k_vac = 2 * M_PI / in_lambda;
+	k = k_vac * in_n[0];										// calculate the wavenumber (2 pi * n / lambda) in the incident plane (accounting for refractive index)
 	tira::planewave<double> i_ref(dir[0] * k, dir[1] * k, dir[2] * k, e[0], e[1], e[2]);
 	
-	unsigned int N[2];										// calculate the number of samples
+	unsigned int N[2];											// calculate the number of samples
 	if (in_samples.size() == 1) {
 		if (in_mode == "montecarlo") {
 			N[0] = in_samples[0];
@@ -371,16 +383,17 @@ int main(int argc, char** argv) {
 	cw.Layers.resize(L - 1);
 
 	for (size_t p = 0; p < I.size(); p++) {															// for each incident plane wave
-		tira::planewave<double> i = I[p];																					// store the incident plane wave in i
+		tira::planewave<double> i = I[p];															// store the incident plane wave in i
 		InitMatrices();
 		InitLayerProperties();
-		InitSz(i);																				// initialize the model matrix
+		InitSz(i, in_n[0]);																				// initialize the model matrix
 		SetGaussianConstraints(i);
 		SetBoundaryConditions(i);
 		SetBoundaryConstraints(i);
 
 		Eigen::VectorXcd x = A.colPivHouseholderQr().solve(b);												// solve the linear system
 		std::vector<tira::planewave<double>> P = mat2waves(i, x);									// generate plane waves from the solution vector
+		std::cout << x << std::endl;
 		cw.Pi.push_back(i);
 
 		for (size_t l = 0; l < L - 1; l++) {														// for each layer
@@ -406,7 +419,7 @@ int main(int argc, char** argv) {
 	}
 
 	// calculate the reference wave and output results
-	InitSz(i_ref);
+	InitSz(i_ref, in_n[0]);
 	SetBoundaryConditions(i_ref);															// set the matrix boundary conditions
 	SetGaussianConstraints(i_ref);
 	SetBoundaryConstraints(i_ref);
@@ -457,6 +470,7 @@ int main(int argc, char** argv) {
 
 	glm::vec<3, double> i_k_real = i_ref.getKreal();
 	std::cout << std::setw(spacing1) << std::left << "vvvvv   k:" << vec2str(i_k_real, spacing2) << std::endl;
+	std::cout << std::setw(spacing1) << std::left << "vvvvv |k|:" << glm::length(i_k_real) << std::endl;
 	glm::vec<3, std::complex<double>> i_E = i_ref.getE0();
 	std::cout << std::setw(spacing1) << std::left << "vvvvv   E(0):" << vec2str(i_E, spacing2) << std::endl << std::endl;
 	std::vector< tira::planewave<double> > R;
@@ -470,6 +484,7 @@ int main(int argc, char** argv) {
 		T.push_back(t);
 		glm::vec<3, std::complex<double>> r_k = r.getK();
 		std::cout << std::setw(spacing1) << std::left << "^^^^^   k:" << vec2str(r_k, spacing2) << std::endl;
+		//std::cout << std::setw(spacing1) << std::left << "^^^^^ |k|:" << glm::length(r_k) << std::endl;
 		glm::vec<3, std::complex<double>> r_E = r.getE0();
 		std::cout << std::setw(spacing1) << std::left << "^^^^^   E(0):" << vec2str(r_E, spacing2) << std::endl;
 
@@ -484,7 +499,8 @@ int main(int argc, char** argv) {
 		std::cout << std::endl;
 
 		glm::vec<3, std::complex<double>> t_k = t.getK();
-		std::cout << std::setw(spacing1) << std::left << "vvvvv k:" << vec2str(t_k, spacing2) << std::endl;
+		std::cout << std::setw(spacing1) << std::left << "vvvvv   k:" << vec2str(t_k, spacing2) << std::endl;
+		//std::cout << std::setw(spacing1) << std::left << "vvvvv |k|:" << glm::length(t_k) << std::endl;
 		glm::vec<3, std::complex<double>> t_E = t.getE0();
 		std::cout << std::setw(spacing1) << std::left << "vvvvv E(0):" << vec2str(t_E, spacing2) << std::endl;
 		std::cout << std::endl << std::endl;

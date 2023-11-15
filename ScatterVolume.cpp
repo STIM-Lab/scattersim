@@ -86,7 +86,8 @@ Eigen::MatrixXcd tmp;					// Temposarily store some Eigen::MatrixXcd
 Eigen::MatrixXcd tmp_2;					// Temposarily store additional Eigen::MatrixXcd
 Eigen::MatrixXcd Gc_static;					// Temposarily store some Eigen::MatrixXcd
 std::chrono::duration<double> elapsed_seconds;
-bool saveSampleTexture = true;
+bool saveSampleTexture = false;
+int counts = 0;
 
 /// Convert a complex vector to a string for display
 template <typename T>
@@ -402,22 +403,22 @@ std::vector<tira::planewave<double>> mat2waves(tira::planewave<double> i, Eigen:
 	std::vector<tira::planewave<double>> P;
 
 	P.push_back(i);											// push the incident plane wave into the P array
-	glm::vec<3, double> s = i.getDirection();
 
-	tira::planewave<double> r(Sx(p) * k,
-		Sy(p) * k,
-		-Sz[0](p) * k,
+	tira::planewave<double> r(Sx(p) * k / in_n[0],
+		Sy(p) * k / in_n[0],
+		-Sz[0](p) * k / in_n[0],
 		x[idx(0, Reflected, X, p, MF)],
 		x[idx(0, Reflected, Y, p, MF)],
 		x[idx(0, Reflected, Z, p, MF)]
 	);
-	tira::planewave<double> t(Sx(p) * k,
-		Sy(p) * k,
-		Sz[1](p) * k,
+	tira::planewave<double> t(Sx(p) * k / in_n[0],
+		Sy(p) * k / in_n[0],
+		Sz[1](p) * k / in_n[0],
 		x[idx(1, Transmitted, X, p, MF)],
 		x[idx(1, Transmitted, Y, p, MF)],
 		x[idx(1, Transmitted, Z, p, MF)]
 	);
+	std::cout << "n" << std:: endl;
 	P.push_back(r);
 	P.push_back(t);
 	return P;
@@ -489,15 +490,16 @@ int main(int argc, char** argv) {
 	
 	Eigen::Vector3d dir(in_dir[0], in_dir[1], in_dir[2]);
 	dir.normalize();																							// set the normalized direction of the incoming source field
-	dir = dir * in_n[0];
+
 	glm::tvec3<std::complex<double>> e = glm::tvec3<std::complex<double>>(std::complex<double>(in_ex[0], in_ex[1]),
 		std::complex<double>(in_ey[0], in_ey[1]),
 		std::complex<double>(in_ez[0], in_ez[1]));				// set the input electrical field
 	glm::tvec3<double> dirvec(dir(0), dir(1), dir(2));
 	orthogonalize(e, dirvec);
+	dir = dir * in_n[0];
 
 	// wavenumber
-	k = (std::complex<double>)(2 * PI / in_lambda * in_n[0]);
+	k = (std::complex<double>)(2 * PI / in_lambda) * in_n[0];
 
 	// store all of the layer positions and refractive indices
 	InitLayerProperties();
@@ -550,7 +552,10 @@ int main(int argc, char** argv) {
 	Sy = Eigen::Map<Eigen::RowVectorXcd>(Volume._meshS1.data(), MF);
 	Sz[0] = Eigen::Map<Eigen::RowVectorXcd>(Volume._Sz[0].data(), MF);
 	Sz[1] = Eigen::Map<Eigen::RowVectorXcd>(Volume._Sz[1].data(), MF);
-	//std::cout << "Sz[0]: " << Sz[0] << std::endl;
+	std::cout << "Sx: " << Sx << std::endl;
+	std::cout << "sy: " << Sy << std::endl;
+	std::cout << "Sz[0]: " << Sz[0] << std::endl;
+	std::cout << "Sz[1]: " << Sz[1] << std::endl;
 
 	if (logfile) {
 		logfile << "Ex fourier form:" << EF.segment(0, MF) << std::endl;
@@ -594,7 +599,7 @@ int main(int argc, char** argv) {
 	MKL_linearsolve(A, b);
 	Eigen::VectorXcd x = b;
 
-	std::cout << "x: " << x << std::endl;
+	//std::cout << "x: " << x << std::endl;
 	proffile << "Linear system solved." << std::endl;
 
 	std::chrono::time_point<std::chrono::system_clock> solved = std::chrono::system_clock::now();
@@ -615,35 +620,42 @@ int main(int argc, char** argv) {
 
 	// store the incident plane wave
 	int ind = (M[1] / 2) * M[0] + (M[0] / 2);
-	tira::planewave<double> i(Sx(ind) * k, Sy(ind) * k, Sz[0](ind) * k, EF(ind), EF(MF + ind), EF(2 * MF + ind));
+	tira::planewave<double> i(Sx(ind) * k / in_n[0], Sy(ind) * k / in_n[0], Sz[0](ind) * k / in_n[0], EF(ind), EF(MF + ind), EF(2 * MF + ind));
 	cw.Pi.push_back(i);
-	for (size_t p = 0; p < MF; p++) {															// for each incident plane wave
-		std::vector<tira::planewave<double>> P = mat2waves(i, x, p);
 
-		// generate plane waves from the solution vector
-		tira::planewave<double> r, t;
-		for (size_t l = 0; l < L; l++) {														// for each layer
-			if (l == 0) {
-				cw.Layers[l].z = z[l];
-				r = P[1 + l * 2 + 0].wind(0.0, 0.0, -z[l]);
-				//r = P[1 + l * 2 + 0];
-				cw.Layers[l].Pr.push_back(r);
+	tira::planewave<double> zeros(0, 0, k / in_n[0], 0, 0, 0);
+	for (int kk = 0; kk < M[1]; kk++) {
+		for (int j = 0; j < M[0]; j++) {
+			std::complex<double> sy = (kk - M[1] / 2) / in_size[1] / in_lambda + dir[1];
+			std::complex<double> sx = (j - M[0] / 2) / in_size[0] / in_lambda + dir[0];
+			if (abs((sx * sx + sy * sy).real()) < in_n[0] * in_n[0]) {
+				counts += 1;
+				int p = kk * M[0] + j;
+				std::vector<tira::planewave<double>> P = mat2waves(i, x, p);
+				// generate plane waves from the solution vector
+				tira::planewave<double> r, t;
+				for (size_t l = 0; l < L; l++) {														// for each layer
+					if (l == 0) {
+						cw.Layers[l].z = z[l];
+						r = P[1 + l * 2 + 0].wind(0.0, 0.0, -z[l]);
+						//r = P[1 + l * 2 + 0];
+						cw.Layers[l].Pr.push_back(r);
+					}
+					if (l == L - 1) {
+						cw.Layers[l].z = z[l];
+						//t = P[1 + (l - 1) * 2 + 1];
+						t = P[1 + (l - 1) * 2 + 1].wind(0.0, 0.0, -z[l]);
+						cw.Layers[l].Pt.push_back(t);
+					}
+					if (logfile) {
+						logfile << "LAYER " << l << "==========================" << std::endl;
+						logfile << "i (" << p << ") ------------" << std::endl << i.str() << std::endl;
+						logfile << "r (" << p << ") ------------" << std::endl << r.str() << std::endl;
+						logfile << "t (" << p << ") ------------" << std::endl << t.str() << std::endl;
+						logfile << std::endl;
+					}
+				}
 			}
-			if (l == L - 1) {
-				cw.Layers[l].z = z[l];
-				//t = P[1 + (l - 1) * 2 + 1];
-				t = P[1 + (l - 1) * 2 + 1].wind(0.0, 0.0, -z[l]);
-				cw.Layers[l].Pt.push_back(t);
-			}
-
-			if (logfile) {
-				logfile << "LAYER " << l << "==========================" << std::endl;
-				logfile << "i (" << p << ") ------------" << std::endl << i.str() << std::endl;
-				logfile << "r (" << p << ") ------------" << std::endl << r.str() << std::endl;
-				logfile << "t (" << p << ") ------------" << std::endl << t.str() << std::endl;
-				logfile << std::endl;
-			}
-
 		}
 	}
 	cw.isHete = saveSampleTexture;
@@ -708,6 +720,7 @@ int main(int argc, char** argv) {
 	std::cout << "Number of pixels (x, y): [" << num_pixels[2] << "," << num_pixels[1] << "]" << std::endl;
 	std::cout << "Number of sublayers: " << num_pixels[0] << std::endl;
 	std::cout << "Number of Fourier coefficients (Mx, My): [" << M[0] << "," << M[1] << "]" << std::endl;
+	std::cout << "Effective number of Fourier coefficients: [" << counts << "]" << std::endl;
 
 	std::chrono::time_point<std::chrono::system_clock> save_before = std::chrono::system_clock::now();
 	if (in_outfile != "") {

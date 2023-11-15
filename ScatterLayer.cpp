@@ -239,7 +239,7 @@ std::vector<tira::planewave<double>> mat2waves(tira::planewave<double> i, Eigen:
 
 	P.push_back(i);											// push the incident plane wave into the P array
 	for (size_t l = 0; l < L - 1; l++) {						// for each layer
-		glm::vec<3, double> s = i.getDirection();
+		glm::vec<3, double> s = i.getDirection() * in_n[0];
 		tira::planewave<double> r(s[0] * k_vac,
 			s[1] * k_vac,
 			-sz[l] * k_vac,
@@ -436,20 +436,26 @@ int main(int argc, char** argv) {
 	}
 	std::vector<tira::planewave<double>> P = mat2waves(i_ref, x);
 
-	int spacing1 = 30;
-	int spacing2 = 30;
+	int namewidth = 20;
+	int numwidth = 10;
 	int spacing3 = 20;
 	// incident field parameters
-	std::cout << std::setw(spacing1) << std::left << "vacuum wavelength: " << in_lambda << std::endl;
+	std::cout << std::setw(namewidth) << std::left << "vacuum lambda:";
+	std::cout << std::setw(numwidth) << std::left << in_lambda << std::endl;
 
 	// optics
 	if (in_alpha != 0.0) {
-		std::cout << std::setw(spacing1) << std::left << "focusing angle: " << in_alpha << " (" << std::sin(in_alpha) * in_n[0] << " NA)" << std::endl;
-		if(in_beta > 0.0)
-			std::cout << std::setw(spacing1) << std::left << "obscuration angle: " << in_beta << " (" << std::sin(in_beta) * in_n[0] << " NA)" << std::endl;
+		std::cout << std::setw(namewidth) << std::left << "focusing angle:";
+		std::cout << std::setw(numwidth) << in_alpha;
+		std::cout << " (" << std::sin(in_alpha) * in_n[0] << " NA)" << std::endl;
+		if (in_beta > 0.0) {
+			std::cout << std::setw(namewidth) << std::left << "obscuration angle:";
+			std::cout << std::setw(numwidth) << std::left << in_beta;
+			std::cout << " (" << std::sin(in_beta) * in_n[0] << " NA)" << std::endl;
+		}
 	}
 	std::cout << std::endl;
-	std::cout << std::setw(spacing1) << std::left << "layers: " << L << std::endl;
+	std::cout << std::setw(namewidth) << std::left << "layers: " << L << std::endl;
 	for (size_t l = 0; l < L; l++) {
 		float z_start, z_end;
 		if (l == 0) z_start = -INFINITY;
@@ -459,20 +465,24 @@ int main(int argc, char** argv) {
 		if (l == L - 1) z_end = INFINITY;
 		else z_end = z[l];
 
-		std::cout << l << "     [" << z_start << ", " << z_end << "]: " << ri[l].real() << " + " << ri[l].imag() << "i" << std::endl;
+		std::cout << std::setw(4) << std::right << l;
+		std::stringstream layer_range;
+		layer_range << "[" << z_start << ", " << z_end << "]:";
+		std::cout << std::setw(namewidth - 4) << std::left << layer_range.str();
+		std::cout << ri[l].real() << " + " << ri[l].imag() << "i" << std::endl;
 	}
 
 	std::cout << std::endl;
 
-	std::cout << std::setw(spacing1) << std::left << "samples: " << N[0] << " x " << N[1] << " = " << N[0] * N[1] << std::endl;
-	std::cout << std::setw(spacing1) << std::left << "sampling mode: " << in_mode << std::endl;
+	std::cout << std::setw(namewidth) << std::left << "samples: " << N[0] << " x " << N[1] << " = " << N[0] * N[1] << std::endl;
+	std::cout << std::setw(namewidth) << std::left << "sampling mode: " << in_mode << std::endl;
 	std::cout << std::endl;
 
 	glm::vec<3, double> i_k_real = i_ref.getKreal();
-	std::cout << std::setw(spacing1) << std::left << "vvvvv   k:" << vec2str(i_k_real, spacing2) << std::endl;
-	std::cout << std::setw(spacing1) << std::left << "vvvvv |k|:" << glm::length(i_k_real) << std::endl;
+	std::cout << std::setw(namewidth) << std::left << "vvvvvvvv    k:" << vec2str(i_k_real, numwidth) << std::endl;
+	std::cout << std::setw(namewidth) << std::left << "vvvvvvvv  |k|:" << glm::length(i_k_real) << std::endl;
 	glm::vec<3, std::complex<double>> i_E = i_ref.getE0();
-	std::cout << std::setw(spacing1) << std::left << "vvvvv   E(0):" << vec2str(i_E, spacing2) << std::endl << std::endl;
+	std::cout << std::setw(namewidth) << std::left << "vvvvvvvv E(0):" << vec2str(i_E, numwidth) << std::endl << std::endl;
 	std::vector< tira::planewave<double> > R;
 	std::vector< tira::planewave<double> > T;
 	T.push_back(i_ref);								// push the incident plane wave to the back
@@ -483,26 +493,26 @@ int main(int argc, char** argv) {
 		tira::planewave<double> t = P[1 + l * 2 + 1].wind(0.0, 0.0, -z[l]);
 		T.push_back(t);
 		glm::vec<3, std::complex<double>> r_k = r.getK();
-		std::cout << std::setw(spacing1) << std::left << "^^^^^   k:" << vec2str(r_k, spacing2) << std::endl;
+		std::cout << std::setw(namewidth) << std::left << "^^^^^^^^    k:" << vec2str(r_k, numwidth) << std::endl;
 		//std::cout << std::setw(spacing1) << std::left << "^^^^^ |k|:" << glm::length(r_k) << std::endl;
 		glm::vec<3, std::complex<double>> r_E = r.getE0();
-		std::cout << std::setw(spacing1) << std::left << "^^^^^   E(0):" << vec2str(r_E, spacing2) << std::endl;
+		std::cout << std::setw(namewidth) << std::left << "^^^^^^^^ E(0):" << vec2str(r_E, numwidth) << std::endl;
 
 		std::cout << std::endl;
-		std::cout << "----------------------------n = " << ri[l].real() <<" + "<<ri[l].imag()<<"i----------------------------"<< std::endl;
+		std::cout << "n = " << ri[l].real() <<" + "<<ri[l].imag()<<"i========================="<< std::endl;
 		//std::cout << "                            z = " << z[l] << std::endl;
 		glm::vec<3, std::complex<double>> Er = R[l].getE(0, 0, z[l]);
 		glm::vec<3, std::complex<double>> Et = T[l].getE(0, 0, z[l]);
 		glm::vec<3, std::complex<double>> sum = Er + Et;
-		std::cout <<"E("<<z[l]<<"):" << std::setw(spacing1) << std::left << " "<< vec2str(sum, spacing2) << std::endl;
-		std::cout << "----------------------------n = " << ri[l + 1].real() << " + "<<ri[l+1].imag()<<"i----------------------------" << std::endl;
+		std::cout << "-------E("<<z[l] << std::setw(numwidth) << std::left <<"):"  << vec2str(sum, numwidth) << std::endl;
+		std::cout << "n = " << ri[l + 1].real() << " + "<<ri[l+1].imag()<<"i========================="<< std::endl;
 		std::cout << std::endl;
 
 		glm::vec<3, std::complex<double>> t_k = t.getK();
-		std::cout << std::setw(spacing1) << std::left << "vvvvv   k:" << vec2str(t_k, spacing2) << std::endl;
+		std::cout << std::setw(namewidth) << std::left << "vvvvvvvv    k:" << vec2str(t_k, numwidth) << std::endl;
 		//std::cout << std::setw(spacing1) << std::left << "vvvvv |k|:" << glm::length(t_k) << std::endl;
 		glm::vec<3, std::complex<double>> t_E = t.getE0();
-		std::cout << std::setw(spacing1) << std::left << "vvvvv E(0):" << vec2str(t_E, spacing2) << std::endl;
+		std::cout << std::setw(namewidth) << std::left << "vvvvvvvv E(0):" << vec2str(t_E, numwidth) << std::endl;
 		std::cout << std::endl << std::endl;
 
 		

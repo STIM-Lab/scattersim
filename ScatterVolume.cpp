@@ -489,6 +489,7 @@ int main(int argc, char** argv) {
 	
 	Eigen::Vector3d dir(in_dir[0], in_dir[1], in_dir[2]);
 	dir.normalize();																							// set the normalized direction of the incoming source field
+	dir = dir * in_n[0];
 	glm::tvec3<std::complex<double>> e = glm::tvec3<std::complex<double>>(std::complex<double>(in_ex[0], in_ex[1]),
 		std::complex<double>(in_ey[0], in_ey[1]),
 		std::complex<double>(in_ez[0], in_ez[1]));				// set the input electrical field
@@ -522,8 +523,8 @@ int main(int argc, char** argv) {
 	// Give warning if the decomposed wave goes opposite.
 	std::complex<double> n_min = std::min(in_n[0], in_n[1]);
 	if (pow((double(M[0] / 2) / in_size[0] + dir[0]), 2) + (pow((double(M[1] / 2) / in_size[1] + dir[1]), 2)) >= pow(n_min.real() / in_lambda, 2)) {
-		std::cout << "[ERROR] " << "Propagation directions for decomposed waves are not all downward. We suggest to increase in_size or decrease the wavelength to tolerate higher Fourier coefficients. Constraints: (float(M[0]/2)/size[2])^2 + (float(M[1]/2)/size[1])^2 < (n/lambda)^2" << std::endl;
-		exit(1);
+		std::cout << "[WARNING] " << "Propagation directions for decomposed waves are not all downward. We suggest to increase in_size or decrease the wavelength to tolerate higher Fourier coefficients. Constraints: (float(M[0]/2)/size[2])^2 + (float(M[1]/2)/size[1])^2 < (n/lambda)^2" << std::endl;
+		//exit(1);
 	}
 	std::chrono::time_point<std::chrono::system_clock> D_before = std::chrono::system_clock::now();
 	D = Volume.CalculateD(M, dir);	// Calculate the property matrix for the sample
@@ -593,7 +594,7 @@ int main(int argc, char** argv) {
 	MKL_linearsolve(A, b);
 	Eigen::VectorXcd x = b;
 
-	//std::cout << "x: " << x << std::endl;
+	std::cout << "x: " << x << std::endl;
 	proffile << "Linear system solved." << std::endl;
 
 	std::chrono::time_point<std::chrono::system_clock> solved = std::chrono::system_clock::now();

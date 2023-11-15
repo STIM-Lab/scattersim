@@ -36,8 +36,7 @@ std::vector<std::complex<double>> ri;
 std::vector< std::complex<double>> sz;
 double* z;
 double k;				// wavenumber in the incident layer
-double k_vac;			// free space (vacuum) wavenumber
-
+double incident_refractive_index;
 std::ofstream logfile;
 
 template <typename T>
@@ -126,7 +125,7 @@ void InitLayerProperties() {
 /// Calculate the z component of the direction vector for each layer. This is how the refractive index is stored for each layer.
 /// </summary>
 /// <param name="p"></param>
-void InitSz(tira::planewave<double> p, double incident_refractive_index) {
+void InitSz(tira::planewave<double> p) {
 	glm::vec<3, double> s = p.getDirection() * incident_refractive_index;
 	sz.resize(L);										// allocate space to store the sz coordinate for each layer
 
@@ -162,7 +161,7 @@ void SetBoundaryConditions(tira::planewave<double> p) {
 }
 
 void SetGaussianConstraints(tira::planewave<double> p) {
-	glm::vec<3, double> s = p.getDirection();
+	glm::vec<3, double> s = p.getDirection() * incident_refractive_index;
 	size_t start_row = 6;
 	// set reflected constraints
 	for (size_t l = 0; l < L - 1; l++) {
@@ -181,7 +180,7 @@ void SetGaussianConstraints(tira::planewave<double> p) {
 }
 
 void SetBoundaryConstraints(tira::planewave<double> p) {
-	glm::vec<3, double> s = p.getDirection();
+	glm::vec<3, double> s = p.getDirection() * incident_refractive_index;
 	double zn, zp;
 	size_t start_row = 6 + 2 * (L - 1);
 	std::complex<double> i(0.0, 1.0);
@@ -239,17 +238,17 @@ std::vector<tira::planewave<double>> mat2waves(tira::planewave<double> i, Eigen:
 
 	P.push_back(i);											// push the incident plane wave into the P array
 	for (size_t l = 0; l < L - 1; l++) {						// for each layer
-		glm::vec<3, double> s = i.getDirection();
-		tira::planewave<double> r(s[0] * k_vac,
-			s[1] * k_vac,
-			-sz[l] * k_vac,
+		glm::vec<3, double> s = i.getDirection() * incident_refractive_index;
+		tira::planewave<double> r(s[0] * k,
+			s[1] * k,
+			-sz[l] * k,
 			x[idx(l, Reflected, X)],
 			x[idx(l, Reflected, Y)],
 			x[idx(l, Reflected, Z)]);
 
-		tira::planewave<double> t(s[0] * k_vac,
-			s[1] * k_vac,
-			sz[l + 1] * k_vac,
+		tira::planewave<double> t(s[0] * k,
+			s[1] * k,
+			sz[l + 1] * k,
 			x[idx(l + 1, Transmitted, X)],
 			x[idx(l + 1, Transmitted, Y)],
 			x[idx(l + 1, Transmitted, Z)]);
@@ -338,13 +337,13 @@ int main(int argc, char** argv) {
 		}
 	}
 	
-	glm::tvec3<double> dir = glm::normalize(glm::tvec3<double>(in_dir[0], in_dir[1], in_dir[2]));				// set the direction of the incoming source field
+	glm::tvec3<double> dir = glm::normalize(glm::tvec3<double>(in_dir[0], in_dir[1], in_dir[2])) * in_n[0];				// set the direction of the incoming source field
 	glm::tvec3<std::complex<double>> e = glm::tvec3<std::complex<double>>(std::complex<double>(in_ex[0], in_ex[1]),
 		std::complex<double>(in_ey[0], in_ey[1]),
 		std::complex<double>(in_ez[0], in_ez[1]));				// set the input electrical field
 	orthogonalize(e, dir);
-	k_vac = 2 * M_PI / in_lambda;
-	k = k_vac * in_n[0];										// calculate the wavenumber (2 pi * n / lambda) in the incident plane (accounting for refractive index)
+	k = 2 * M_PI / in_lambda;
+	//k = k;										// calculate the wavenumber (2 pi * n / lambda) in the incident plane (accounting for refractive index)
 	tira::planewave<double> i_ref(dir[0] * k, dir[1] * k, dir[2] * k, e[0], e[1], e[2]);
 	
 	unsigned int N[2];											// calculate the number of samples
@@ -381,19 +380,19 @@ int main(int argc, char** argv) {
 
 	CoupledWaveStructure<double> cw;																// allocate a coupled wave structure to store simulation results
 	cw.Layers.resize(L - 1);
-
+	incident_refractive_index = in_n[0];
 	for (size_t p = 0; p < I.size(); p++) {															// for each incident plane wave
 		tira::planewave<double> i = I[p];															// store the incident plane wave in i
 		InitMatrices();
 		InitLayerProperties();
-		InitSz(i, in_n[0]);																				// initialize the model matrix
+		InitSz(i);																				// initialize the model matrix
 		SetGaussianConstraints(i);
 		SetBoundaryConditions(i);
 		SetBoundaryConstraints(i);
 
 		Eigen::VectorXcd x = A.colPivHouseholderQr().solve(b);												// solve the linear system
 		std::vector<tira::planewave<double>> P = mat2waves(i, x);									// generate plane waves from the solution vector
-		std::cout << x << std::endl;
+		//std::cout << x << std::endl;
 		cw.Pi.push_back(i);
 
 		for (size_t l = 0; l < L - 1; l++) {														// for each layer
@@ -419,7 +418,7 @@ int main(int argc, char** argv) {
 	}
 
 	// calculate the reference wave and output results
-	InitSz(i_ref, in_n[0]);
+	InitSz(i_ref);
 	SetBoundaryConditions(i_ref);															// set the matrix boundary conditions
 	SetGaussianConstraints(i_ref);
 	SetBoundaryConstraints(i_ref);

@@ -86,7 +86,7 @@ Eigen::MatrixXcd tmp;					// Temposarily store some Eigen::MatrixXcd
 Eigen::MatrixXcd tmp_2;					// Temposarily store additional Eigen::MatrixXcd
 Eigen::MatrixXcd Gc_static;					// Temposarily store some Eigen::MatrixXcd
 std::chrono::duration<double> elapsed_seconds;
-bool saveSampleTexture = false;
+bool saveSampleTexture = true;
 int counts = 0;
 
 /// Convert a complex vector to a string for display
@@ -525,7 +525,7 @@ int main(int argc, char** argv) {
 
 	// Give warning if the decomposed wave goes opposite.
 	std::complex<double> n_min = std::min(in_n[0], in_n[1]);
-	if (pow((double(M[0] / 2) / in_size[0] + dir[0]), 2) + (pow((double(M[1] / 2) / in_size[1] + dir[1]), 2)) >= pow(n_min.real() / in_lambda, 2)) {
+	if (pow((double(M[0] / 2) / in_size[0] / in_lambda + dir[0]), 2) + (pow((double(M[1] / 2) / in_size[1] / in_lambda + dir[1]), 2)) >= pow(n_min.real(), 2)) {
 		std::cout << "[WARNING] " << "Propagation directions for decomposed waves are not all downward. We suggest to increase in_size or decrease the wavelength to tolerate higher Fourier coefficients. Constraints: (float(M[0]/2)/size[2])^2 + (float(M[1]/2)/size[1])^2 < (n/lambda)^2" << std::endl;
 		//exit(1);
 	}

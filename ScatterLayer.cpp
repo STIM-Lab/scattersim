@@ -3,6 +3,7 @@
 #include "CoupledWaveStructure.h"
 #include "FourierWave.h"
 
+#include <extern/libnpy/npy.hpp>
 #include <complex>
 #include <math.h>
 #include <fstream>
@@ -24,6 +25,7 @@ std::vector<double> in_z;
 std::vector<double> in_normal;
 double in_na;
 std::string in_outfile;
+std::string in_sample;
 double in_alpha;
 double in_beta;
 std::vector<unsigned int> in_samples;
@@ -288,7 +290,8 @@ int main(int argc, char** argv) {
 		("ez", boost::program_options::value<std::vector<double> >(&in_ez)->multitoken()->default_value(std::vector<double>{0, 0}, "0 0"), "z component of the electrical field")
 		("n", boost::program_options::value<std::vector<double>>(&in_n)->multitoken()->default_value(std::vector<double>{1, 1.4, 1.4, 1.0}, "1, 1.4, 1.4, 1.0"), "real refractive index (optical path length) of all L layers")
 		("kappa", boost::program_options::value<std::vector<double> >(&in_kappa)->multitoken()->default_value(std::vector<double>{0.05}, "0.05, 0.00, 0.00"), "absorbance of layers 2+ (layer 1 is always 0.0)")
-		("z", boost::program_options::value<std::vector<double> >(&in_z)->multitoken()->default_value(std::vector<double>{-3.0, 0.0, 3.0}, "-3.0, 0.0, 3.0"), "position of each layer boundary")
+		("z", boost::program_options::value<std::vector<double> >(&in_z)->multitoken()->default_value(std::vector<double>{-5.0, 0.0, 5.0}, "-3.0, 0.0, 3.0"), "position of each layer boundary")
+		("output_sample", boost::program_options::value<std::string>(&in_sample)->default_value("sample.npy"), "output the sample as the input for scattervolume")
 		("output", boost::program_options::value<std::string>(&in_outfile)->default_value("a.cw"), "output filename for the coupled wave structure")
 		("alpha", boost::program_options::value<double>(&in_alpha)->default_value(1), "angle used to focus the incident field")
 		("beta", boost::program_options::value<double>(&in_beta)->default_value(0.0), "internal obscuration angle (for simulating reflective optics)")
@@ -416,6 +419,16 @@ int main(int argc, char** argv) {
 
 	if (in_outfile != "") {
 		cw.save(in_outfile);
+	}
+
+	if (in_sample != "") {
+		std::complex<double>* ref = new std::complex<double>[ri.size() - 2];
+		for (int i = 0; i < ri.size() - 2; i++) {
+			ref[i] = ri[i + 1];
+		}
+		const std::vector<long unsigned> shape{ unsigned long(ri.size()-2), 1, 1 };
+		const bool fortran_order{ false };
+		npy::SaveArrayAsNumpy(in_sample, fortran_order, shape.size(), shape.data(), ref);
 	}
 
 	// calculate the reference wave and output results

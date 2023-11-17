@@ -418,7 +418,8 @@ std::vector<tira::planewave<double>> mat2waves(tira::planewave<double> i, Eigen:
 		x[idx(1, Transmitted, Y, p, MF)],
 		x[idx(1, Transmitted, Z, p, MF)]
 	);
-	std::cout << "n" << std:: endl;
+	//std::cout << "r: " << std::endl << r.str() << std::endl;
+	//std::cout << "t: " << std::endl << t.str()<< std:: endl;
 	P.push_back(r);
 	P.push_back(t);
 	return P;
@@ -552,10 +553,10 @@ int main(int argc, char** argv) {
 	Sy = Eigen::Map<Eigen::RowVectorXcd>(Volume._meshS1.data(), MF);
 	Sz[0] = Eigen::Map<Eigen::RowVectorXcd>(Volume._Sz[0].data(), MF);
 	Sz[1] = Eigen::Map<Eigen::RowVectorXcd>(Volume._Sz[1].data(), MF);
-	std::cout << "Sx: " << Sx << std::endl;
-	std::cout << "sy: " << Sy << std::endl;
-	std::cout << "Sz[0]: " << Sz[0] << std::endl;
-	std::cout << "Sz[1]: " << Sz[1] << std::endl;
+	//std::cout << "Sx: " << Sx << std::endl;
+	//std::cout << "sy: " << Sy << std::endl;
+	//std::cout << "Sz[0]: " << Sz[0] << std::endl;
+	//std::cout << "Sz[1]: " << Sz[1] << std::endl;
 
 	if (logfile) {
 		logfile << "Ex fourier form:" << EF.segment(0, MF) << std::endl;
@@ -599,7 +600,7 @@ int main(int argc, char** argv) {
 	MKL_linearsolve(A, b);
 	Eigen::VectorXcd x = b;
 
-	//std::cout << "x: " << x << std::endl;
+	std::cout << "x: " << x << std::endl;
 	proffile << "Linear system solved." << std::endl;
 
 	std::chrono::time_point<std::chrono::system_clock> solved = std::chrono::system_clock::now();

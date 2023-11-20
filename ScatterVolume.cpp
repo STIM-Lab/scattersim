@@ -522,13 +522,15 @@ int main(int argc, char** argv) {
 		M[1] = in_coeff[1];
 	}
 	MF = M[0] * M[1];
-
-	// Give warning if the decomposed wave goes opposite.
-	std::complex<double> n_min = std::min(in_n[0], in_n[1]);
-	if (pow((double(M[0] / 2) / in_size[0] / in_lambda + dir[0]), 2) + (pow((double(M[1] / 2) / in_size[1] / in_lambda + dir[1]), 2)) >= pow(n_min.real(), 2)) {
-		std::cout << "[WARNING] " << "Propagation directions for decomposed waves are not all downward. We suggest to increase in_size or decrease the wavelength to tolerate higher Fourier coefficients. Constraints: (float(M[0]/2)/size[2])^2 + (float(M[1]/2)/size[1])^2 < (n/lambda)^2" << std::endl;
-		//exit(1);
+	if (MF > num_pixels[1] * num_pixels[2]) {
+		std::cout << "[ERROR] Number of Fourier coefficients cannot be larger than the pixel numbers." << std::endl;
 	}
+	//// Give warning if the decomposed wave goes opposite.
+	//std::complex<double> n_min = std::min(in_n[0], in_n[1]);
+	//if (pow((double(M[0] / 2) / in_size[0] / in_lambda + dir[0]), 2) + (pow((double(M[1] / 2) / in_size[1] / in_lambda + dir[1]), 2)) >= pow(n_min.real(), 2)) {
+	//	std::cout << "[WARNING] " << "Propagation directions for decomposed waves are not all downward. We suggest to increase in_size or decrease the wavelength to tolerate higher Fourier coefficients. Constraints: (float(M[0]/2)/size[2])^2 + (float(M[1]/2)/size[1])^2 < (n/lambda)^2" << std::endl;
+	//	//exit(1);
+	//}
 	std::chrono::time_point<std::chrono::system_clock> D_before = std::chrono::system_clock::now();
 	D = Volume.CalculateD(M, dir);	// Calculate the property matrix for the sample
 	std::chrono::time_point<std::chrono::system_clock> D_after = std::chrono::system_clock::now();
@@ -658,6 +660,10 @@ int main(int argc, char** argv) {
 				}
 			}
 		}
+	}
+	if (counts != M[0] * M[1]) {
+		saveSampleTexture = false;
+		std::cout << "[WARNING] Not all decomposed Fourier waves are valid. We suggest to increase in_size or decrease the wavelength to tolerate higher Fourier coefficients. Constraints: (float(M[0]/2)/size[2])^2 + (float(M[1]/2)/size[1])^2 < (n/lambda)^2. Scatterviewsample is auto disabled. Please use Scatterview instead." << std::endl;
 	}
 	cw.isHete = saveSampleTexture;
 	// Calculate beta according to the GD, GC, and Pt/Pr

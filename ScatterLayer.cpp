@@ -346,8 +346,9 @@ int main(int argc, char** argv) {
 		std::complex<double>(in_ey[0], in_ey[1]),
 		std::complex<double>(in_ez[0], in_ez[1]));				// set the input electrical field
 	orthogonalize(e, dir);
+	dir = dir * in_n[0];
 	k_vac = 2 * M_PI / in_lambda;
-	k = k_vac * in_n[0];										// calculate the wavenumber (2 pi * n / lambda) in the incident plane (accounting for refractive index)
+	k = k_vac;										// calculate the wavenumber (2 pi * n / lambda) in the incident plane (accounting for refractive index)
 	tira::planewave<double> i_ref(dir[0] * k, dir[1] * k, dir[2] * k, e[0], e[1], e[2]);
 	
 	unsigned int N[2];											// calculate the number of samples

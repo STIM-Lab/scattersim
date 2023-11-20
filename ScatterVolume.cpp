@@ -70,6 +70,8 @@ int l;			// The current layer l.
 std::ofstream logfile;
 std::ofstream proffile;
 std::vector<Eigen::MatrixXcd> D;		// The property matrix
+Eigen::VectorXcd evl;
+Eigen::MatrixXcd evt;
 std::vector<Eigen::VectorXcd> eigenvalues;			// eigen values for current layer
 std::vector<Eigen::MatrixXcd> eigenvectors;			// eigen vectors for current layer
 std::vector<Eigen::VectorXcd> Beta;			// eigen vectors for current layer
@@ -172,6 +174,46 @@ bool sorter(EiV const& lhs, EiV const& rhs) {
 	else
 		return lhs.value.imag() < rhs.value.imag();
 }
+/// <summary>
+/// Temporarily depreacated.
+/// <summary>
+/// <param name="eigenvalues_unordered"></param>
+/// <param name="eigenvectors_unordered"></param>
+void Eigen_Sort(Eigen::VectorXcd eigenvalues_unordered, Eigen::MatrixXcd eigenvectors_unordered) {
+	unsigned int len = eigenvalues_unordered.size();
+	// Sort the unordered eigenvalues and track the indices
+	std::vector<EiV> eiV(len);
+	for (size_t i = 0; i < len; i++) {
+		eiV[i].idx = i;
+		eiV[i].value = eigenvalues_unordered(i);
+	}
+
+	sort(eiV.begin(), eiV.end(), &sorter);
+	evl.resize(len);
+	evt.resize(len, len);
+
+	if (logfile) {
+		logfile << "eigenvalues_unordered: " << std::endl;
+		logfile << eigenvalues_unordered << std::endl << std::endl;
+		logfile << "eigenvectors_unordered: " << std::endl;
+		logfile << eigenvectors_unordered << std::endl << std::endl;
+	}
+	for (size_t i = 0; i < len / 2; i++) {
+		evl[2 * i] = eigenvalues_unordered[len - 1 - eiV[i].idx];
+		evt.col(2 * i) = eigenvectors_unordered.col(len - 1 - eiV[i].idx);
+		evl[2 * i + 1] = eigenvalues_unordered[eiV[i].idx];
+		evt.col(2 * i + 1) = eigenvectors_unordered.col(eiV[i].idx);
+	}
+	if (logfile) {
+		logfile << "evl: " << std::endl;
+		logfile << evl << std::endl << std::endl;
+		logfile << "evt: " << std::endl;
+		logfile << evt << std::endl << std::endl;
+	}
+
+	eigenvalues.push_back(evl);				// For computing the inner structure of the sample
+	eigenvectors.push_back(evt);
+}
 
 // Do eigen decomposition for Phi. 
 // Sort the eigenvectors and eigenvalues by pairs. 
@@ -201,13 +243,12 @@ void EigenDecompositionD() {
 			proffile << "						Time for MKL_eigensolve():" << elapsed_seconds.count() << "s" << std::endl;
 			eigenvalues_unordered.push_back(Eigen::Map<Eigen::VectorXcd>(evl, 4 * MF));
 			eigenvectors_unordered.push_back(Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(evt, 4 * MF, 4 * MF));
-
+			Eigen_Sort(eigenvalues_unordered[i], eigenvectors_unordered[i]);
 		}
 
 	}
-
-	eigenvalues = eigenvalues_unordered;
-	eigenvectors = eigenvectors_unordered;
+	//eigenvalues = eigenvalues_unordered;
+	//eigenvectors = eigenvectors_unordered;
 	
 	// For importing eigenvalues and eigenvectors from outside
 	//std::string fname = "D:/myGit/build/scatter_bld/gamma.npy";
@@ -404,16 +445,16 @@ std::vector<tira::planewave<double>> mat2waves(tira::planewave<double> i, Eigen:
 
 	P.push_back(i);											// push the incident plane wave into the P array
 
-	tira::planewave<double> r(Sx(p) * k / in_n[0],
-		Sy(p) * k / in_n[0],
-		-Sz[0](p) * k / in_n[0],
+	tira::planewave<double> r(Sx(p) * k,
+		Sy(p) * k,
+		-Sz[0](p) * k * in_n[0],
 		x[idx(0, Reflected, X, p, MF)],
 		x[idx(0, Reflected, Y, p, MF)],
 		x[idx(0, Reflected, Z, p, MF)]
 	);
-	tira::planewave<double> t(Sx(p) * k / in_n[0],
-		Sy(p) * k / in_n[0],
-		Sz[1](p) * k / in_n[0],
+	tira::planewave<double> t(Sx(p) * k,
+		Sy(p) * k,
+		Sz[1](p) * k * in_n[1],
 		x[idx(1, Transmitted, X, p, MF)],
 		x[idx(1, Transmitted, Y, p, MF)],
 		x[idx(1, Transmitted, Z, p, MF)]
@@ -500,7 +541,7 @@ int main(int argc, char** argv) {
 	dir = dir * in_n[0];
 
 	// wavenumber
-	k = (std::complex<double>)(2 * PI / in_lambda) * in_n[0];
+	k = (std::complex<double>)(2 * PI / in_lambda);
 
 	// store all of the layer positions and refractive indices
 	InitLayerProperties();
@@ -623,10 +664,10 @@ int main(int argc, char** argv) {
 
 	// store the incident plane wave
 	int ind = (M[1] / 2) * M[0] + (M[0] / 2);
-	tira::planewave<double> i(Sx(ind) * k / in_n[0], Sy(ind) * k / in_n[0], Sz[0](ind) * k / in_n[0], EF(ind), EF(MF + ind), EF(2 * MF + ind));
+	tira::planewave<double> i(Sx(ind) * k, Sy(ind) * k , Sz[0](ind) * k* in_n[0], EF(ind), EF(MF + ind), EF(2 * MF + ind));
 	cw.Pi.push_back(i);
 
-	tira::planewave<double> zeros(0, 0, k / in_n[0], 0, 0, 0);
+	tira::planewave<double> zeros(0, 0, k, 0, 0, 0);
 	for (int kk = 0; kk < M[1]; kk++) {
 		for (int j = 0; j < M[0]; j++) {
 			std::complex<double> sy = (kk - M[1] / 2) / in_size[1] / in_lambda + dir[1];

@@ -221,7 +221,7 @@ inline Eigen::MatrixXcd fftw_ift2(Eigen::MatrixXcd A, double* X, double* Y, unsi
 		w = 2 * PI * (q - MF_y / 2) / (Y[1] - Y[0]) + (s[1] * k).real();
 		for (int p = 0; p < MF_x; p++) {
 			u = 2 * PI * (p - MF_x / 2) / (X[1] - X[0]) + (s[0] * k).real();
-			E = E + A(p, q) * (std::complex<double>(0, 1) * (std::complex<double>(u) * XX.cast<std::complex<double>>().array() + std::complex<double>(w) * YY.cast<std::complex<double>>().array())).exp().matrix();
+			E = E + A(q, p) * (std::complex<double>(0, 1) * (std::complex<double>(u) * XX.cast<std::complex<double>>().array() + std::complex<double>(w) * YY.cast<std::complex<double>>().array())).exp().matrix();
 		}
 	}
 	return E;
@@ -338,7 +338,20 @@ private:
 		UpWq_Cal();
 
 		std::chrono::time_point<std::chrono::system_clock> fft_before = std::chrono::system_clock::now();
+		//std::cout << "sample: " << sample << std::endl;
+		//for (int i = 0; i < sample.rows(); i++) {
+		//	for (int j = 0; j < sample.cols(); j++) {
+		//		sample(i, j) = sample(i, j).real();
+		//	}
+		//}
 		Eigen::MatrixXcd Nf = fftw_fft2(sample.array().pow(2), _M[1], _M[0]);
+		//for (int i = 0; i < Nf.rows(); i++) {
+		//	for (int j = 0; j < Nf.cols(); j++) {
+		//		if (j > 440 || j < 360)
+		//			Nf(i, j) = 0;
+		//	}
+		//}
+		//std::cout << "Nf: " << Nf << std::endl;
 		Nif = fftw_fft2(sample.cwiseInverse().array().pow(2), _M[1], _M[0]);
 		std::chrono::time_point<std::chrono::system_clock> fft_after = std::chrono::system_clock::now();
 		elapsed_seconds = fft_after - fft_before;

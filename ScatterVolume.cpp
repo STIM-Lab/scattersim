@@ -187,11 +187,13 @@ void Eigen_Sort(Eigen::VectorXcd eigenvalues_unordered, Eigen::MatrixXcd eigenve
 		eiV[i].idx = i;
 		eiV[i].value = eigenvalues_unordered(i);
 	}
+	std::sort(eiV.begin(), eiV.end(), &sorter);
 
-	sort(eiV.begin(), eiV.end(), &sorter);
 	evl.resize(len);
 	evt.resize(len, len);
-
+	//for (size_t i = 0; i < len; i++) {
+	//	std::cout << "eiV: " << eiV[i].idx << std::endl;
+	//}
 	if (logfile) {
 		logfile << "eigenvalues_unordered: " << std::endl;
 		logfile << eigenvalues_unordered << std::endl << std::endl;
@@ -199,10 +201,12 @@ void Eigen_Sort(Eigen::VectorXcd eigenvalues_unordered, Eigen::MatrixXcd eigenve
 		logfile << eigenvectors_unordered << std::endl << std::endl;
 	}
 	for (size_t i = 0; i < len / 2; i++) {
-		evl[2 * i] = eigenvalues_unordered[len - 1 - eiV[i].idx];
-		evt.col(2 * i) = eigenvectors_unordered.col(len - 1 - eiV[i].idx);
+		evl[2 * i] = eigenvalues_unordered[eiV[len - 1 - i].idx];
+		evt.col(2 * i) = eigenvectors_unordered.col(eiV[len - 1 - i].idx);
 		evl[2 * i + 1] = eigenvalues_unordered[eiV[i].idx];
 		evt.col(2 * i + 1) = eigenvectors_unordered.col(eiV[i].idx);
+		//std::cout << "eigenvalues_unordered: " << eigenvalues_unordered << std::endl;
+		//std::cout << "eigenvalues: " << evl << std::endl;
 	}
 	if (logfile) {
 		logfile << "evl: " << std::endl;
@@ -238,47 +242,32 @@ void EigenDecompositionD() {
 			std::complex<double>* evt = new std::complex<double>[4 * MF * 4 * MF];
 			std::chrono::time_point<std::chrono::system_clock> s = std::chrono::system_clock::now();
 			MKL_eigensolve(A, evl, evt, 4 * MF);
+			//const std::vector<long unsigned> shape{ (unsigned long)4 * MF, (unsigned long)4 * MF };
+			//const bool fortran_order{ false };
+			//npy::SaveArrayAsNumpy("A.npy", fortran_order, shape.size(), shape.data(), &D[i](0, 0));
+
 			std::chrono::time_point<std::chrono::system_clock> e = std::chrono::system_clock::now();
 			elapsed_seconds = e - s;
 			proffile << "						Time for MKL_eigensolve():" << elapsed_seconds.count() << "s" << std::endl;
 			eigenvalues_unordered.push_back(Eigen::Map<Eigen::VectorXcd>(evl, 4 * MF));
 			eigenvectors_unordered.push_back(Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(evt, 4 * MF, 4 * MF));
+			//std::cout << "eigenvalues_unordered: " << eigenvalues_unordered[i] << std::endl;
 			Eigen_Sort(eigenvalues_unordered[i], eigenvectors_unordered[i]);
+			//npy::SaveArrayAsNumpy("evt_unordered.npy", fortran_order, shape.size(), shape.data(), &eigenvectors_unordered[i](0, 0));
+			//npy::SaveArrayAsNumpy("evt.npy", fortran_order, shape.size(), shape.data(), &eigenvectors[i](0, 0));
+			//for (int ii = 0; ii < 400; ii++)
+			//	std::cout << "eigenvalues: " << (eigenvalues[i](ii)) << std::endl;
 		}
 
 	}
-	//eigenvalues = eigenvalues_unordered;
-	//eigenvectors = eigenvectors_unordered;
-	
-	// For importing eigenvalues and eigenvectors from outside
-	//std::string fname = "D:/myGit/build/scatter_bld/gamma.npy";
-	//std::vector<unsigned long> shape(1);
-	//shape[0] = 4 * MF;
-	//bool fortran_order = false;
-	//std::vector < std::complex<double>> data1;
-	//std::vector < std::complex<double>> data2;
-	////save it to file
-	//try {
-	//	npy::LoadArrayFromNumpy<std::complex<double>>(fname, shape, fortran_order, data1);
-	//	std::vector<unsigned long> shape2(2);
-	//	shape2[0] = 4 * MF;
-	//	shape2[1] = 4 * MF;
-	//	std::string fname2 = "D:/myGit/build/scatter_bld/gg.npy";
-	//	npy::LoadArrayFromNumpy<std::complex<double>>(fname2, shape2, fortran_order, data2);
-	//}
-	//catch (const std::runtime_error& e) {
-	//	std::cout << "ERROR loading NumPy file: " << e.what() << std::endl;
-	//	exit(1);
-	//}
-	//eigenvalues[0] = Eigen::Map < Eigen::VectorXcd >(&data1[0], 4 * MF);
-	//eigenvectors[0] = Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(&data2[0], 4 * MF, 4 * MF);
-	//eigenvectors[0].transposeInPlace();
 
 	Gd.resize(4 * MF, 4 * MF);
 	Gc.resize(4 * MF, 4 * MF);
 	std::complex<double> Di;
 	std::complex<double> Ci;
 	Beta.resize(num_pixels[0]);
+	std::complex<double> Di_exp;
+	std::complex<double> Ci_exp;
 	for (size_t i = 0; i < D.size(); i++) {
 		for (size_t j = 0; j < eigenvalues[i].size(); j++) {
 			if (D.size() == 1) {
@@ -289,20 +278,31 @@ void EigenDecompositionD() {
 				/// Use the commented version when you don't need the heterogeneous info.
 				/// Reason: Little phase mismatch due to the dif between simulation and physics.
 				// In multi-layer case, let's suppose in_size[1] == extent is true.
-				Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>)(in_size[2]) / (std::complex<double>)(num_pixels[0])));
-				Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (-in_size[2]) / (std::complex<double>)(num_pixels[0])));
-
+				//std::cout << "eigenvalues[i](j): " << eigenvalues[i](j) << std::endl;
+				Di_exp = std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (-in_size[2]) / (std::complex<double>)(num_pixels[0]));
+				Ci_exp = std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (in_size[2]) / (std::complex<double>)(num_pixels[0]));
+				Ci = std::exp(Ci_exp);
+				Di = std::exp(Di_exp);
 			}
 			if (j % 2 != 0) {
 				Gd.col(j) = eigenvectors[i].col(j) * Di;
 				Gc.col(j) = eigenvectors[i].col(j);
+				if (Di_exp.real() > 0)
+					std::cout << "Debug the eigen sorter again! Di" << std::endl;
 			}
 
 			else {
 				Gd.col(j) = eigenvectors[i].col(j);
 				Gc.col(j) = eigenvectors[i].col(j) * Ci;
+				if (Ci_exp.real() > 0)
+					std::cout << "Debug the eigen sorter again! Ci" << std::endl;
 			}
 		}
+		//const std::vector<long unsigned> shape{ (unsigned long) 4 * MF, (unsigned long)4 * MF };
+		//const bool fortran_order{ false };
+		//npy::SaveArrayAsNumpy("Gd.npy", fortran_order, shape.size(), shape.data(), &Gd(0, 0));      
+		//npy::SaveArrayAsNumpy("Gc.npy", fortran_order, shape.size(), shape.data(), &Gc(0, 0));
+		//npy::SaveArrayAsNumpy("eigenvectors.npy", fortran_order, shape.size(), shape.data(), &eigenvectors[0](0, 0));
 		GD.push_back(Gd);
 		GC.push_back(Gc);
 		if (i == 0)
@@ -310,6 +310,13 @@ void EigenDecompositionD() {
 		else {
 			tmp = MKL_inverse(Gd);
 			tmp_2 = MKL_multiply(Gc, tmp, 1);
+
+			//const std::vector<long unsigned> shape{ (unsigned long)4 * MF, (unsigned long)4 * MF };
+			//const bool fortran_order{ false };
+			//Eigen::MatrixXcd A_block2 = MKL_multiply(tmp, f3, 1);
+			//npy::SaveArrayAsNumpy("Gc.npy", fortran_order, shape.size(), shape.data(), &Gc(0, 0));
+			//npy::SaveArrayAsNumpy("Gd_inv.npy", fortran_order, shape.size(), shape.data(), &tmp(0, 0));
+
 			Gc = MKL_multiply(tmp_2, Gc_static, 1);
 			Gc_static = Gc;
 		}
@@ -415,6 +422,11 @@ void SetBoundaryConditions() {
 	elapsed_seconds = matTransfer - eigen2;
 	proffile << "			Time for MatTransfer(): " << elapsed_seconds.count() << "s" << std::endl;
 
+	//const std::vector<long unsigned> shape{ (unsigned long)4 * MF, (unsigned long)4 * MF };
+	//const bool fortran_order{ false };
+	//Eigen::MatrixXcd A_block2 = MKL_multiply(tmp, f3, 1);
+	//npy::SaveArrayAsNumpy("Gc_static.npy", fortran_order, shape.size(), shape.data(), &Gc_static(0, 0));
+
 	Eigen::MatrixXcd Gc_inv = MKL_inverse(Gc_static);
 	std::chrono::time_point<std::chrono::system_clock> inv = std::chrono::system_clock::now();
 	elapsed_seconds = inv - matTransfer;
@@ -423,13 +435,18 @@ void SetBoundaryConditions() {
 	A.block(2 * MF, 0, 4 * MF, 3 * MF) = f2;
 	tmp = MKL_multiply(GD[0], Gc_inv, 1);
 
+	//const std::vector<long unsigned> shape{ (unsigned long)4 * MF, (unsigned long)4 * MF };
+	//const bool fortran_order{ false };
+	//Eigen::MatrixXcd A_block2 = MKL_multiply(tmp, f3, 1);
+	//npy::SaveArrayAsNumpy("GD[0].npy", fortran_order, shape.size(), shape.data(), &GD[0](0, 0));
+	//npy::SaveArrayAsNumpy("Gc_inv.npy", fortran_order, shape.size(), shape.data(), &Gc_inv(0, 0));
+
 	A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = MKL_multiply(tmp, f3, 1);
 	std::chrono::time_point<std::chrono::system_clock> mul = std::chrono::system_clock::now();
 	elapsed_seconds = mul - inv;
 	proffile << "			Time for multiplication once: " << elapsed_seconds.count() / 2 << "s" << std::endl;
 
 	b.segment(2 * MF, 4 * MF) = std::complex<double>(-1, 0) * f1 * Eigen::Map<Eigen::VectorXcd>(EF.data(), 3 * MF);
-
 
 	if (logfile) {
 		logfile << "LHS matrix in the linear system:" << std::endl;
@@ -447,7 +464,7 @@ std::vector<tira::planewave<double>> mat2waves(tira::planewave<double> i, Eigen:
 
 	tira::planewave<double> r(Sx(p) * k,
 		Sy(p) * k,
-		-Sz[0](p) * k * in_n[0],
+		-Sz[0](p) * k *in_n[0],
 		x[idx(0, Reflected, X, p, MF)],
 		x[idx(0, Reflected, Y, p, MF)],
 		x[idx(0, Reflected, Z, p, MF)]
@@ -562,16 +579,36 @@ int main(int argc, char** argv) {
 		M[0] = in_coeff[0];
 		M[1] = in_coeff[1];
 	}
-	MF = M[0] * M[1];
-	if (MF > num_pixels[1] * num_pixels[2]) {
-		std::cout << "[ERROR] Number of Fourier coefficients cannot be larger than the pixel numbers." << std::endl;
+
+	// Give warning if the decomposed wave goes opposite.
+	if (pow((double(M[0] / 2) / in_size[0] * in_lambda + dir[0]), 2) + (pow((double(M[1] / 2) / in_size[1] * in_lambda + dir[1]), 2)) >= pow(in_n[0], 2)) {
+		std::cout << "Cutting off invalid waves with imagnery sz..." << std::endl;
+		std::cout << "[WARNING] " << "Propagation directions for decomposed waves are not all downward. We suggest to increase in_size or decrease the wavelength to tolerate higher Fourier coefficients. Constraints: (float(M[0]/2)/size[2])^2 + (float(M[1]/2)/size[1])^2 < (n/lambda)^2" << std::endl;
+		if (M[0] != 1 && M[1] != 1) {
+			if ((double(M[0] / 2) / in_size[0] * in_lambda + dir[0]) > (std::complex<double>(0.71, 0) * in_n[0]).real()) {
+				M[0] = int(0.707 * in_n[0] * 2 * in_size[0] / in_lambda) - 1;
+				std::cout << "M[0] is corrected as " << M[0] << std::endl;
+			}
+			if ((double(M[1] / 2) / in_size[1] * in_lambda + dir[1]) > (std::complex<double>(0.71, 0) * in_n[0]).real()) {
+				M[1] = int(0.707 * in_n[1] * 2 * in_size[1] / in_lambda) - 1;
+				std::cout << "M[1] is corrected as " << M[1] << std::endl;
+			}
+		}
+		if (M[0] == 1) {
+			if ((double(M[1] / 2) / in_size[1] * in_lambda + dir[1]) > in_n[0]) {
+				M[1] = int(in_n[1] * 2 * in_size[1] / in_lambda) - 1;
+				std::cout << "For the 1-d volume, M[1] is corrected as " << M[1] << std::endl;
+			}
+		}
+		if (M[1] == 1) {
+			if ((double(M[0] / 2) / in_size[1] * in_lambda + abs(dir[0])) > in_n[0]) {
+				M[0] = int(in_n[0] * 2 * in_size[0] / in_lambda) - 1;
+				std::cout << "For the 1-d volume, M[0] is corrected as " << M[0] << std::endl;
+			}
+		}
 	}
-	//// Give warning if the decomposed wave goes opposite.
-	//std::complex<double> n_min = std::min(in_n[0], in_n[1]);
-	//if (pow((double(M[0] / 2) / in_size[0] / in_lambda + dir[0]), 2) + (pow((double(M[1] / 2) / in_size[1] / in_lambda + dir[1]), 2)) >= pow(n_min.real(), 2)) {
-	//	std::cout << "[WARNING] " << "Propagation directions for decomposed waves are not all downward. We suggest to increase in_size or decrease the wavelength to tolerate higher Fourier coefficients. Constraints: (float(M[0]/2)/size[2])^2 + (float(M[1]/2)/size[1])^2 < (n/lambda)^2" << std::endl;
-	//	//exit(1);
-	//}
+	MF = M[0] * M[1];
+
 	std::chrono::time_point<std::chrono::system_clock> D_before = std::chrono::system_clock::now();
 	D = Volume.CalculateD(M, dir);	// Calculate the property matrix for the sample
 	std::chrono::time_point<std::chrono::system_clock> D_after = std::chrono::system_clock::now();
@@ -596,6 +633,7 @@ int main(int argc, char** argv) {
 	Sy = Eigen::Map<Eigen::RowVectorXcd>(Volume._meshS1.data(), MF);
 	Sz[0] = Eigen::Map<Eigen::RowVectorXcd>(Volume._Sz[0].data(), MF);
 	Sz[1] = Eigen::Map<Eigen::RowVectorXcd>(Volume._Sz[1].data(), MF);
+
 	//std::cout << "Sx: " << Sx << std::endl;
 	//std::cout << "sy: " << Sy << std::endl;
 	//std::cout << "Sz[0]: " << Sz[0] << std::endl;
@@ -640,10 +678,14 @@ int main(int argc, char** argv) {
 
 	// MKL solution
 	proffile << "Linear system solving (MKL)..." << std::endl;
+
+	//const std::vector<long unsigned> shape{ (unsigned long)6 * MF, (unsigned long)6 * MF };
+	//const bool fortran_order{ false };
+	//npy::SaveArrayAsNumpy("A.npy", fortran_order, shape.size(), shape.data(), &A(0, 0));
+
 	MKL_linearsolve(A, b);
 	Eigen::VectorXcd x = b;
-
-	std::cout << "x: " << x << std::endl;
+	//std::cout << "x: " << x << std::endl;
 	proffile << "Linear system solved." << std::endl;
 
 	std::chrono::time_point<std::chrono::system_clock> solved = std::chrono::system_clock::now();
@@ -670,9 +712,10 @@ int main(int argc, char** argv) {
 	tira::planewave<double> zeros(0, 0, k, 0, 0, 0);
 	for (int kk = 0; kk < M[1]; kk++) {
 		for (int j = 0; j < M[0]; j++) {
-			std::complex<double> sy = (kk - M[1] / 2) / in_size[1] / in_lambda + dir[1];
-			std::complex<double> sx = (j - M[0] / 2) / in_size[0] / in_lambda + dir[0];
-			if (abs((sx * sx + sy * sy).real()) < in_n[0] * in_n[0]) {
+			std::complex<double> sy = (kk - M[1] / 2) / in_size[1] * in_lambda + dir[1];
+			std::complex<double> sx = (j - M[0] / 2) / in_size[0] * in_lambda + dir[0];
+			if (true) {
+				//if (abs((sx * sx + sy * sy).real()) < in_n[0] * in_n[0]) {
 				counts += 1;
 				int p = kk * M[0] + j;
 				std::vector<tira::planewave<double>> P = mat2waves(i, x, p);

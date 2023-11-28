@@ -62,7 +62,15 @@ inline Eigen::MatrixXcd MKL_inverse(Eigen::MatrixXcd A) {
 	int info = LAPACKE_zgesv(LAPACK_COL_MAJOR, N, N, (MKL_Complex16*)A.data(), N, x, (MKL_Complex16*)B.data(), N);
 	return B;
 }
-
+//inline Eigen::MatrixXcd MKL_inverse(Eigen::MatrixXcd A) {
+//	int N = A.rows();
+//	Eigen::MatrixXcd B = Eigen::MatrixXcd::Identity(N, N);
+//	MKL_INT* x;
+//	x = new MKL_INT[N * 2];
+//	// 'N' means no trans
+//	int info = LAPACKE_zgesv(LAPACK_COL_MAJOR, N, N, (MKL_Complex16*)A.data(), N, x, (MKL_Complex16*)B.data(), N);
+//	return B;
+//}
 
 inline Eigen::MatrixXcd MKL_multiply(Eigen::MatrixXcd A, Eigen::MatrixXcd B, std::complex<double> alpha) {
 	// This example computes real matrix C=alpha*A*B+beta*C using zgemm.

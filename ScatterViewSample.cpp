@@ -708,7 +708,7 @@ int main(int argc, char** argv)
     if (vm.count("nogui")) {
         in_Visualization = false;
     }
-
+    std::cout << "Visualization working." << std::endl;
     // set the initial plane position based on the command line arguments
     if (in_axis == 0)
         plane_position[0] = in_slice;

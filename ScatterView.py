@@ -28,11 +28,18 @@ class planewave:
             
             E0_y_i_bytes = file.read(8)
             E0_y_i = struct.unpack("d", E0_y_i_bytes)[0]
+
+            E0_z_r_bytes = file.read(8)
+            E0_z_r = struct.unpack("d", E0_z_r_bytes)[0]
+
+            E0_z_i_bytes = file.read(8)
+            E0_z_i = struct.unpack("d", E0_z_i_bytes)[0]
             
             E0_x = complex(E0_x_r, E0_x_i)
             E0_y = complex(E0_y_r, E0_y_i)
-            
-            self.E0 = np.array((E0_x, E0_y))
+            E0_z = complex(E0_z_r, E0_z_i)
+
+            self.E0 = np.array((E0_x, E0_y, E0_z))
             
             k_x_r_bytes = file.read(8)
             k_x_r = struct.unpack("d", k_x_r_bytes)[0]
@@ -170,10 +177,10 @@ class coupledwave:
 
         return RI
 
-layer = coupledwave()
-layer.load("C:/Users/david/Documents/build/scattersim-bld/simple_layer.cw")
-
-volume = coupledwave()
-volume.load("C:/Users/david/Documents/build/scattersim-bld/simple_volume.cw")
+# layer = coupledwave()
+# layer.load("C:/Users/david/Documents/build/scattersim-bld/simple_layer.cw")
+# 
+# volume = coupledwave()
+# volume.load("C:/Users/david/Documents/build/scattersim-bld/simple_volume.cw")
 
 

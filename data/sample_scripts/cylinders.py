@@ -5,11 +5,11 @@ import matplotlib.pyplot as plt
 S = 10
 
 # number of samples and layers
-N = 100
+N = 40
 L = N
 
 # radius of the cylinder
-a = 2
+a = 1
 
 # refractive index of the cylinder
 n = 1.4 + 0.05j
@@ -23,6 +23,6 @@ C = np.ones_like(R, dtype=np.complex128)
 C[R <= a] = n
 C = np.expand_dims(C, 1)
 
-np.save("../cylinder.npy", C)
+np.save("../cylinder_1.4_0.05j.npy", C)
 
 

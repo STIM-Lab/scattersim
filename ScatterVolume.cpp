@@ -597,12 +597,16 @@ int main(int argc, char** argv) {
 		if (M[0] == 1) {
 			if ((double(M[1] / 2) / in_size[1] * in_lambda + abs(dir[1])) >= in_n[0]) {
 				M[1] = int(in_n[1] * 2 * in_size[1] / in_lambda - pow(10, -10));
+				if (M[1] % 2 == 0)
+					M[1] -= 1;
 				std::cout << "For the 1-d volume, M[1] is corrected as " << M[1] << std::endl;
 			}
 		}
 		if (M[1] == 1) {
 			if ((double(M[0] / 2) / in_size[1] * in_lambda + abs(dir[0])) >= in_n[0]) {
 				M[0] = int(in_n[0] * 2 * in_size[0] / in_lambda - pow(10, -10));
+				if (M[0] % 2 == 0)
+					M[0] -= 1;
 				std::cout << "For the 1-d volume, M[0] is corrected as " << M[0] << std::endl;
 			}
 		}

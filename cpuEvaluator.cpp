@@ -134,7 +134,7 @@ void cw_unpack(CoupledWaveStructure<double>* cw) {
 
 unsigned int idx(int num, float step) {
     float z_cur = (float)num * d;
-    return unsigned int(float(z_cur) / step);
+    return (unsigned int)(float(z_cur) / step);
 }
 
 void EvaluateSample(std::vector <std::vector< Eigen::MatrixXcd>>& E, float* center, float Extent, unsigned int N) {

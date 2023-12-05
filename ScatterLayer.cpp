@@ -427,7 +427,7 @@ int main(int argc, char** argv) {
 		for (int i = 0; i < ri.size() - 2; i++) {
 			ref[i] = ri[i + 1];
 		}
-		const std::vector<long unsigned> shape{ unsigned long(ri.size()-2), 1, 1 };
+		const std::vector<long unsigned> shape{ (unsigned long)(ri.size()-2), 1, 1 };
 		const bool fortran_order{ false };
 		npy::SaveArrayAsNumpy(in_sample, fortran_order, shape.size(), shape.data(), ref);
 	}

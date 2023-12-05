@@ -19,10 +19,10 @@ data_path = scattervol_path + "movie_star\\"
 sample_name = "star_40_x_y.npy"
 
 files = os.listdir(data_path)
-# for f in files:
-#     file = os.path.join(data_path, f)
-#     os.chmod(file, 0o777)
-#     os.remove(file)
+for f in files:
+    file = os.path.join(data_path, f)
+    os.chmod(file, 0o777)
+    os.remove(file)
 
 # #-----------X-Z SIM----------------------
 # result_npy = scattervol_path + "xz.npy"
@@ -56,11 +56,9 @@ coefs = [40, 40]
 resolution = 8
 result_cw = scattervol_path + "volume.cw"
 
-norm = plt.Normalize();
+norm = plt.Normalize()
 
 for lambdai in tqdm(range(len(lambdas))):
-    if lambdai < 32:
-        continue
     print("")
     print("----------"+ str(lambdai+1) + "th loop-------------")
     print("wavelength:" + str(lambdas[lambdai]))

@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <iostream>
 #include <tira/optics/planewave.h>
 #include "CoupledWaveStructure.h"

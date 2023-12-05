@@ -74,7 +74,7 @@ for lambdai in tqdm(range(len(lambdas))):
 
     xz = np.load(result_npy)
 
-    Ey = np.real(xz[:, :, save_axis])
+    Ey = np.real(xz[:, :, 1])
     colors = plt.cm.RdYlBu_r(norm(Ey))[:, :, 0:3]
     ski.io.imsave(data_path+"Ey_" + str(lambdai).zfill(3) + ".jpg", colors)
 

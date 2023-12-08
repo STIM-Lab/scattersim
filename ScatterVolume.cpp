@@ -234,6 +234,7 @@ void EigenDecompositionD() {
 			Eigen::ComplexEigenSolver<Eigen::MatrixXcd> es(D[i]);
 			eigenvalues_unordered.push_back(es.eigenvalues());
 			eigenvectors_unordered.push_back(es.eigenvectors());
+			Eigen_Sort(eigenvalues_unordered[i], eigenvectors_unordered[i]);
 		}
 		if (MKL_lapack) {
 			std::complex<double>* A = new std::complex<double>[4 * MF * 4 * MF];

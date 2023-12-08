@@ -13,14 +13,14 @@ from ScatterView import *
 import math
 import time
 
-scattervol_path = "D:\\myGit\\build\\scatter_bld_winter\\"
-source_path = "C:\\Users\\sunrj\\Dropbox\\2023_Winter\\scattersim\\"      # Where the sample is from
-data_path = scattervol_path + "spectroscopy\\"
+scattervol_path = "/home/ruijiao/A_research/build/scattersim/"
+source_path = "/home/ruijiao/A_research/scattersim/"      # Where the sample is from
+data_path = source_path + "spectroscopy_even/"
 sample_name = "3.jpg"
 
 
 # Configuration
-arr = np.loadtxt(source_path+"polystyrene.csv",
+arr = np.loadtxt(source_path+"polystyrene_all_data_standard_format.csv",
                  delimiter=",", dtype=str)      # refractive index form. Format: wavelength, real part of refractive index, imag part of refractive index
 # lambdas = [2.038, 9.3254, 13.227]
 # n = [1.576+0.0000369j, 1.5412+0.0306j, 1.52708+0.105j]
@@ -29,14 +29,17 @@ coefs = [40, 40]                          # Pixel number: 40*40
 resolution = 8
 save_axis = 2
 relative_slice = size[2]/2           # Use the bottom of the sample
-sample_npy = scattervol_path + "3_npy.npy"
-ref_npy = scattervol_path + "ref_npy.npy"
-result_cw = scattervol_path + "result.cw"
-result_npy = scattervol_path + "xy.npy"
+sample_npy = data_path + "3_npy.npy"
+ref_npy = data_path + "3_npy_ref.npy"
 recon_A = []
 
 for i in tqdm(range(len(arr[:, 0]))):
-    if i%2==0:
+    # Define file name
+    ref_cw = data_path + arr[i, 0] + "_ref.cw"
+    result_cw = data_path + arr[i, 0] + ".cw"
+    out_ref_npy = data_path + arr[i, 0] + "field_3d_ref.npy"
+    out_result_npy = data_path + arr[i, 0] + "field_3d.npy"
+    if i%2!=0:
         continue
     # Define wave
     lambdai = float(arr[i, 0])
@@ -61,13 +64,13 @@ for i in tqdm(range(len(arr[:, 0]))):
 
     # ----------------------------------Solve the reference first-------------------------------------
     subprocess.run([scattervol_path+"scattervolume", "--sample", ref_npy, "--size", str(size[0]), str(size[1]), str(size[2]),
-                    "--coef", str(1), str(1), "--lambda", str(lambdai), "--output", result_cw], shell=True, capture_output=False)
+                    "--coef", str(1), str(1), "--lambda", str(lambdai), "--output", ref_cw], shell=False, capture_output=True)
 
-    subprocess.run([scattervol_path+"scatterview", "--input", result_cw, "--size", str(size[0]),
-                   "--nogui", "--resolution", str(resolution), "--output", result_npy,  "--axis", str(save_axis),
-                    "--center", str(size[0]/2), str(size[0]/2), str(0), "--slice", str(relative_slice)], shell=True, capture_output=False)
+    subprocess.run([scattervol_path+"scatterview", "--input", ref_cw, "--size", str(size[0]),
+                   "--nogui", "--resolution", str(resolution), "--output", out_ref_npy,  "--axis", str(save_axis),
+                    "--center", str(size[0]/2), str(size[0]/2), str(0), "--slice", str(relative_slice)], shell=False, capture_output=True)
 
-    xy = np.load(result_npy)
+    xy = np.load(out_ref_npy)
     intensity_ref = np.real(
         xy[:, :, 0] * np.conj(xy[:, :, 0]) + xy[:, :, 1] * np.conj(xy[:, :, 1]) + xy[:, :, 2] * np.conj(xy[:, :, 2]))
     ref = time.time()
@@ -78,14 +81,15 @@ for i in tqdm(range(len(arr[:, 0]))):
 
     # ----------------------------Calculate the intensity for real sample------------------------------
     subprocess.run([scattervol_path+"scattervolume", "--sample", sample_npy, "--size", str(size[0]), str(size[1]), str(size[2]),
-                    "--coef", str(coefs[0]), str(coefs[1]), "--lambda", str(lambdai), "--output", result_cw], shell=True, capture_output=False)
+                    "--coef", str(coefs[0]), str(coefs[1]), "--lambda", str(lambdai), "--output", result_cw], shell=False, capture_output=True)
+                                                            
     sample_volume = time.time()
     print("Sample scattervolume takes " + str(sample_volume-ref) +"s.")
     subprocess.run([scattervol_path+"scatterview", "--input", result_cw, "--size", str(size[0]),
-                   "--nogui", "--resolution", str(resolution), "--output", result_npy,  "--axis", str(save_axis),
-                    "--center", str(size[0]/2), str(size[0]/2), str(0), "--slice", str(relative_slice)], shell=True, capture_output=False)
+                   "--nogui", "--resolution", str(resolution), "--output", out_result_npy,  "--axis", str(save_axis),
+                    "--center", str(size[0]/2), str(size[0]/2), str(0), "--slice", str(relative_slice)], shell=False, capture_output=True)
 
-    xy = np.load(result_npy)
+    xy = np.load(out_result_npy)
     intensity_sample = np.real(
         xy[:, :, 0] * np.conj(xy[:, :, 0]) + xy[:, :, 1] * np.conj(xy[:, :, 1]) + xy[:, :, 2] * np.conj(xy[:, :, 2]))
     sample_view = time.time()
@@ -102,7 +106,7 @@ for i in tqdm(range(len(arr[:, 0]))):
     recon_A.append(A)
     # plt.plot(arr[0:i, 0], recon_A)
     # plt.savefig(scattervol_path+"spectroscopy\\"+"A_for_" + str(lambdai+1) + "_points.png")
-    np.save(scattervol_path + str(lambdai)+"recon_A_odd_coef40_40.npy", recon_A)
+    np.save(data_path + str(lambdai)+"recon_A_odd_coef40_40.npy", recon_A)
 np.save(source_path + "recon_A_odd_coef40_40.npy", recon_A)
-plt.plot(recon_A)
-plt.show()
+#plt.plot(recon_A)
+#plt.show()

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 S = 10
 
 # number of samples and layers
-N = 40
+N = 100
 L = N
 
 # radius of the cylinder

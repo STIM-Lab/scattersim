@@ -315,14 +315,14 @@ void cpu_cw_evaluate_sample(glm::vec<3, std::complex<float>>* E_xy, glm::vec<3, 
 void cpu_cw_evaluate_xy(glm::vec<3, std::complex<float>>* E_xy,
     float x_start, float y_start,
     float z, float d, size_t N) {
-    float x, y;
-    float z_boundary = z_layers[0];
 
+    float x, y;
+
+    // find the current layer
     size_t l = 0;
     for (size_t li = 0; li < layers; li++) {
         if (z >= z_layers[li]) {
             l = li + 1;
-            z_boundary = z_layers[li];
         }
     }
 
@@ -339,9 +339,10 @@ void cpu_cw_evaluate_xy(glm::vec<3, std::complex<float>>* E_xy,
         for (unsigned int ix = 0; ix < N; ix++) {
             x = x_start + ix * d;                            // calculate the x and y coordinates to be evaluated
 
+
             glm::vec<3, std::complex<float>> E(0, 0, 0);
             for (size_t cwi = begin; cwi < end; cwi++) {
-                k_dot_r = x * W[cwi].k[0] + y * W[cwi].k[1] + (z - z_boundary) * W[cwi].k[2];
+                k_dot_r = x * W[cwi].k[0] + y * W[cwi].k[1] + z * W[cwi].k[2];
                 phase = std::exp(i * k_dot_r);
                 E[0] += W[cwi].E0[0] * phase;
                 E[1] += W[cwi].E0[1] * phase;
@@ -351,15 +352,13 @@ void cpu_cw_evaluate_xy(glm::vec<3, std::complex<float>>* E_xy,
             E_xy[iy * N + ix] = E;
         }
     }
-
 }
 
 void cpu_cw_evaluate_yz(glm::vec<3, std::complex<float>>* E_yz,
     float y_start, float z_start,
     float x, float d, size_t N) {
-    float z_boundary = z_layers[0];
-    float y, z;
 
+    float y, z;
     std::complex<float> phase;
     std::complex<float> k_dot_r = 0;
     std::complex<float> i(0.0, 1.0);
@@ -370,7 +369,6 @@ void cpu_cw_evaluate_yz(glm::vec<3, std::complex<float>>* E_yz,
         for (size_t li = 0; li < layers; li++) {
             if (z >= z_layers[li]) {
                 l = li + 1;
-                z_boundary = z_layers[li];
             }
         }
         size_t begin = waves_begin[l];
@@ -381,7 +379,7 @@ void cpu_cw_evaluate_yz(glm::vec<3, std::complex<float>>* E_yz,
 
             glm::vec<3, std::complex<float>> E(0, 0, 0);
             for (size_t cwi = begin; cwi < end; cwi++) {
-                k_dot_r = x * W[cwi].k[0] + y * W[cwi].k[1] + (z - z_boundary) * W[cwi].k[2];
+                k_dot_r = x * W[cwi].k[0] + y * W[cwi].k[1] + z * W[cwi].k[2];
                 phase = std::exp(i * k_dot_r);
                 E[0] += W[cwi].E0[0] * phase;
                 E[1] += W[cwi].E0[1] * phase;
@@ -396,9 +394,8 @@ void cpu_cw_evaluate_yz(glm::vec<3, std::complex<float>>* E_yz,
 void cpu_cw_evaluate_xz(glm::vec<3, std::complex<float>>* E_xz,
     float x_start, float z_start,
     float y, float d, size_t N) {
-    float z_boundary = z_layers[0];
-    float x, z;
 
+    float x, z;
     std::complex<float> phase;
     std::complex<float> k_dot_r = 0;
     std::complex<float> i(0.0, 1.0);
@@ -409,7 +406,6 @@ void cpu_cw_evaluate_xz(glm::vec<3, std::complex<float>>* E_xz,
         for (size_t li = 0; li < layers; li++) {
             if (z >= z_layers[li]) {
                 l = li + 1;
-                z_boundary = z_layers[li];
             }
         }
         size_t begin = waves_begin[l];
@@ -419,7 +415,7 @@ void cpu_cw_evaluate_xz(glm::vec<3, std::complex<float>>* E_xz,
 
             glm::vec<3, std::complex<double>> E(0, 0, 0);
             for (size_t cwi = begin; cwi < end; cwi++) {
-                k_dot_r = x * W[cwi].k[0] + y * W[cwi].k[1] + (z - z_boundary) * W[cwi].k[2];
+                k_dot_r = x * W[cwi].k[0] + y * W[cwi].k[1] + z * W[cwi].k[2];
                 phase = std::exp(i * k_dot_r);
                 E[0] += W[cwi].E0[0] * phase;
                 E[1] += W[cwi].E0[1] * phase;
@@ -430,3 +426,122 @@ void cpu_cw_evaluate_xz(glm::vec<3, std::complex<float>>* E_xz,
         }
     }
 }
+//
+//void cpu_cw_evaluate_xy(glm::vec<3, std::complex<float>>* E_xy,
+//    float x_start, float y_start,
+//    float z, float d, size_t N) {
+//    float x, y;
+//    float z_boundary = z_layers[0];
+//
+//    size_t l = 0;
+//    for (size_t li = 0; li < layers; li++) {
+//        if (z >= z_layers[li]) {
+//            l = li + 1;
+//            z_boundary = z_layers[li];
+//        }
+//    }
+//
+//    size_t begin = waves_begin[l];
+//    size_t end = waves_end[l];
+//
+//
+//    std::complex<float> phase;
+//    std::complex<float> k_dot_r = 0;
+//    std::complex<float> i(0.0, 1.0);
+//
+//    for (unsigned int iy = 0; iy < N; iy++) {
+//        y = y_start + iy * d;
+//        for (unsigned int ix = 0; ix < N; ix++) {
+//            x = x_start + ix * d;                            // calculate the x and y coordinates to be evaluated
+//
+//            glm::vec<3, std::complex<float>> E(0, 0, 0);
+//            for (size_t cwi = begin; cwi < end; cwi++) {
+//                k_dot_r = x * W[cwi].k[0] + y * W[cwi].k[1] + (z - z_boundary) * W[cwi].k[2];
+//                phase = std::exp(i * k_dot_r);
+//                E[0] += W[cwi].E0[0] * phase;
+//                E[1] += W[cwi].E0[1] * phase;
+//                E[2] += W[cwi].E0[2] * phase;
+//            }
+//
+//            E_xy[iy * N + ix] = E;
+//        }
+//    }
+//
+//}
+//
+//void cpu_cw_evaluate_yz(glm::vec<3, std::complex<float>>* E_yz,
+//    float y_start, float z_start,
+//    float x, float d, size_t N) {
+//    float z_boundary = z_layers[0];
+//    float y, z;
+//
+//    std::complex<float> phase;
+//    std::complex<float> k_dot_r = 0;
+//    std::complex<float> i(0.0, 1.0);
+//
+//    size_t l = 0;
+//    for (unsigned int iz = 0; iz < N; iz++) {
+//        z = z_start + iz * d;
+//        for (size_t li = 0; li < layers; li++) {
+//            if (z >= z_layers[li]) {
+//                l = li + 1;
+//                z_boundary = z_layers[li];
+//            }
+//        }
+//        size_t begin = waves_begin[l];
+//        size_t end = waves_end[l];
+//        for (unsigned int iy = 0; iy < N; iy++) {
+//            y = y_start + iy * d;                            // calculate the x and y coordinates to be evaluated
+//
+//
+//            glm::vec<3, std::complex<float>> E(0, 0, 0);
+//            for (size_t cwi = begin; cwi < end; cwi++) {
+//                k_dot_r = x * W[cwi].k[0] + y * W[cwi].k[1] + (z - z_boundary) * W[cwi].k[2];
+//                phase = std::exp(i * k_dot_r);
+//                E[0] += W[cwi].E0[0] * phase;
+//                E[1] += W[cwi].E0[1] * phase;
+//                E[2] += W[cwi].E0[2] * phase;
+//            }
+//
+//            E_yz[iz * N + iy] = E;
+//        }
+//    }
+//}
+//
+//void cpu_cw_evaluate_xz(glm::vec<3, std::complex<float>>* E_xz,
+//    float x_start, float z_start,
+//    float y, float d, size_t N) {
+//    float z_boundary = z_layers[0];
+//    float x, z;
+//
+//    std::complex<float> phase;
+//    std::complex<float> k_dot_r = 0;
+//    std::complex<float> i(0.0, 1.0);
+//
+//    size_t l = 0;
+//    for (unsigned int iz = 0; iz < N; iz++) {
+//        z = z_start + iz * d;
+//        for (size_t li = 0; li < layers; li++) {
+//            if (z >= z_layers[li]) {
+//                l = li + 1;
+//                z_boundary = z_layers[li];
+//            }
+//        }
+//        size_t begin = waves_begin[l];
+//        size_t end = waves_end[l];
+//        for (unsigned int ix = 0; ix < N; ix++) {
+//            x = x_start + ix * d;                            // calculate the x and y coordinates to be evaluated
+//
+//            glm::vec<3, std::complex<double>> E(0, 0, 0);
+//            for (size_t cwi = begin; cwi < end; cwi++) {
+//                k_dot_r = x * W[cwi].k[0] + y * W[cwi].k[1] + (z - z_boundary) * W[cwi].k[2];
+//                phase = std::exp(i * k_dot_r);
+//                E[0] += W[cwi].E0[0] * phase;
+//                E[1] += W[cwi].E0[1] * phase;
+//                E[2] += W[cwi].E0[2] * phase;
+//            }
+//
+//            E_xz[iz * N + ix] = E;
+//        }
+//    }
+//}

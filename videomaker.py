@@ -19,10 +19,10 @@ data_path = scattervol_path + "cylinder_fig\\"
 sample_name = "cylinder_20_1_100_1.4_0.05j.npy"
 
 files = os.listdir(data_path)
-for f in files:
-    file = os.path.join(data_path, f)
-    os.chmod(file, 0o777)
-    os.remove(file)
+# for f in files:
+#     file = os.path.join(data_path, f)
+#     os.chmod(file, 0o777)
+#     os.remove(file)
 
 # #-----------X-Z SIM----------------------
 # result_npy = scattervol_path + "xz.npy"
@@ -43,13 +43,13 @@ for f in files:
 #-----------X-y SIM----------------------
 result_npy = scattervol_path + "xy.npy"
 save_axis = 1                           # Save xz plane
-N_lambda = 19
+N_lambda = 1
 lambda_min = 1
-lambda_max = 10
+lambda_max = 1
 lambdas = np.linspace(lambda_max, lambda_min, N_lambda)
 # nus = np.linspace(2 * np.pi / lambda_max, 2 * np.pi / lambda_min, N_lambda)
 # lambdas = 1.0 / nus * 2 * np.pi
-size = [20, 1, 20]                       # Size of the sample. 4 is the diamter of the cylinder(z)
+size = [20, 1, 4]                       # Size of the sample. 4 is the diamter of the cylinder(z)
 # size = [10, 10, 0.1]                       # Size of the sample. 4 is the diamter of the cylinder(z)
 relative_slice = size[2]/2           # Use the bottom of the sample
 coefs = [100, 1]
@@ -65,12 +65,12 @@ for lambdai in tqdm(range(len(lambdas))):
     subprocess.run([scattervol_path+"scattervolume", "--sample", source_path+"data\\"+sample_name, "--size", str(size[0]), str(size[1]), str(size[2]),
                     "--coef", str(coefs[0]), str(coefs[1]), "--lambda", str(lambdas[lambdai]), "--output", result_cw], shell=True, capture_output=False)
 
-    subprocess.run([scattervol_path+"scatterviewsample", "--input", result_cw, "--nogui", "--extent", str(size[0]), "--output",
-                    result_npy, "--axis", str(save_axis), "--slice", str(2**(resolution-1)), "--resolution", str(resolution)], shell=True, capture_output=False)
+    # subprocess.run([scattervol_path+"scatterviewsample", "--input", result_cw, "--nogui", "--extent", str(size[0]), "--output",
+    #                 result_npy, "--axis", str(save_axis), "--slice", str(2**(resolution-1)), "--resolution", str(resolution)], shell=True, capture_output=False)
 
-    # subprocess.run([scattervol_path+"scatterview", "--input", result_cw, "--size", str(size[0]),
-    #                "--nogui", "--resolution", str(resolution), "--output", result_npy,  "--axis", str(save_axis),
-    #                 "--center", str(size[0]/2), str(size[0]/2), str(0), "--slice", str(relative_slice)], shell=True, capture_output=False)
+    subprocess.run([scattervol_path+"scatterview", "--input", result_cw, "--size", str(size[0]),
+                   "--nogui", "--resolution", str(resolution), "--output", result_npy,  "--axis", str(save_axis),
+                    "--center", str(size[0]/2), str(size[0]/2), str(0), "--slice", str(relative_slice)], shell=True, capture_output=False)
 
     xz = np.load(result_npy)
 

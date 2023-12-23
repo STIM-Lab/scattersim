@@ -53,7 +53,7 @@ void cw_allocate(CoupledWaveStructure<double>* cw) {
             }
         }
 
-        glm::vec<3, std::complex<float> > k = cw->Pi[0].getK();
+        glm::vec<3, std::complex<float> > k = cw->Pi[M[1] / 2 * M[0] + M[0] / 2].getK();
         K = sqrt(pow(k[0], 2) + pow(k[1], 2) + pow(k[2], 2));
         Beta.resize(slices);
         Gamma.resize(slices);
@@ -64,7 +64,7 @@ void cw_allocate(CoupledWaveStructure<double>* cw) {
             GG[i] = Eigen::Map< Eigen::MatrixXcd>(cw->Slices[i].gg.data(), 4 * _M, 4 * _M);
             GG[i].transposeInPlace();
         }
-        s = cw->Pi[0].getDirection();
+        s = cw->Pi[M[1]/2 * M[0]+ M[0]/2].getDirection();
     }
 
     waves_begin.reserve(1000);

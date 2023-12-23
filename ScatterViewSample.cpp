@@ -717,10 +717,12 @@ int main(int argc, char** argv)
     else if (in_axis == 2)
         plane_position[2] = in_slice;
 
-    // Manual correction for matching phase. Ask Ruijiao before deleting.
+    // Commented on 12/19
+    //center[0] = in_center[0] + extent / 2.0;
+    //center[1] = in_center[1] + extent / 2.0;
 
-    center[0] = in_center[0] + extent / 2.0;
-    center[1] = in_center[1] + extent / 2.0;
+    center[0] = in_center[0];
+    center[1] = in_center[1];
     center[2] = in_center[2];
     if(vm.count("verbose")){
         verbose = true;

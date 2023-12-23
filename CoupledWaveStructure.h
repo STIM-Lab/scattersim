@@ -162,7 +162,6 @@ public:
 			}
 		}
 
-		glm::vec<3, std::complex<float> > kk = Pi[0].getK();
 		// Load info about beta, gamma, and gg if the sample is heterogeneous
 		if (isHete == true) {
 			file.read((char*)&M, sizeof(int) * 2);

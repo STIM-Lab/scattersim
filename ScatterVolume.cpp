@@ -511,7 +511,7 @@ int main(int argc, char** argv) {
 		("n", boost::program_options::value<std::vector<double>>(&in_n)->multitoken()->default_value(std::vector<double>{1.0, 1.0}, "1, 1"), "real refractive index (optical path length) of the upper and lower layers")
 		("kappa", boost::program_options::value<std::vector<double> >(&in_kappa)->multitoken()->default_value(std::vector<double>{0}, "0.00"), "absorbance of the lower layer (upper layer is always 0.0)")
 		// The center of the sample along x/y is always 0/0.
-		("size", boost::program_options::value<std::vector<double>>(&in_size)->multitoken()->default_value(std::vector<double>{10, 10, 4}, "20, 20, 10"), "The real size of the single-layer sample")
+		("size", boost::program_options::value<std::vector<double>>(&in_size)->multitoken()->default_value(std::vector<double>{10, 10, 4}, "10, 10, 4Z"), "The real size of the single-layer sample")
 		("z", boost::program_options::value<double >(&in_z)->multitoken()->default_value(0, "0.0"), "the center of the sample along z-axis")
 		("output", boost::program_options::value<std::string>(&in_outfile)->default_value("c.cw"), "output filename for the coupled wave structure")
 		("coef", boost::program_options::value<std::vector<int> >(&in_coeff)->multitoken(), "number of Fourier coefficients (can be specified in 2 dimensions)")
@@ -624,10 +624,24 @@ int main(int argc, char** argv) {
 	E0.push_back(e[0]);
 	E0.push_back(e[1]);
 	E0.push_back(e[2]);
+
+	//Eigen::MatrixXcd E00 = Eigen::MatrixXcd::Zero(num_pixels[1], num_pixels[2]);
+	//E00(num_pixels[1] / 2, num_pixels[2] / 2) = 1;
+	//Eigen::MatrixXcd E11 = Eigen::MatrixXcd::Zero(num_pixels[1], num_pixels[2]);
+	//E11(num_pixels[1] / 2, num_pixels[2] / 2) = 1;
+	//Eigen::MatrixXcd E22 = Eigen::MatrixXcd::Zero(num_pixels[1], num_pixels[2]);
+	//E22(num_pixels[1] / 2, num_pixels[2] / 2) = 1;
+	//////Ef[0] = fftw_fft2(E00, M[1], M[0]);	// M[0]=3 is column. M[1]=1 is row. 
+	//////Ef[1] = fftw_fft2(E11, M[1], M[0]);
+	//////Ef[2] = fftw_fft2(E22, M[1], M[0]);
 	std::vector<Eigen::MatrixXcd> Ef(3);
-	Ef[0] = fftw_fft2(E0[0] * Eigen::MatrixXcd::Ones(num_pixels[1], num_pixels[2]), M[1], M[0]);	// M[0]=3 is column. M[1]=1 is row. 
-	Ef[1] = fftw_fft2(E0[1] * Eigen::MatrixXcd::Ones(num_pixels[1], num_pixels[2]), M[1], M[0]);
-	Ef[2] = fftw_fft2(E0[2] * Eigen::MatrixXcd::Ones(num_pixels[1], num_pixels[2]), M[1], M[0]);
+
+	//Ef[0] = fftw_fft2(E0[0] * Eigen::MatrixXcd::Ones(num_pixels[1], num_pixels[2]), M[1], M[0]);	// M[0]=3 is column. M[1]=1 is row. 
+	//Ef[1] = fftw_fft2(E0[1] * Eigen::MatrixXcd::Ones(num_pixels[1], num_pixels[2]), M[1], M[0]);
+	//Ef[2] = fftw_fft2(E0[2] * Eigen::MatrixXcd::Ones(num_pixels[1], num_pixels[2]), M[1], M[0]);
+	Ef[0] = E0[0] * Eigen::MatrixXcd::Ones(M[0], M[1]);	// M[0]=3 is column. M[1]=1 is row. 
+	Ef[1] = E0[1] * Eigen::MatrixXcd::Ones(M[0], M[1]);
+	Ef[2] = E0[2] * Eigen::MatrixXcd::Ones(M[0], M[1]);
 	EF.resize(3 * MF);
 	EF.segment(0, MF) = Eigen::Map<Eigen::VectorXcd>(Ef[0].data(), MF);
 	EF.segment(MF, MF) = Eigen::Map<Eigen::VectorXcd>(Ef[1].data(), MF);
@@ -710,9 +724,9 @@ int main(int argc, char** argv) {
 	size_t MF4 = MF * 4;																			// M is the length of beta/gamma/gg
 
 	// store the incident plane wave
-	int ind = (M[1] / 2) * M[0] + (M[0] / 2);
-	tira::planewave<double> i(Sx(ind) * k, Sy(ind) * k , Sz[0](ind) * k* in_n[0], EF(ind), EF(MF + ind), EF(2 * MF + ind));
-	cw.Pi.push_back(i);
+	//int ind = (M[1] / 2) * M[0] + (M[0] / 2);
+	//tira::planewave<double> i(Sx(ind) * k, Sy(ind) * k , Sz[0](ind) * k* in_n[0], EF(ind), EF(MF + ind), EF(2 * MF + ind));
+	//cw.Pi.push_back(i);
 
 	tira::planewave<double> zeros(0, 0, k, 0, 0, 0);
 	for (int kk = 0; kk < M[1]; kk++) {
@@ -723,6 +737,8 @@ int main(int argc, char** argv) {
 				//if (abs((sx * sx + sy * sy).real()) < in_n[0] * in_n[0]) {
 				counts += 1;
 				int p = kk * M[0] + j;
+				tira::planewave<double> i(Sx(p) * k, Sy(p) * k, Sz[0](p) * k, EF(p), EF(MF + p), EF(2 * MF + p));	
+				cw.Pi.push_back(i);
 				std::vector<tira::planewave<double>> P = mat2waves(i, x, p);
 				// generate plane waves from the solution vector
 				tira::planewave<double> r, t;

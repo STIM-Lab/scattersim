@@ -646,7 +646,7 @@ int main(int argc, char** argv) {
 	// store all of the layer positions and refractive indices
 	InitLayerProperties();
 	// Define sample volume, reformat, and reorgnize.
-	volume < std::complex< double> > Volume(in_sample, ni, z, in_center, in_size, k.real(), std::complex<double>(in_n_sample, in_kappa_sample));
+	volume < std::complex< double> > Volume(in_sample, ni, in_center, in_size, k.real(), std::complex<double>(in_n_sample, in_kappa_sample));
 	in_num_pixels = Volume.reformat();
 	//fz = Volume.reorg();				// Form fz and flag
 	D = Volume.CalculateD(M, dir);	// Calculate the property matrix for the sample
@@ -793,7 +793,6 @@ int main(int argc, char** argv) {
 				logfile << "t (" << p << ") ------------" << std::endl << t.str() << std::endl;
 				logfile << std::endl;
 			}
-
 		}
 	}
 	std::cout << "Field saved in " << in_outfile << "." << std::endl;

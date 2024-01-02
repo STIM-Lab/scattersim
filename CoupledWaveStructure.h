@@ -89,15 +89,16 @@ public:
 			file.write((char*)&Pi[iPi], sizeof(tira::planewave<T>));
 		}
 		size_t sizeof_Layers = Layers.size();
-		size_t sizeof_Pr, sizeof_Pt;
+		size_t sizeof_Pr, sizeof_Pt;						// Pr/Pt has a dim of M. While the inside field has a dim of M*2M
 		file.write((char*)&sizeof_Layers, sizeof(size_t));	// output the number of homogeneous layers
-		for (size_t iLayers = 0; iLayers < Layers.size(); iLayers++) {
+		for (size_t iLayers = 0; iLayers < sizeof_Layers; iLayers++) {
 			file.write((char*)&Layers[iLayers].z, sizeof(T));		// output the layer position
 			sizeof_Pr = Layers[iLayers].Pr.size();
 			file.write((char*)&sizeof_Pr, sizeof(size_t));		// output the number of reflected plane waves
 			for (size_t iPr = 0; iPr < Layers[iLayers].Pr.size(); iPr++) {
 				file.write((char*)&Layers[iLayers].Pr[iPr], sizeof(tira::planewave<T>));
 			}
+
 			sizeof_Pt = Layers[iLayers].Pt.size();
 			file.write((char*)&sizeof_Pt, sizeof(size_t));		// output the number of transmitted plane waves
 			for (size_t iPt = 0; iPt < Layers[iLayers].Pt.size(); iPt++) {
@@ -105,29 +106,6 @@ public:
 			}
 		}
 
-		// Save info about beta, gamma, and gg if the sample is heterogeneous
-		if (isHete == true) {
-			file.write((char*)&M, sizeof(int) * 2);
-			file.write((char*)&size, sizeof(T) * 3);
-
-			unsigned int sizeof_Slices = Slices.size();
-			file.write((char*)&sizeof_Slices, sizeof(unsigned int));
-			int MF4 = sizeof_Pt * 4;
-			for (int iSlices = 0; iSlices < sizeof_Slices; iSlices++) {
-				for (int m = 0; m < MF4; m++) {
-					file.write((char*)&Slices[iSlices].beta[m], sizeof(std::complex<T>));
-				}
-				for (int m = 0; m < MF4; m++) {
-					file.write((char*)&Slices[iSlices].gamma[m], sizeof(std::complex<T>));
-				}
-				for (int m = 0; m < MF4 * MF4; m++) {
-					file.write((char*)&Slices[iSlices].gg[m], sizeof(std::complex<T>));
-				}
-				for (int m = 0; m < M[0] * M[1]; m++ )
-					file.write((char*)&NIf[iSlices][m], sizeof(std::complex<T>));
-			}
-
-		}
 		file.close();
 	}
 
@@ -148,7 +126,7 @@ public:
 		size_t sizeof_Pr, sizeof_Pt;
 		file.read((char*)&sizeof_Layers, sizeof(size_t));					// read the number of homogeneous layers
 		Layers.resize(sizeof_Layers);										// allocate space for the layer structures
-		for (size_t iLayers = 0; iLayers < Layers.size(); iLayers++) {
+		for (size_t iLayers = 0; iLayers < sizeof_Layers; iLayers++) {
 			file.read((char*)&Layers[iLayers].z, sizeof(T));				// read the layer position
 			file.read((char*)&sizeof_Pr, sizeof(size_t));					// read the number of reflected plane waves
 			Layers[iLayers].Pr.resize(sizeof_Pr);							// allocate space for the reflected waves
@@ -162,34 +140,34 @@ public:
 			}
 		}
 
-		// Load info about beta, gamma, and gg if the sample is heterogeneous
-		if (isHete == true) {
-			file.read((char*)&M, sizeof(int) * 2);
-			file.read((char*)&size, sizeof(T) * 3);
+		//// Load info about beta, gamma, and gg if the sample is heterogeneous
+		//if (isHete == true) {
+		//	file.read((char*)&M, sizeof(int) * 2);
+		//	file.read((char*)&size, sizeof(T) * 3);
 
-			unsigned int sizeof_Slices;
-			file.read((char*)&sizeof_Slices, sizeof(unsigned int));
-			Slices.resize(sizeof_Slices);
-			NIf.resize(sizeof_Slices);
-			int MF4 = sizeof_Pt * 4;
-			for (int iSlices = 0; iSlices < sizeof_Slices; iSlices++) {
-				Slices[iSlices].beta.resize(MF4);
-				Slices[iSlices].gamma.resize(MF4);
-				Slices[iSlices].gg.resize(MF4 * MF4);
-				NIf[iSlices].resize(M[0] * M[1]);
-				for (int m = 0; m < MF4; m++) {
-					file.read((char*)&Slices[iSlices].beta[m], sizeof(std::complex<T>));
-				}
-				for (int m = 0; m < MF4; m++) {
-					file.read((char*)&Slices[iSlices].gamma[m], sizeof(std::complex<T>));
-				}
-				for (int m = 0; m < MF4 * MF4; m++) {
-					file.read((char*)&Slices[iSlices].gg[m], sizeof(std::complex<T>));
-				}
-				for (int m = 0; m < M[0] * M[1]; m++)
-					file.read((char*)&NIf[iSlices][m], sizeof(std::complex<T>));
-			}
-		}
+		//	unsigned int sizeof_Slices;
+		//	file.read((char*)&sizeof_Slices, sizeof(unsigned int));
+		//	Slices.resize(sizeof_Slices);
+		//	NIf.resize(sizeof_Slices);
+		//	int MF4 = sizeof_Pt * 4;
+		//	for (int iSlices = 0; iSlices < sizeof_Slices; iSlices++) {
+		//		Slices[iSlices].beta.resize(MF4);
+		//		Slices[iSlices].gamma.resize(MF4);
+		//		Slices[iSlices].gg.resize(MF4 * MF4);
+		//		NIf[iSlices].resize(M[0] * M[1]);
+		//		for (int m = 0; m < MF4; m++) {
+		//			file.read((char*)&Slices[iSlices].beta[m], sizeof(std::complex<T>));
+		//		}
+		//		for (int m = 0; m < MF4; m++) {
+		//			file.read((char*)&Slices[iSlices].gamma[m], sizeof(std::complex<T>));
+		//		}
+		//		for (int m = 0; m < MF4 * MF4; m++) {
+		//			file.read((char*)&Slices[iSlices].gg[m], sizeof(std::complex<T>));
+		//		}
+		//		for (int m = 0; m < M[0] * M[1]; m++)
+		//			file.read((char*)&NIf[iSlices][m], sizeof(std::complex<T>));
+		//	}
+		//}
 		file.close();
 		return true;
 	}

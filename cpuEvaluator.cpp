@@ -230,6 +230,7 @@ void EvaluateSample(std::vector <std::vector< Eigen::MatrixXcd>>& E, float* cent
             gg_odd = Eigen::Map<Eigen::MatrixXcd, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(G_cur.data() + 4 * _M * (_M * 1 + n) + 1, 1, 2 * _M, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>(2, 1));
             temp = (beta_even.array() * gg_even.array() * phase_even.array() + beta_odd.array() * gg_odd.array() * phase_odd.array()).sum();
             Ef[1][z][n] = temp;
+            std::cout << "Ef[1][z][n]: " << Ef[1][z][n] << std::endl;
 
             gg_even = Eigen::Map<Eigen::MatrixXcd, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(G_cur.data() + 4 * _M * (_M * 2 + n), 1, 2 * _M, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>(2, 1));
             gg_odd = Eigen::Map<Eigen::MatrixXcd, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>(G_cur.data() + 4 * _M * (_M * 2 + n) + 1, 1, 2 * _M, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>(2, 1));
@@ -255,11 +256,20 @@ void EvaluateSample(std::vector <std::vector< Eigen::MatrixXcd>>& E, float* cent
                         std::complex<double> ef2 = NIf[i][(indR + M[1] / 2) % M[1] * M[0] + (indC + M[0] / 2) % M[0]]
                             * (up * J[qj * M[0] + pj] - wq * I[qj * M[0] + pj]);
                         Ef[2][z][qi * M[0] + pi] += std::complex<double>(-1, 0) / K * ef2;
+                        //Ef[2][z][qi * M[0] + pi] += 0;
                     }
                 }
             }
-
         }
+
+        //for (int n = 0; n < _M; n++) {
+        //    std::cout << "Ef[2] calculated: " << std::sqrt(std::complex<double>(1, 0) - pow(Ef[0][z][n], 2) - pow(Ef[1][z][n], 2)) << std::endl;
+        //    std::cout << "Ef[2] real: " << Ef[2][z][n] << std::endl;
+        //    if((std::sqrt(std::complex<double>(1, 0) - pow(Ef[0][z][n], 2) - pow(Ef[1][z][n], 2)) - abs(Ef[2][z][n])).real() > 0.0001 ||
+        //        (std::sqrt(std::complex<double>(1, 0) - pow(Ef[0][z][n], 2) - pow(Ef[1][z][n], 2)) - abs(Ef[2][z][n])).imag() > 0.0001)
+        //        std::cout << "Different result" << std::endl;
+        //}
+
 
         E[0][z] = fftw_ift2(Eigen::Map<Eigen::MatrixXcd>(Ef[0][z].data(), M[1], M[0]), X, Y, points, S, K);
         E[1][z] = fftw_ift2(Eigen::Map<Eigen::MatrixXcd>(Ef[1][z].data(), M[1], M[0]), X, Y, points, S, K);

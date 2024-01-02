@@ -51,7 +51,8 @@ std::vector<double> in_center;
 std::vector<double> in_rec_bar;
 std::vector<double> in_circle;
 
-unsigned int L;
+unsigned int L;		// L=2
+unsigned int ZL;	// Number of layers
 int M[2];	// Set the number of the Fourier Coefficients
 Eigen::MatrixXcd A;
 Eigen::VectorXcd b;
@@ -149,14 +150,20 @@ void InitMatrices() {
 }
 
 // set all of the layer refractive indices and boundary positions based on user input
-void InitLayerProperties() {
+void InitLayer_n() {
 	ni.resize(L);
 	ni[0] = std::complex<double>(in_n[0], 0);
 	for (size_t l = 1; l < L; l++)
 		ni[l] = std::complex<double>(in_n[l], in_kappa[l - 1]);			// store the complex refractive index for each layer
-	z = new double[L];														// allocate space to store z coordinates for each interface
+}
+
+// set all of the layer refractive indices and boundary positions based on user input
+void InitLayer_z() {
+	z = new double[ZL];														// allocate space to store z coordinates for each interface
 	z[0] = in_z - in_size[2] / 2.0;
-	z[1] = in_z + in_size[2] / 2.0;
+	for (int i = 1; i < ZL; i++) {
+		z[i] = z[i - 1] + in_size[2] / (num_pixels[0]);
+	}
 }
 
 // The struct is to integrate eigenvalues and their indices
@@ -272,16 +279,16 @@ void EigenDecompositionD() {
 	for (size_t i = 0; i < D.size(); i++) {
 		for (size_t j = 0; j < eigenvalues[i].size(); j++) {
 			if (D.size() == 1) {
-				Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(in_size[2]));
-				Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(-in_size[2]));
+				Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(z[ZL - 1] - z[0]));
+				Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(z[0] - z[ZL - 1]));
 			}
 			else {
 				/// Use the commented version when you don't need the heterogeneous info.
 				/// Reason: Little phase mismatch due to the dif between simulation and physics.
 				// In multi-layer case, let's suppose in_size[1] == extent is true.
 				//std::cout << "eigenvalues[i](j): " << eigenvalues[i](j) << std::endl;
-				Di_exp = std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (-in_size[2]) / (std::complex<double>)(num_pixels[0]));
-				Ci_exp = std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (in_size[2]) / (std::complex<double>)(num_pixels[0]));
+				Di_exp = std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (z[i] - z[i + 1]));
+				Ci_exp = std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (z[i + 1] - z[i]));
 				Ci = std::exp(Ci_exp);
 				Di = std::exp(Di_exp);
 			}
@@ -465,7 +472,7 @@ std::vector<tira::planewave<double>> mat2waves(tira::planewave<double> i, Eigen:
 
 	tira::planewave<double> r(Sx(p) * k,
 		Sy(p) * k,
-		-Sz[0](p) * k *in_n[0],
+		-Sz[0](p) * k * in_n[0],
 		x[idx(0, Reflected, X, p, MF)],
 		x[idx(0, Reflected, Y, p, MF)],
 		x[idx(0, Reflected, Z, p, MF)]
@@ -511,7 +518,7 @@ int main(int argc, char** argv) {
 		("n", boost::program_options::value<std::vector<double>>(&in_n)->multitoken()->default_value(std::vector<double>{1.0, 1.0}, "1, 1"), "real refractive index (optical path length) of the upper and lower layers")
 		("kappa", boost::program_options::value<std::vector<double> >(&in_kappa)->multitoken()->default_value(std::vector<double>{0}, "0.00"), "absorbance of the lower layer (upper layer is always 0.0)")
 		// The center of the sample along x/y is always 0/0.
-		("size", boost::program_options::value<std::vector<double>>(&in_size)->multitoken()->default_value(std::vector<double>{10, 10, 4}, "10, 10, 4Z"), "The real size of the single-layer sample")
+		("size", boost::program_options::value<std::vector<double>>(&in_size)->multitoken()->default_value(std::vector<double>{10, 10, 4}, "10, 10, 4"), "The real size of the single-layer sample")
 		("z", boost::program_options::value<double >(&in_z)->multitoken()->default_value(0, "0.0"), "the center of the sample along z-axis")
 		("output", boost::program_options::value<std::string>(&in_outfile)->default_value("c.cw"), "output filename for the coupled wave structure")
 		("coef", boost::program_options::value<std::vector<int> >(&in_coeff)->multitoken(), "number of Fourier coefficients (can be specified in 2 dimensions)")
@@ -547,7 +554,6 @@ int main(int argc, char** argv) {
 
 	// Calculate the number of layers based on input parameters (take the maximum of all layer-specific command-line options)
 	L = in_n.size();
-	
 	Eigen::Vector3d dir(in_dir[0], in_dir[1], in_dir[2]);
 	dir.normalize();																							// set the normalized direction of the incoming source field
 
@@ -561,11 +567,14 @@ int main(int argc, char** argv) {
 	// wavenumber
 	k = (std::complex<double>)(2 * PI / in_lambda);
 
-	// store all of the layer positions and refractive indices
-	InitLayerProperties();
 	// Define sample volume, reformat, and reorgnize.
-	volume < std::complex< double> > Volume(in_sample, ni, z, in_center, in_size, k.real(), std::complex<double>(in_n_sample, in_kappa_sample));
+	InitLayer_n();
+	volume < std::complex< double> > Volume(in_sample, ni, in_center, in_size, k.real(), std::complex<double>(in_n_sample, in_kappa_sample));
 	num_pixels = Volume.reformat();
+	ZL = num_pixels[0] + 1;
+
+	// store all of the layer positions and refractive indices
+	InitLayer_z();
 
 	// Get the number of the Fourier Coefficients
 	if (in_coeff.size() == 0) {
@@ -625,23 +634,14 @@ int main(int argc, char** argv) {
 	E0.push_back(e[1]);
 	E0.push_back(e[2]);
 
-	//Eigen::MatrixXcd E00 = Eigen::MatrixXcd::Zero(num_pixels[1], num_pixels[2]);
-	//E00(num_pixels[1] / 2, num_pixels[2] / 2) = 1;
-	//Eigen::MatrixXcd E11 = Eigen::MatrixXcd::Zero(num_pixels[1], num_pixels[2]);
-	//E11(num_pixels[1] / 2, num_pixels[2] / 2) = 1;
-	//Eigen::MatrixXcd E22 = Eigen::MatrixXcd::Zero(num_pixels[1], num_pixels[2]);
-	//E22(num_pixels[1] / 2, num_pixels[2] / 2) = 1;
-	//////Ef[0] = fftw_fft2(E00, M[1], M[0]);	// M[0]=3 is column. M[1]=1 is row. 
-	//////Ef[1] = fftw_fft2(E11, M[1], M[0]);
-	//////Ef[2] = fftw_fft2(E22, M[1], M[0]);
 	std::vector<Eigen::MatrixXcd> Ef(3);
 
-	//Ef[0] = fftw_fft2(E0[0] * Eigen::MatrixXcd::Ones(num_pixels[1], num_pixels[2]), M[1], M[0]);	// M[0]=3 is column. M[1]=1 is row. 
-	//Ef[1] = fftw_fft2(E0[1] * Eigen::MatrixXcd::Ones(num_pixels[1], num_pixels[2]), M[1], M[0]);
-	//Ef[2] = fftw_fft2(E0[2] * Eigen::MatrixXcd::Ones(num_pixels[1], num_pixels[2]), M[1], M[0]);
-	Ef[0] = E0[0] * Eigen::MatrixXcd::Ones(M[0], M[1]);	// M[0]=3 is column. M[1]=1 is row. 
-	Ef[1] = E0[1] * Eigen::MatrixXcd::Ones(M[0], M[1]);
-	Ef[2] = E0[2] * Eigen::MatrixXcd::Ones(M[0], M[1]);
+	Ef[0] = fftw_fft2(E0[0] * Eigen::MatrixXcd::Ones(num_pixels[1], num_pixels[2]), M[1], M[0]);	// M[0]=3 is column. M[1]=1 is row. 
+	Ef[1] = fftw_fft2(E0[1] * Eigen::MatrixXcd::Ones(num_pixels[1], num_pixels[2]), M[1], M[0]);
+	Ef[2] = fftw_fft2(E0[2] * Eigen::MatrixXcd::Ones(num_pixels[1], num_pixels[2]), M[1], M[0]);
+	//Ef[0] = E0[0] * Eigen::MatrixXcd::Ones(M[0], M[1]);	// M[0]=3 is column. M[1]=1 is row. 
+	//Ef[1] = E0[1] * Eigen::MatrixXcd::Ones(M[0], M[1]);
+	//Ef[2] = E0[2] * Eigen::MatrixXcd::Ones(M[0], M[1]);
 	EF.resize(3 * MF);
 	EF.segment(0, MF) = Eigen::Map<Eigen::VectorXcd>(Ef[0].data(), MF);
 	EF.segment(MF, MF) = Eigen::Map<Eigen::VectorXcd>(Ef[1].data(), MF);
@@ -720,59 +720,21 @@ int main(int argc, char** argv) {
 
 	// The data structure that all data goes to
 	CoupledWaveStructure<double> cw;
-	cw.Layers.resize(L);
-	size_t MF4 = MF * 4;																			// M is the length of beta/gamma/gg
+	cw.Layers.resize(ZL);							// ZL is the number of boundaries. Pr for the upper boundary only; Pt for the lower boundary only. 
+	size_t MF4 = MF * 4;								// MF4 is the length of beta/gamma/gg
 
-	// store the incident plane wave
-	//int ind = (M[1] / 2) * M[0] + (M[0] / 2);
-	//tira::planewave<double> i(Sx(ind) * k, Sy(ind) * k , Sz[0](ind) * k* in_n[0], EF(ind), EF(MF + ind), EF(2 * MF + ind));
-	//cw.Pi.push_back(i);
-
-	tira::planewave<double> zeros(0, 0, k, 0, 0, 0);
-	for (int kk = 0; kk < M[1]; kk++) {
-		for (int j = 0; j < M[0]; j++) {
-			std::complex<double> sy = (kk - M[1] / 2) / in_size[1] * in_lambda + dir[1];
-			std::complex<double> sx = (j - M[0] / 2) / in_size[0] * in_lambda + dir[0];
-			if (true) {
-				//if (abs((sx * sx + sy * sy).real()) < in_n[0] * in_n[0]) {
-				counts += 1;
-				int p = kk * M[0] + j;
-				tira::planewave<double> i(Sx(p) * k, Sy(p) * k, Sz[0](p) * k, EF(p), EF(MF + p), EF(2 * MF + p));	
-				cw.Pi.push_back(i);
-				std::vector<tira::planewave<double>> P = mat2waves(i, x, p);
-				// generate plane waves from the solution vector
-				tira::planewave<double> r, t;
-				for (size_t l = 0; l < L; l++) {														// for each layer
-					if (l == 0) {
-						cw.Layers[l].z = z[l];
-						r = P[1 + l * 2 + 0].wind(0.0, 0.0, -z[l]);
-						//r = P[1 + l * 2 + 0];
-						cw.Layers[l].Pr.push_back(r);
-					}
-					if (l == L - 1) {
-						cw.Layers[l].z = z[l];
-						//t = P[1 + (l - 1) * 2 + 1];
-						t = P[1 + (l - 1) * 2 + 1].wind(0.0, 0.0, -z[l]);
-						cw.Layers[l].Pt.push_back(t);
-					}
-					if (logfile) {
-						logfile << "LAYER " << l << "==========================" << std::endl;
-						logfile << "i (" << p << ") ------------" << std::endl << i.str() << std::endl;
-						logfile << "r (" << p << ") ------------" << std::endl << r.str() << std::endl;
-						logfile << "t (" << p << ") ------------" << std::endl << t.str() << std::endl;
-						logfile << std::endl;
-					}
-				}
-			}
-		}
-	}
-	if (counts != M[0] * M[1]) {
-		saveSampleTexture = false;
-		std::cout << "[WARNING] Not all decomposed Fourier waves are valid. We suggest to increase in_size or decrease the wavelength to tolerate higher Fourier coefficients. Constraints: (float(M[0]/2)/size[2])^2 + (float(M[1]/2)/size[1])^2 < (n/lambda)^2. Scatterviewsample is auto disabled. Please use Scatterview instead." << std::endl;
-	}
-	cw.isHete = saveSampleTexture;
 	// Calculate beta according to the GD, GC, and Pt/Pr
-	if (cw.isHete) {
+	Eigen::MatrixXcd Q_even_cols;
+	Eigen::MatrixXcd Q_odd_cols;
+	Eigen::VectorXcd gamma;
+	Eigen::MatrixXcd beta_even;
+	Eigen::MatrixXcd beta_odd;
+	Eigen::MatrixXcd beta_even_t;
+	Eigen::MatrixXcd beta_odd_t;
+	std::vector<Eigen::MatrixXcd> Q_check(ZL - 1);		// Q_check and Q_hat are for the inside sample only.
+	std::vector<Eigen::MatrixXcd> Q_hat(ZL - 1);
+	cw.isHete = false;
+	if (true) {
 		cw.M[0] = M[0];
 		cw.M[1] = M[1];
 		cw.size[0] = in_size[0];
@@ -786,15 +748,13 @@ int main(int argc, char** argv) {
 				cw.NIf[i][j] = Volume.NIf[i](j);
 			}
 		}
+		// Solve for beta
 		std::chrono::time_point<std::chrono::system_clock> beta_before = std::chrono::system_clock::now();
-
 		Eigen::MatrixXcd EF_mat;
 		Eigen::MatrixXcd Pr_0;
 		Eigen::MatrixXcd beta;
-
 		EF_mat = Eigen::Map< Eigen::MatrixXcd>(EF.data(), 3 * MF, 1);
 		Pr_0 = Eigen::Map< Eigen::MatrixXcd>(x.data(), 3 * MF, 1);
-
 		for (size_t i = 0; i < num_pixels[0]; i++) {
 			if (i == 0) {
 				tmp = MKL_inverse(GD[i]);
@@ -815,18 +775,171 @@ int main(int argc, char** argv) {
 		std::chrono::time_point<std::chrono::system_clock> beta_end = std::chrono::system_clock::now();
 		elapsed_seconds = beta_end - beta_before;
 		proffile << "Solving beta takes:" << elapsed_seconds.count() << "s" << std::endl;
-		for (size_t i = 0; i < num_pixels[0]; i++) {
-			cw.Slices[i].beta.resize(MF4);
-			cw.Slices[i].gamma.resize(MF4);
-			cw.Slices[i].gg.resize(MF4 * MF4);
-			for (size_t m = 0; m < MF4; m++) {
-				cw.Slices[i].beta[m] = Beta[i](m);
-				cw.Slices[i].gamma[m] = eigenvalues[i](m);
+
+		// Q_hat(~P_hat) and Q_check(~P_check) are known. Gamma(~sz) is known. Beta(multiply by Q) is known. 
+		// Correspondingly:
+		//std::cout << "eigenvalues[0]:" << std::endl << eigenvalues[0] << std::endl;
+		//std::cout << "eigenvectors[0]:" << std::endl << eigenvectors[0] << std::endl;
+		Eigen::MatrixXcd Q1, Q2, I1, I2, J1, J2;
+		Q1.resize(4 * MF, 4 * MF);
+		Q2.resize(4 * MF, 4 * MF);
+		I1.resize(MF, 4 * MF);
+		I2.resize(MF, 4 * MF);
+		J1.resize(MF, 4 * MF);
+		J2.resize(MF, 4 * MF);
+		Eigen::VectorXd p_series;
+		Eigen::VectorXd q_series;
+		p_series.setLinSpaced(M[0], -double(M[0] / 2), double((M[0] - 1) / 2));                         // M=3: p_series=[-1, 0, 1]. M=2: p_series=[-1, 0]
+		q_series.setLinSpaced(M[1], -double(M[1] / 2), double((M[1] - 1) / 2));
+		Eigen::VectorXd WQ = 2.0 * q_series * M_PI / in_size[1];
+		Eigen::VectorXd UP = 2.0 * p_series * M_PI / in_size[0];
+		for (int i = 0; i < ZL - 1; i++) {
+			Eigen::MatrixXcd beta = Beta[i].asDiagonal();
+			//std::cout << "beta: " << beta << std::endl;
+			Q_even_cols = Eigen::MatrixXcd::Map(eigenvectors[i].data(), 8 * MF, 2 * MF).topRows(4 * MF);
+			Q_odd_cols = Eigen::MatrixXcd::Map(eigenvectors[i].data(), 8 * MF, 2 * MF).bottomRows(4 * MF);
+			beta_even = Eigen::MatrixXcd::Map(beta.data(), 8 * MF, 2 * MF).topRows(4 * MF);
+			beta_odd = Eigen::MatrixXcd::Map(beta.data(), 8 * MF, 2 * MF).bottomRows(4 * MF);
+			beta_even_t = beta_even.transpose();
+			beta_odd_t = beta_odd.transpose();
+			beta_even = Eigen::MatrixXcd::Map(beta_even_t.data(), 4 * MF, 2 * MF).topRows(2 * MF);
+			beta_odd = Eigen::MatrixXcd::Map(beta_odd_t.data(), 4 * MF, 2 * MF).bottomRows(2 * MF);
+			Q1 = Q_even_cols * beta_even;		// Q1: 4M*1
+			Q2 = Q_odd_cols * beta_odd;			// Q2: 4M*1
+
+			//std::cout << "Q1: " << Q1 << std::endl;
+			//std::cout << "Q2: " << Q2 << std::endl;
+
+			//std::cout << "beta_even:" << beta_even << std::endl;
+			//std::cout << "beta_even.transpose():" << beta_even.transpose() << std::endl;
+
+			Q_check[i].resize(3 * MF, 2 * MF);
+			Q_hat[i].resize(3 * MF, 2 * MF);
+			Q_check[i].setZero();
+			Q_hat[i].setZero();
+			Q_check[i].block(0, 0, MF, 2 * MF) = Q1.block(0, 0, MF, 2 * MF);
+			Q_hat[i].block(0, 0, MF, 2 * MF) = Q2.block(0, 0, MF, 2 * MF);
+			Q_check[i].block(MF, 0, MF, 2 * MF) = Q1.block(MF, 0, MF, 2 * MF);
+			Q_hat[i].block(MF, 0, MF, 2 * MF) = Q2.block(MF, 0, MF, 2 * MF);
+
+			I1 = Q1.block(2 * MF, 0, MF, 2 * MF); // even; downward Hx
+			I2 = Q2.block(2 * MF, 0, MF, 2 * MF); // odd; upward Hx
+			J1 = Q1.block(3 * MF, 0, MF, 2 * MF); // even; downward Hy
+			J2 = Q2.block(3 * MF, 0, MF, 2 * MF); // odd; upward Hy
+
+			//std::cout << "Q_check:" << std::endl << Q_check[i] << std::endl;
+			//std::cout << "Q_hat:" << std::endl << Q_hat[i] << std::endl;
+			for (int qi = 0; qi < M[1]; qi++) {
+				for (int pi = 0; pi < M[0]; pi++) {
+					for (int qj = 0; qj < M[1]; qj++) {
+						int indR = int(qi - qj + M[1]) % M[1];
+						std::complex<double> wq = std::complex<double>(WQ[qj]) + dir[1] * k;
+						for (int pj = 0; pj < M[0]; pj++) {
+							int indC = int(pi - pj + M[0]) % M[0];
+							std::complex<double> up = std::complex<double>(UP[pj]) + dir[0] * k;
+							Eigen::VectorXcd ef2 = Volume.NIf[i]((indR + M[1] / 2 ) % M[1] * M[0] + (indC + M[0] / 2 ) % M[0])
+								* (up * J1.row(qj * M[0] + pj) - wq * I1.row(qj * M[0] + pj));
+							//std::cout << "J1: " << J1 << std::endl;
+							//std::cout << "I1: " << I1 << std::endl;
+							//std::cout << "ef2: " << ef2 << std::endl;
+							Q_check[i].row(2 * MF + qi * M[0] + pi) += std::complex<double>(-1, 0) / k * ef2;
+							ef2 = Volume.NIf[i]((indR + M[1] / 2) % M[1] * M[0] + (indC + M[0] / 2) % M[0])
+								* (up * J2.row(qj * M[0] + pj) - wq * I2.row(qj * M[0] + pj));
+							Q_hat[i].row(2 * MF + qi * M[0] + pi) += std::complex<double>(-1, 0) / k * ef2;
+							//std::cout << "J1: " << J1 << std::endl;
+							//std::cout << "I1: " << I1 << std::endl;
+							//std::cout << "ef2: " << ef2 << std::endl;
+						}
+					}
+				}
 			}
-			for (size_t m = 0; m < MF4 * MF4; m++) {
-				cw.Slices[i].gg[m] = eigenvectors[i](m);
+
+			//std::cout << "Q_even_cols:" << std::endl << Q_even_cols << std::endl;
+			//std::cout << "Q_odd_cols:" << std::endl << Q_odd_cols << std::endl;
+
+			//std::cout << "beta:" << std::endl << Beta[i] << std::endl;
+			//std::cout << "beta_even:" << std::endl << beta_even << std::endl;
+			//std::cout << "beta_odd:" << std::endl << beta_odd << std::endl;
+
+			//std::cout << "Q_check:" << std::endl << Q_check[i] << std::endl;
+			//std::cout << "Q_hat:" << std::endl << Q_hat[i] << std::endl;
+
+			//std::cout << "gamma:" << std::endl << eigenvalues[i] << std::endl;
+		}
+	}
+
+	tira::planewave<double> zeros(0, 0, k, 0, 0, 0);
+	for (int kk = 0; kk < M[1]; kk++) {
+		for (int j = 0; j < M[0]; j++) {
+			std::complex<double> sy = (kk - M[1] / 2) / in_size[1] * in_lambda + dir[1];
+			std::complex<double> sx = (j - M[0] / 2) / in_size[0] * in_lambda + dir[0];
+			if (true) {
+				//if (abs((sx * sx + sy * sy).real()) < in_n[0] * in_n[0]) {
+				counts += 1;
+				int p = kk * M[0] + j;
+				tira::planewave<double> i(Sx(p) * k, Sy(p) * k, Sz[0](p) * k, EF(p), EF(MF + p), EF(2 * MF + p));
+				cw.Pi.push_back(i);
+				std::vector<tira::planewave<double>> P = mat2waves(i, x, p);							// P[0]=Pi; P[1]=Pr; P[2]=Pt.
+				// generate plane waves from the solution vector
+				tira::planewave<double> r, t;
+				for (size_t l = 0; l < ZL; l++) {														// for each layer
+					if (l == 0) {
+						cw.Layers[l].z = z[l];
+						r = P[1].wind(0.0, 0.0, -z[l]);
+						//r = P[1 + l * 2 + 0];
+						cw.Layers[l].Pr.push_back(r);
+						for (int jj = 0; jj < 2 * MF; jj++) {
+							tira::planewave<double> t(Sx(p)* k, Sy(p)* k, eigenvalues[l](2 * jj)* k,
+								Q_check[l](p, jj), Q_check[l](MF + p, jj), Q_check[l](2 * MF + p, jj)
+							);
+							cw.Layers[l].Pt.push_back(t.wind(0.0, 0.0, -z[l]));
+						}
+
+
+					}
+					else if (l == ZL - 1) {
+						cw.Layers[l].z = z[l];
+						//t = P[1 + (l - 1) * 2 + 1];
+						t = P[2].wind(0.0, 0.0, -z[l]);
+						cw.Layers[l].Pt.push_back(t);
+						for (int jj = 0; jj < 2 * MF; jj++) {
+							tira::planewave<double> r(Sx(p)* k, Sy(p)* k, eigenvalues[l - 1](2 * jj + 1) * k,
+								Q_hat[l - 1](p, jj), Q_hat[l - 1](MF + p, jj), Q_hat[l - 1](2 * MF + p, jj)
+							);
+							cw.Layers[l].Pr.push_back(r.wind(0.0, 0.0, -z[l]));
+						}
+
+					}
+					else {
+						for (int jj = 0; jj < 2 * MF; jj++) {
+							tira::planewave<double> r(Sx(p)* k, Sy(p)* k, eigenvalues[l - 1](2 * jj + 1) * k,
+								Q_hat[l - 1](p, jj), Q_hat[l - 1](MF + p, jj), Q_hat[l - 1](2 * MF + p, jj)
+							);
+							cw.Layers[l].Pr.push_back(r.wind(0.0, 0.0, -z[l]));
+						}
+
+						for (int jj = 0; jj < 2 * MF; jj++) {
+							tira::planewave<double> t(Sx(p) * k, Sy(p) * k, eigenvalues[l](2 * jj) * k,
+								Q_check[l](p, jj), Q_check[l](MF + p, jj), Q_check[l](2 * MF + p, jj)
+							);
+							cw.Layers[l].Pt.push_back(t.wind(0.0, 0.0, -z[l]));
+						}
+						cw.Layers[l].z = z[l];
+					}
+					if (logfile) {
+						logfile << "LAYER " << l << "==========================" << std::endl;
+						logfile << "i (" << p << ") ------------" << std::endl << i.str() << std::endl;
+						logfile << "r (" << p << ") ------------" << std::endl << r.str() << std::endl;
+						logfile << "t (" << p << ") ------------" << std::endl << t.str() << std::endl;
+						logfile << std::endl;
+					}
+				}
 			}
 		}
+	}
+	if (counts != M[0] * M[1]) {
+		saveSampleTexture = false;
+		std::cout << "[WARNING] Not all decomposed Fourier waves are valid. We suggest to increase in_size or decrease the wavelength to tolerate higher Fourier coefficients. Constraints: (float(M[0]/2)/size[2])^2 + (float(M[1]/2)/size[1])^2 < (n/lambda)^2. Scatterviewsample is auto disabled. Please use Scatterview instead." << std::endl;
 	}
 	std::cout << "Field saved in " << in_outfile << "." << std::endl;
 	std::cout << "Number of pixels (x, y): [" << num_pixels[2] << "," << num_pixels[1] << "]" << std::endl;

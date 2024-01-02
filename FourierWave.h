@@ -236,7 +236,6 @@ public:
 	std::vector<size_t> _shape;
 
 	Eigen::VectorXcd _n_layers;
-	double* _z = new double[2];
 	std::vector<double> _center;
 	std::vector<unsigned int> _num_pixels;
 	std::vector<double> _size;
@@ -262,7 +261,6 @@ public:
 
 	volume(std::string filename,
 		Eigen::VectorXcd n_layers,
-		double* z,
 		std::vector<double> center,
 		std::vector<double> size,
 		double k,
@@ -272,7 +270,6 @@ public:
 		// Necessary parameters
 		_shape = tira::field<T>::_shape;
 		_n_layers = n_layers;
-		_z = z;
 		_center = center;
 		_size = size;
 		_k = k;

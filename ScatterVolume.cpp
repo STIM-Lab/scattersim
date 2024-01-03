@@ -89,8 +89,8 @@ Eigen::MatrixXcd tmp;					// Temposarily store some Eigen::MatrixXcd
 Eigen::MatrixXcd tmp_2;					// Temposarily store additional Eigen::MatrixXcd
 Eigen::MatrixXcd Gc_static;					// Temposarily store some Eigen::MatrixXcd
 std::chrono::duration<double> elapsed_seconds;
-bool saveSampleTexture = true;
 int counts = 0;
+bool psf = false;
 
 /// Convert a complex vector to a string for display
 template <typename T>
@@ -207,6 +207,7 @@ void Eigen_Sort(Eigen::VectorXcd eigenvalues_unordered, Eigen::MatrixXcd eigenve
 		logfile << "eigenvectors_unordered: " << std::endl;
 		logfile << eigenvectors_unordered << std::endl << std::endl;
 	}
+	std::cout << "eigenvalues_unordered: " << eigenvalues_unordered << std:: endl;
 	for (size_t i = 0; i < len / 2; i++) {
 		evl[2 * i] = eigenvalues_unordered[eiV[len - 1 - i].idx];
 		evt.col(2 * i) = eigenvectors_unordered.col(eiV[len - 1 - i].idx);
@@ -221,6 +222,7 @@ void Eigen_Sort(Eigen::VectorXcd eigenvalues_unordered, Eigen::MatrixXcd eigenve
 		logfile << "evt: " << std::endl;
 		logfile << evt << std::endl << std::endl;
 	}
+	std::cout << "eigenvalues_ordered: " << evl << std::endl;
 
 	eigenvalues.push_back(evl);				// For computing the inner structure of the sample
 	eigenvectors.push_back(evt);
@@ -246,6 +248,7 @@ void EigenDecompositionD() {
 		if (MKL_lapack) {
 			std::complex<double>* A = new std::complex<double>[4 * MF * 4 * MF];
 			Eigen::MatrixXcd::Map(A, D[i].rows(), D[i].cols()) = D[i];
+			std::cout << "D: " << std::endl << D[i] << std::endl;
 			std::complex<double>* evl = new std::complex<double>[4 * MF];
 			std::complex<double>* evt = new std::complex<double>[4 * MF * 4 * MF];
 			std::chrono::time_point<std::chrono::system_clock> s = std::chrono::system_clock::now();
@@ -263,8 +266,6 @@ void EigenDecompositionD() {
 			Eigen_Sort(eigenvalues_unordered[i], eigenvectors_unordered[i]);
 			//npy::SaveArrayAsNumpy("evt_unordered.npy", fortran_order, shape.size(), shape.data(), &eigenvectors_unordered[i](0, 0));
 			//npy::SaveArrayAsNumpy("evt.npy", fortran_order, shape.size(), shape.data(), &eigenvectors[i](0, 0));
-			//for (int ii = 0; ii < 400; ii++)
-			//	std::cout << "eigenvalues: " << (eigenvalues[i](ii)) << std::endl;
 		}
 
 	}
@@ -283,12 +284,9 @@ void EigenDecompositionD() {
 				Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(z[0] - z[ZL - 1]));
 			}
 			else {
-				/// Use the commented version when you don't need the heterogeneous info.
-				/// Reason: Little phase mismatch due to the dif between simulation and physics.
-				// In multi-layer case, let's suppose in_size[1] == extent is true.
-				//std::cout << "eigenvalues[i](j): " << eigenvalues[i](j) << std::endl;
-				Di_exp = std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (z[i] - z[i + 1]));
+				std::cout << "eigenvalues[i](j): " << eigenvalues[i](j) << std::endl;
 				Ci_exp = std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (z[i + 1] - z[i]));
+				Di_exp = std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (z[i] - z[i + 1]));
 				Ci = std::exp(Ci_exp);
 				Di = std::exp(Di_exp);
 			}
@@ -318,13 +316,6 @@ void EigenDecompositionD() {
 		else {
 			tmp = MKL_inverse(Gd);
 			tmp_2 = MKL_multiply(Gc, tmp, 1);
-
-			//const std::vector<long unsigned> shape{ (unsigned long)4 * MF, (unsigned long)4 * MF };
-			//const bool fortran_order{ false };
-			//Eigen::MatrixXcd A_block2 = MKL_multiply(tmp, f3, 1);
-			//npy::SaveArrayAsNumpy("Gc.npy", fortran_order, shape.size(), shape.data(), &Gc(0, 0));
-			//npy::SaveArrayAsNumpy("Gd_inv.npy", fortran_order, shape.size(), shape.data(), &tmp(0, 0));
-
 			Gc = MKL_multiply(tmp_2, Gc_static, 1);
 			Gc_static = Gc;
 		}
@@ -522,6 +513,7 @@ int main(int argc, char** argv) {
 		("z", boost::program_options::value<double >(&in_z)->multitoken()->default_value(0, "0.0"), "the center of the sample along z-axis")
 		("output", boost::program_options::value<std::string>(&in_outfile)->default_value("c.cw"), "output filename for the coupled wave structure")
 		("coef", boost::program_options::value<std::vector<int> >(&in_coeff)->multitoken(), "number of Fourier coefficients (can be specified in 2 dimensions)")
+		("psf", "generate the point spread function(PSF) for the optic system")
 		("log", "produce a log file")
 		("prof", "produce a profiling file")
 		// input just for scattervolume 
@@ -550,6 +542,10 @@ int main(int argc, char** argv) {
 		std::stringstream ss;
 		ss << std::time(0) << "_scattervolume.log";
 		logfile.open(ss.str());
+	}
+
+	if (vm.count("psf")) {
+		psf = true;
 	}
 
 	// Calculate the number of layers based on input parameters (take the maximum of all layer-specific command-line options)
@@ -639,9 +635,12 @@ int main(int argc, char** argv) {
 	Ef[0] = fftw_fft2(E0[0] * Eigen::MatrixXcd::Ones(num_pixels[1], num_pixels[2]), M[1], M[0]);	// M[0]=3 is column. M[1]=1 is row. 
 	Ef[1] = fftw_fft2(E0[1] * Eigen::MatrixXcd::Ones(num_pixels[1], num_pixels[2]), M[1], M[0]);
 	Ef[2] = fftw_fft2(E0[2] * Eigen::MatrixXcd::Ones(num_pixels[1], num_pixels[2]), M[1], M[0]);
-	//Ef[0] = E0[0] * Eigen::MatrixXcd::Ones(M[0], M[1]);	// M[0]=3 is column. M[1]=1 is row. 
-	//Ef[1] = E0[1] * Eigen::MatrixXcd::Ones(M[0], M[1]);
-	//Ef[2] = E0[2] * Eigen::MatrixXcd::Ones(M[0], M[1]);
+	if (psf == true) {
+		Ef[0] = E0[0] * Eigen::MatrixXcd::Ones(M[0], M[1]);	// M[0]=3 is column. M[1]=1 is row. 
+		Ef[1] = E0[1] * Eigen::MatrixXcd::Ones(M[0], M[1]);
+		Ef[2] = E0[2] * Eigen::MatrixXcd::Ones(M[0], M[1]);
+	}
+
 	EF.resize(3 * MF);
 	EF.segment(0, MF) = Eigen::Map<Eigen::VectorXcd>(Ef[0].data(), MF);
 	EF.segment(MF, MF) = Eigen::Map<Eigen::VectorXcd>(Ef[1].data(), MF);
@@ -733,21 +732,8 @@ int main(int argc, char** argv) {
 	Eigen::MatrixXcd beta_odd_t;
 	std::vector<Eigen::MatrixXcd> Q_check(ZL - 1);		// Q_check and Q_hat are for the inside sample only.
 	std::vector<Eigen::MatrixXcd> Q_hat(ZL - 1);
-	cw.isHete = false;
+
 	if (true) {
-		cw.M[0] = M[0];
-		cw.M[1] = M[1];
-		cw.size[0] = in_size[0];
-		cw.size[1] = in_size[1];
-		cw.size[2] = in_size[2];
-		cw.Slices.resize(num_pixels[0]);
-		cw.NIf.resize(num_pixels[0]);
-		for (size_t i = 0; i < num_pixels[0]; i++) {
-			cw.NIf[i].resize(M[0] * M[1]);
-			for (int j = 0; j < M[0] * M[1]; j++) {
-				cw.NIf[i][j] = Volume.NIf[i](j);
-			}
-		}
 		// Solve for beta
 		std::chrono::time_point<std::chrono::system_clock> beta_before = std::chrono::system_clock::now();
 		Eigen::MatrixXcd EF_mat;
@@ -938,7 +924,6 @@ int main(int argc, char** argv) {
 		}
 	}
 	if (counts != M[0] * M[1]) {
-		saveSampleTexture = false;
 		std::cout << "[WARNING] Not all decomposed Fourier waves are valid. We suggest to increase in_size or decrease the wavelength to tolerate higher Fourier coefficients. Constraints: (float(M[0]/2)/size[2])^2 + (float(M[1]/2)/size[1])^2 < (n/lambda)^2. Scatterviewsample is auto disabled. Please use Scatterview instead." << std::endl;
 	}
 	std::cout << "Field saved in " << in_outfile << "." << std::endl;

@@ -33,39 +33,8 @@ namespace {
 }
 void cw_allocate(CoupledWaveStructure<double>* cw) {
     layers = cw->Layers.size();
-    slices = cw->Slices.size();
     z_layers.resize(layers);
-
-    isHete = cw->isHete;
-    if (isHete) {
-        M[0] = cw->M[0];
-        M[1] = cw->M[1];
-        _M = M[0] * M[1];
-        size[0] = cw->size[0];
-        size[1] = cw->size[1];
-        size[2] = cw->size[2];
-
-        NIf.resize(slices);
-        for (int j = 0; j < slices; j++) {
-            NIf[j].resize(_M);
-            for (int i = 0; i < _M; i++) {
-                NIf[j][i] = cw->NIf[j][i];
-            }
-        }
-
-        glm::vec<3, std::complex<float> > k = cw->Pi[M[1] / 2 * M[0] + M[0] / 2].getK();
-        K = sqrt(pow(k[0], 2) + pow(k[1], 2) + pow(k[2], 2));
-        Beta.resize(slices);
-        Gamma.resize(slices);
-        GG.resize(slices);
-        for (size_t i = 0; i < slices; i++) {
-            Beta[i] = Eigen::Map < Eigen::VectorXcd>(cw->Slices[i].beta.data(), 4 * _M);
-            Gamma[i] = Eigen::Map< Eigen::VectorXcd>(cw->Slices[i].gamma.data(), 4 * _M);
-            GG[i] = Eigen::Map< Eigen::MatrixXcd>(cw->Slices[i].gg.data(), 4 * _M, 4 * _M);
-            GG[i].transposeInPlace();
-        }
-        s = cw->Pi[M[1]/2 * M[0]+ M[0]/2].getDirection();
-    }
+    s = cw->Pi[M[1] / 2 * M[0] + M[0] / 2].getDirection();
 
     waves_begin.reserve(1000);
     waves_end.reserve(1000);

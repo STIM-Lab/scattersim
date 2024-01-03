@@ -305,6 +305,7 @@ public:
 		//std::cout << "		The property matrix D starts forming..." << std::endl;
 		clock_t Phi1 = clock();
 		for (size_t i = 0; i < _shape[0]; i++) {
+			//std::cout << "_Sample[i]: " << _Sample[i] << std::endl;
 			_Phi.push_back(phi(_Sample[i]));
 		}
 		clock_t Phi2 = clock();
@@ -335,19 +336,7 @@ private:
 		UpWq_Cal();
 
 		std::chrono::time_point<std::chrono::system_clock> fft_before = std::chrono::system_clock::now();
-		//std::cout << "sample: " << sample << std::endl;
-		//for (int i = 0; i < sample.rows(); i++) {
-		//	for (int j = 0; j < sample.cols(); j++) {
-		//		sample(i, j) = sample(i, j).real();
-		//	}
-		//}
 		Eigen::MatrixXcd Nf = fftw_fft2(sample.array().pow(2), _M[1], _M[0]);
-		//for (int i = 0; i < Nf.rows(); i++) {
-		//	for (int j = 0; j < Nf.cols(); j++) {
-		//		if (j > 440 || j < 360)
-		//			Nf(i, j) = 0;
-		//	}
-		//}
 		//std::cout << "Nf: " << Nf << std::endl;
 		Nif = fftw_fft2(sample.cwiseInverse().array().pow(2), _M[1], _M[0]);
 		std::chrono::time_point<std::chrono::system_clock> fft_after = std::chrono::system_clock::now();

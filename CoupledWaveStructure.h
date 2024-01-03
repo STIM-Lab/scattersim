@@ -53,32 +53,15 @@ struct HomogeneousLayer {
 };
 
 template <typename T>
-struct HeteLayer {
-	std::vector<std::complex<T>> beta;			// Some property of the current sample layer
-	std::vector<std::complex<T>> gamma;			// Eigenvalues of the current sample layer
-	std::vector<std::complex<T>> gg;			// Eigenvectors of the current sample layer
-};
-
-template <typename T>
 class CoupledWaveStructure {
 public:
-	bool isHete = false;
-
-	int M[2];
-	T size[3];
 
 	std::vector< tira::planewave<T> > Pi;		// incoming plane waves
 
 	std::vector< HomogeneousLayer<T> > Layers;			// homogeneous sample layers and their respective plane waves
 
-	std::vector< HeteLayer<T> > Slices;			// homogeneous sample layers and their respective plane waves
-
-	std::vector < std::vector<std::complex<double>>> NIf;
-
 	void save(std::string filename) {
 		std::ofstream file(filename, std::ios::out | std::ios::binary);
-
-		file.write((char*)&isHete, sizeof(bool));		// output the precision (float = 4, double = 8)
 
 		size_t sizeof_T = sizeof(T);
 		file.write((char*)&sizeof_T, sizeof(size_t));		// output the precision (float = 4, double = 8)
@@ -105,14 +88,12 @@ public:
 				file.write((char*)&Layers[iLayers].Pt[iPt], sizeof(tira::planewave<T>));
 			}
 		}
-
 		file.close();
 	}
 
 	bool load(std::string filename) {
 		std::ifstream file(filename, std::ios::in | std::ios::binary);
 		if (!file) return false;
-		file.read((char*)&isHete, sizeof(bool));		// output the precision (float = 4, double = 8)
 
 		size_t sizeof_T;
 		file.read((char*)&sizeof_T, sizeof(size_t));						// read the precision (float = 4, double = 8)
@@ -139,35 +120,6 @@ public:
 				file.read((char*)&Layers[iLayers].Pt[iPt], sizeof(tira::planewave<T>));
 			}
 		}
-
-		//// Load info about beta, gamma, and gg if the sample is heterogeneous
-		//if (isHete == true) {
-		//	file.read((char*)&M, sizeof(int) * 2);
-		//	file.read((char*)&size, sizeof(T) * 3);
-
-		//	unsigned int sizeof_Slices;
-		//	file.read((char*)&sizeof_Slices, sizeof(unsigned int));
-		//	Slices.resize(sizeof_Slices);
-		//	NIf.resize(sizeof_Slices);
-		//	int MF4 = sizeof_Pt * 4;
-		//	for (int iSlices = 0; iSlices < sizeof_Slices; iSlices++) {
-		//		Slices[iSlices].beta.resize(MF4);
-		//		Slices[iSlices].gamma.resize(MF4);
-		//		Slices[iSlices].gg.resize(MF4 * MF4);
-		//		NIf[iSlices].resize(M[0] * M[1]);
-		//		for (int m = 0; m < MF4; m++) {
-		//			file.read((char*)&Slices[iSlices].beta[m], sizeof(std::complex<T>));
-		//		}
-		//		for (int m = 0; m < MF4; m++) {
-		//			file.read((char*)&Slices[iSlices].gamma[m], sizeof(std::complex<T>));
-		//		}
-		//		for (int m = 0; m < MF4 * MF4; m++) {
-		//			file.read((char*)&Slices[iSlices].gg[m], sizeof(std::complex<T>));
-		//		}
-		//		for (int m = 0; m < M[0] * M[1]; m++)
-		//			file.read((char*)&NIf[iSlices][m], sizeof(std::complex<T>));
-		//	}
-		//}
 		file.close();
 		return true;
 	}

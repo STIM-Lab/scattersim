@@ -174,9 +174,9 @@ struct EiV {
 
 // Sort by eigenvalues' imaginery parts. The real parts are the tie-breaker.
 bool sorter(EiV const& lhs, EiV const& rhs) {
-	if (lhs.value.imag() != rhs.value.imag())
+	if (abs(lhs.value.imag() - rhs.value.imag()) > std::numeric_limits<double>::epsilon())
 		return lhs.value.imag() < rhs.value.imag();
-	else if (lhs.value.real() != rhs.value.real())
+	else if (abs(lhs.value.real() - rhs.value.real()) > std::numeric_limits<double>::epsilon())
 		return lhs.value.real() < rhs.value.real();
 	else
 		return lhs.value.imag() < rhs.value.imag();
@@ -783,16 +783,30 @@ int main(int argc, char** argv) {
 	for (int i = 0; i < ZL - 1; i++) {
 		Eigen::MatrixXcd beta = Beta[i].asDiagonal();
 		//std::cout << "beta: " << beta << std::endl;
+		std::chrono::time_point<std::chrono::system_clock> mid_2 = std::chrono::system_clock::now();
 		Q_even_cols = Eigen::MatrixXcd::Map(eigenvectors[i].data(), 8 * MF, 2 * MF).topRows(4 * MF);
 		Q_odd_cols = Eigen::MatrixXcd::Map(eigenvectors[i].data(), 8 * MF, 2 * MF).bottomRows(4 * MF);
 		beta_even = Eigen::MatrixXcd::Map(beta.data(), 8 * MF, 2 * MF).topRows(4 * MF);
 		beta_odd = Eigen::MatrixXcd::Map(beta.data(), 8 * MF, 2 * MF).bottomRows(4 * MF);
+		std::chrono::time_point<std::chrono::system_clock> mid_1 = std::chrono::system_clock::now();
+		elapsed_seconds = mid_1 - mid_2;
+		proffile << "mid_1 takes:" << elapsed_seconds.count() << "s" << std::endl;
 		beta_even_t = beta_even.transpose();
 		beta_odd_t = beta_odd.transpose();
+		std::chrono::time_point<std::chrono::system_clock> mid0 = std::chrono::system_clock::now();
+		elapsed_seconds = mid0 - mid_1;
+		proffile << "mid0 takes:" << elapsed_seconds.count() << "s" << std::endl;
 		beta_even = Eigen::MatrixXcd::Map(beta_even_t.data(), 4 * MF, 2 * MF).topRows(2 * MF);
 		beta_odd = Eigen::MatrixXcd::Map(beta_odd_t.data(), 4 * MF, 2 * MF).bottomRows(2 * MF);
+		std::chrono::time_point<std::chrono::system_clock> mid1 = std::chrono::system_clock::now();
+		elapsed_seconds = mid1 - mid1;
+		proffile << "mid1 takes:" << elapsed_seconds.count() << "s" << std::endl;
+
 		Q1 = MKL_multiply(Q_even_cols, beta_even, 1);		// Q1: 4M*1
 		Q2 = MKL_multiply(Q_odd_cols, beta_odd, 1);			// Q2: 4M*1
+		std::chrono::time_point<std::chrono::system_clock> mid2 = std::chrono::system_clock::now();
+		elapsed_seconds = mid2 - mid1;
+		proffile << "mid2 takes:" << elapsed_seconds.count() << "s" << std::endl;
 
 		Q_check[i].resize(3 * MF, 2 * MF);
 		Q_hat[i].resize(3 * MF, 2 * MF);
@@ -807,25 +821,30 @@ int main(int argc, char** argv) {
 		I2 = Q2.block(2 * MF, 0, MF, 2 * MF); // odd; upward Hx
 		J1 = Q1.block(3 * MF, 0, MF, 2 * MF); // even; downward Hy
 		J2 = Q2.block(3 * MF, 0, MF, 2 * MF); // odd; upward Hy
-
-		for (int qi = 0; qi < M[1]; qi++) {
-			for (int pi = 0; pi < M[0]; pi++) {
-				for (int qj = 0; qj < M[1]; qj++) {
-					int indR = int(qi - qj + M[1]) % M[1];
-					std::complex<double> wq = std::complex<double>(WQ[qj]) + dir[1] * k;
-					for (int pj = 0; pj < M[0]; pj++) {
-						int indC = int(pi - pj + M[0]) % M[0];
-						std::complex<double> up = std::complex<double>(UP[pj]) + dir[0] * k;
-						Eigen::VectorXcd ef2 = Volume.NIf[i]((indR + M[1] / 2 ) % M[1] * M[0] + (indC + M[0] / 2 ) % M[0])
-							* (up * J1.row(qj * M[0] + pj) - wq * I1.row(qj * M[0] + pj));
-						Q_check[i].row(2 * MF + qi * M[0] + pi) += std::complex<double>(-1, 0) / k * ef2;
-						ef2 = Volume.NIf[i]((indR + M[1] / 2) % M[1] * M[0] + (indC + M[0] / 2) % M[0])
-							* (up * J2.row(qj * M[0] + pj) - wq * I2.row(qj * M[0] + pj));
-						Q_hat[i].row(2 * MF + qi * M[0] + pi) += std::complex<double>(-1, 0) / k * ef2;
-					}
-				}
-			}
-		}
+		std::chrono::time_point<std::chrono::system_clock> mid3 = std::chrono::system_clock::now();
+		elapsed_seconds = mid3 - mid2;
+		proffile << "mid3 takes:" << elapsed_seconds.count() << "s" << std::endl;
+		//for (int qi = 0; qi < M[1]; qi++) {
+		//	for (int pi = 0; pi < M[0]; pi++) {
+		//		for (int qj = 0; qj < M[1]; qj++) {
+		//			int indR = int(qi - qj + M[1]) % M[1];
+		//			std::complex<double> wq = std::complex<double>(WQ[qj]) + dir[1] * k;
+		//			for (int pj = 0; pj < M[0]; pj++) {
+		//				int indC = int(pi - pj + M[0]) % M[0];
+		//				std::complex<double> up = std::complex<double>(UP[pj]) + dir[0] * k;
+		//				Eigen::VectorXcd ef2 = Volume.NIf[i]((indR + M[1] / 2 ) % M[1] * M[0] + (indC + M[0] / 2 ) % M[0])
+		//					* (up * J1.row(qj * M[0] + pj) - wq * I1.row(qj * M[0] + pj));
+		//				Q_check[i].row(2 * MF + qi * M[0] + pi) += std::complex<double>(-1, 0) / k * ef2;
+		//				ef2 = Volume.NIf[i]((indR + M[1] / 2) % M[1] * M[0] + (indC + M[0] / 2) % M[0])
+		//					* (up * J2.row(qj * M[0] + pj) - wq * I2.row(qj * M[0] + pj));
+		//				Q_hat[i].row(2 * MF + qi * M[0] + pi) += std::complex<double>(-1, 0) / k * ef2;
+		//			}
+		//		}
+		//	}
+		//}
+		std::chrono::time_point<std::chrono::system_clock> mid4 = std::chrono::system_clock::now();
+		elapsed_seconds = mid4 - mid3;
+		proffile << "mid4 takes:" << elapsed_seconds.count() << "s" << std::endl;
 	}
 
 	std::chrono::time_point<std::chrono::system_clock> insideField_end = std::chrono::system_clock::now();

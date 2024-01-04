@@ -29,7 +29,7 @@
 #include <complex>
 #include <chrono>
 
-
+std::chrono::duration<double> elapsed_seconds;
 GLFWwindow* window;                                     // pointer to the GLFW window that will be created (used in GLFW calls to request properties)
 double window_width = 1600;
 double window_height = 1200;
@@ -713,6 +713,7 @@ int main(int argc, char** argv)
     if (vm.count("nogui")) {
         in_Visualization = false;
     }
+    std::chrono::time_point<std::chrono::system_clock> start_all = std::chrono::system_clock::now();
 
     // set the initial plane position based on the command line arguments
     if (in_axis == 0)
@@ -758,6 +759,9 @@ int main(int argc, char** argv)
 
     if (in_Visualization == false) {
         EvaluateVectorSlices();
+        std::chrono::time_point<std::chrono::system_clock> end_all = std::chrono::system_clock::now();
+        elapsed_seconds = end_all - start_all;
+        std::cout << "Evaluation (no gui) takes:" << elapsed_seconds.count() << "s" << std::endl;
         unsigned int N = pow(2, in_resolution);                // The size of the image to be saved
         // Save the x-z slice (default)
         if (in_axis == 1) {

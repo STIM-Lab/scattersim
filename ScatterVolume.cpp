@@ -207,7 +207,7 @@ void Eigen_Sort(Eigen::VectorXcd eigenvalues_unordered, Eigen::MatrixXcd eigenve
 		logfile << "eigenvectors_unordered: " << std::endl;
 		logfile << eigenvectors_unordered << std::endl << std::endl;
 	}
-	std::cout << "eigenvalues_unordered: " << eigenvalues_unordered << std:: endl;
+	//std::cout << "eigenvalues_unordered: " << eigenvalues_unordered << std:: endl;
 	for (size_t i = 0; i < len / 2; i++) {
 		evl[2 * i] = eigenvalues_unordered[eiV[len - 1 - i].idx];
 		evt.col(2 * i) = eigenvectors_unordered.col(eiV[len - 1 - i].idx);
@@ -222,7 +222,7 @@ void Eigen_Sort(Eigen::VectorXcd eigenvalues_unordered, Eigen::MatrixXcd eigenve
 		logfile << "evt: " << std::endl;
 		logfile << evt << std::endl << std::endl;
 	}
-	std::cout << "eigenvalues_ordered: " << evl << std::endl;
+	//std::cout << "eigenvalues_ordered: " << evl << std::endl;
 
 	eigenvalues.push_back(evl);				// For computing the inner structure of the sample
 	eigenvectors.push_back(evt);
@@ -248,7 +248,7 @@ void EigenDecompositionD() {
 		if (MKL_lapack) {
 			std::complex<double>* A = new std::complex<double>[4 * MF * 4 * MF];
 			Eigen::MatrixXcd::Map(A, D[i].rows(), D[i].cols()) = D[i];
-			std::cout << "D: " << std::endl << D[i] << std::endl;
+			//std::cout << "D: " << std::endl << D[i] << std::endl;
 			std::complex<double>* evl = new std::complex<double>[4 * MF];
 			std::complex<double>* evt = new std::complex<double>[4 * MF * 4 * MF];
 			std::chrono::time_point<std::chrono::system_clock> s = std::chrono::system_clock::now();
@@ -284,7 +284,7 @@ void EigenDecompositionD() {
 				Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(z[0] - z[ZL - 1]));
 			}
 			else {
-				std::cout << "eigenvalues[i](j): " << eigenvalues[i](j) << std::endl;
+				//std::cout << "eigenvalues[i](j): " << eigenvalues[i](j) << std::endl;
 				Ci_exp = std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (z[i + 1] - z[i]));
 				Di_exp = std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (z[i] - z[i + 1]));
 				Ci = std::exp(Ci_exp);
@@ -714,7 +714,7 @@ int main(int argc, char** argv) {
 	if (logfile) {
 		logfile << "x = " << x << std::endl;
 		logfile << "Linear system solved." << std::endl << std::endl << std::endl;
-		logfile << "Field reorganization starts..." << std::endl;
+		logfile << "Field on the boundaries evaluating..." << std::endl;
 	}
 
 	// The data structure that all data goes to
@@ -733,127 +733,104 @@ int main(int argc, char** argv) {
 	std::vector<Eigen::MatrixXcd> Q_check(ZL - 1);		// Q_check and Q_hat are for the inside sample only.
 	std::vector<Eigen::MatrixXcd> Q_hat(ZL - 1);
 
-	if (true) {
-		// Solve for beta
-		std::chrono::time_point<std::chrono::system_clock> beta_before = std::chrono::system_clock::now();
-		Eigen::MatrixXcd EF_mat;
-		Eigen::MatrixXcd Pr_0;
-		Eigen::MatrixXcd beta;
-		EF_mat = Eigen::Map< Eigen::MatrixXcd>(EF.data(), 3 * MF, 1);
-		Pr_0 = Eigen::Map< Eigen::MatrixXcd>(x.data(), 3 * MF, 1);
-		for (size_t i = 0; i < num_pixels[0]; i++) {
-			if (i == 0) {
-				tmp = MKL_inverse(GD[i]);
-				tmp_2 = MKL_multiply(tmp, f1, 1);
-				beta = MKL_multiply(tmp_2, EF_mat, 1);
+	// Solve for beta
+	std::chrono::time_point<std::chrono::system_clock> beta_before = std::chrono::system_clock::now();
+	Eigen::MatrixXcd EF_mat;
+	Eigen::MatrixXcd Pr_0;
+	Eigen::MatrixXcd beta;
+	EF_mat = Eigen::Map< Eigen::MatrixXcd>(EF.data(), 3 * MF, 1);
+	Pr_0 = Eigen::Map< Eigen::MatrixXcd>(x.data(), 3 * MF, 1);
+	for (size_t i = 0; i < num_pixels[0]; i++) {
+		if (i == 0) {
+			tmp = MKL_inverse(GD[i]);
+			tmp_2 = MKL_multiply(tmp, f1, 1);
+			beta = MKL_multiply(tmp_2, EF_mat, 1);
 
-				tmp_2 = MKL_multiply(tmp, f2, 1);
-				beta += MKL_multiply(tmp_2, Pr_0, 1);
-			}
-			else {
-				tmp = MKL_inverse(GD[i]);
-				tmp_2 = MKL_multiply(tmp, GC[i - 1], 1);
-				tmp = MKL_multiply(tmp_2, beta, 1);
-				beta = tmp;
-			}
-			Beta[i] = beta;
+			tmp_2 = MKL_multiply(tmp, f2, 1);
+			beta += MKL_multiply(tmp_2, Pr_0, 1);
 		}
-		std::chrono::time_point<std::chrono::system_clock> beta_end = std::chrono::system_clock::now();
-		elapsed_seconds = beta_end - beta_before;
-		proffile << "Solving beta takes:" << elapsed_seconds.count() << "s" << std::endl;
+		else {
+			tmp = MKL_inverse(GD[i]);
+			tmp_2 = MKL_multiply(tmp, GC[i - 1], 1);
+			tmp = MKL_multiply(tmp_2, beta, 1);
+			beta = tmp;
+		}
+		Beta[i] = beta;
+	}
+	std::chrono::time_point<std::chrono::system_clock> beta_end = std::chrono::system_clock::now();
+	elapsed_seconds = beta_end - beta_before;
+	proffile << "Solving beta takes:" << elapsed_seconds.count() << "s" << std::endl;
 
-		// Q_hat(~P_hat) and Q_check(~P_check) are known. Gamma(~sz) is known. Beta(multiply by Q) is known. 
-		// Correspondingly:
-		//std::cout << "eigenvalues[0]:" << std::endl << eigenvalues[0] << std::endl;
-		//std::cout << "eigenvectors[0]:" << std::endl << eigenvectors[0] << std::endl;
-		Eigen::MatrixXcd Q1, Q2, I1, I2, J1, J2;
-		Q1.resize(4 * MF, 4 * MF);
-		Q2.resize(4 * MF, 4 * MF);
-		I1.resize(MF, 4 * MF);
-		I2.resize(MF, 4 * MF);
-		J1.resize(MF, 4 * MF);
-		J2.resize(MF, 4 * MF);
-		Eigen::VectorXd p_series;
-		Eigen::VectorXd q_series;
-		p_series.setLinSpaced(M[0], -double(M[0] / 2), double((M[0] - 1) / 2));                         // M=3: p_series=[-1, 0, 1]. M=2: p_series=[-1, 0]
-		q_series.setLinSpaced(M[1], -double(M[1] / 2), double((M[1] - 1) / 2));
-		Eigen::VectorXd WQ = 2.0 * q_series * M_PI / in_size[1];
-		Eigen::VectorXd UP = 2.0 * p_series * M_PI / in_size[0];
-		for (int i = 0; i < ZL - 1; i++) {
-			Eigen::MatrixXcd beta = Beta[i].asDiagonal();
-			//std::cout << "beta: " << beta << std::endl;
-			Q_even_cols = Eigen::MatrixXcd::Map(eigenvectors[i].data(), 8 * MF, 2 * MF).topRows(4 * MF);
-			Q_odd_cols = Eigen::MatrixXcd::Map(eigenvectors[i].data(), 8 * MF, 2 * MF).bottomRows(4 * MF);
-			beta_even = Eigen::MatrixXcd::Map(beta.data(), 8 * MF, 2 * MF).topRows(4 * MF);
-			beta_odd = Eigen::MatrixXcd::Map(beta.data(), 8 * MF, 2 * MF).bottomRows(4 * MF);
-			beta_even_t = beta_even.transpose();
-			beta_odd_t = beta_odd.transpose();
-			beta_even = Eigen::MatrixXcd::Map(beta_even_t.data(), 4 * MF, 2 * MF).topRows(2 * MF);
-			beta_odd = Eigen::MatrixXcd::Map(beta_odd_t.data(), 4 * MF, 2 * MF).bottomRows(2 * MF);
-			Q1 = Q_even_cols * beta_even;		// Q1: 4M*1
-			Q2 = Q_odd_cols * beta_odd;			// Q2: 4M*1
+	// Q_hat(~P_hat) and Q_check(~P_check) are known. Gamma(~sz) is known. Beta(multiply by Q) is known. 
+	// Correspondingly:
+	//std::cout << "eigenvalues[0]:" << std::endl << eigenvalues[0] << std::endl;
+	//std::cout << "eigenvectors[0]:" << std::endl << eigenvectors[0] << std::endl;
 
-			//std::cout << "Q1: " << Q1 << std::endl;
-			//std::cout << "Q2: " << Q2 << std::endl;
+	std::chrono::time_point<std::chrono::system_clock> insideField_before = std::chrono::system_clock::now();
+	Eigen::MatrixXcd Q1, Q2, I1, I2, J1, J2;
+	Q1.resize(4 * MF, 4 * MF);
+	Q2.resize(4 * MF, 4 * MF);
+	I1.resize(MF, 4 * MF);
+	I2.resize(MF, 4 * MF);
+	J1.resize(MF, 4 * MF);
+	J2.resize(MF, 4 * MF);
+	Eigen::VectorXd p_series;
+	Eigen::VectorXd q_series;
+	p_series.setLinSpaced(M[0], -double(M[0] / 2), double((M[0] - 1) / 2));                         // M=3: p_series=[-1, 0, 1]. M=2: p_series=[-1, 0]
+	q_series.setLinSpaced(M[1], -double(M[1] / 2), double((M[1] - 1) / 2));
+	Eigen::VectorXd WQ = 2.0 * q_series * M_PI / in_size[1];
+	Eigen::VectorXd UP = 2.0 * p_series * M_PI / in_size[0];
+	for (int i = 0; i < ZL - 1; i++) {
+		Eigen::MatrixXcd beta = Beta[i].asDiagonal();
+		//std::cout << "beta: " << beta << std::endl;
+		Q_even_cols = Eigen::MatrixXcd::Map(eigenvectors[i].data(), 8 * MF, 2 * MF).topRows(4 * MF);
+		Q_odd_cols = Eigen::MatrixXcd::Map(eigenvectors[i].data(), 8 * MF, 2 * MF).bottomRows(4 * MF);
+		beta_even = Eigen::MatrixXcd::Map(beta.data(), 8 * MF, 2 * MF).topRows(4 * MF);
+		beta_odd = Eigen::MatrixXcd::Map(beta.data(), 8 * MF, 2 * MF).bottomRows(4 * MF);
+		beta_even_t = beta_even.transpose();
+		beta_odd_t = beta_odd.transpose();
+		beta_even = Eigen::MatrixXcd::Map(beta_even_t.data(), 4 * MF, 2 * MF).topRows(2 * MF);
+		beta_odd = Eigen::MatrixXcd::Map(beta_odd_t.data(), 4 * MF, 2 * MF).bottomRows(2 * MF);
+		Q1 = MKL_multiply(Q_even_cols, beta_even, 1);		// Q1: 4M*1
+		Q2 = MKL_multiply(Q_odd_cols, beta_odd, 1);			// Q2: 4M*1
 
-			//std::cout << "beta_even:" << beta_even << std::endl;
-			//std::cout << "beta_even.transpose():" << beta_even.transpose() << std::endl;
+		Q_check[i].resize(3 * MF, 2 * MF);
+		Q_hat[i].resize(3 * MF, 2 * MF);
+		Q_check[i].setZero();
+		Q_hat[i].setZero();
+		Q_check[i].block(0, 0, MF, 2 * MF) = Q1.block(0, 0, MF, 2 * MF);
+		Q_hat[i].block(0, 0, MF, 2 * MF) = Q2.block(0, 0, MF, 2 * MF);
+		Q_check[i].block(MF, 0, MF, 2 * MF) = Q1.block(MF, 0, MF, 2 * MF);
+		Q_hat[i].block(MF, 0, MF, 2 * MF) = Q2.block(MF, 0, MF, 2 * MF);
 
-			Q_check[i].resize(3 * MF, 2 * MF);
-			Q_hat[i].resize(3 * MF, 2 * MF);
-			Q_check[i].setZero();
-			Q_hat[i].setZero();
-			Q_check[i].block(0, 0, MF, 2 * MF) = Q1.block(0, 0, MF, 2 * MF);
-			Q_hat[i].block(0, 0, MF, 2 * MF) = Q2.block(0, 0, MF, 2 * MF);
-			Q_check[i].block(MF, 0, MF, 2 * MF) = Q1.block(MF, 0, MF, 2 * MF);
-			Q_hat[i].block(MF, 0, MF, 2 * MF) = Q2.block(MF, 0, MF, 2 * MF);
+		I1 = Q1.block(2 * MF, 0, MF, 2 * MF); // even; downward Hx
+		I2 = Q2.block(2 * MF, 0, MF, 2 * MF); // odd; upward Hx
+		J1 = Q1.block(3 * MF, 0, MF, 2 * MF); // even; downward Hy
+		J2 = Q2.block(3 * MF, 0, MF, 2 * MF); // odd; upward Hy
 
-			I1 = Q1.block(2 * MF, 0, MF, 2 * MF); // even; downward Hx
-			I2 = Q2.block(2 * MF, 0, MF, 2 * MF); // odd; upward Hx
-			J1 = Q1.block(3 * MF, 0, MF, 2 * MF); // even; downward Hy
-			J2 = Q2.block(3 * MF, 0, MF, 2 * MF); // odd; upward Hy
-
-			//std::cout << "Q_check:" << std::endl << Q_check[i] << std::endl;
-			//std::cout << "Q_hat:" << std::endl << Q_hat[i] << std::endl;
-			for (int qi = 0; qi < M[1]; qi++) {
-				for (int pi = 0; pi < M[0]; pi++) {
-					for (int qj = 0; qj < M[1]; qj++) {
-						int indR = int(qi - qj + M[1]) % M[1];
-						std::complex<double> wq = std::complex<double>(WQ[qj]) + dir[1] * k;
-						for (int pj = 0; pj < M[0]; pj++) {
-							int indC = int(pi - pj + M[0]) % M[0];
-							std::complex<double> up = std::complex<double>(UP[pj]) + dir[0] * k;
-							Eigen::VectorXcd ef2 = Volume.NIf[i]((indR + M[1] / 2 ) % M[1] * M[0] + (indC + M[0] / 2 ) % M[0])
-								* (up * J1.row(qj * M[0] + pj) - wq * I1.row(qj * M[0] + pj));
-							//std::cout << "J1: " << J1 << std::endl;
-							//std::cout << "I1: " << I1 << std::endl;
-							//std::cout << "ef2: " << ef2 << std::endl;
-							Q_check[i].row(2 * MF + qi * M[0] + pi) += std::complex<double>(-1, 0) / k * ef2;
-							ef2 = Volume.NIf[i]((indR + M[1] / 2) % M[1] * M[0] + (indC + M[0] / 2) % M[0])
-								* (up * J2.row(qj * M[0] + pj) - wq * I2.row(qj * M[0] + pj));
-							Q_hat[i].row(2 * MF + qi * M[0] + pi) += std::complex<double>(-1, 0) / k * ef2;
-							//std::cout << "J1: " << J1 << std::endl;
-							//std::cout << "I1: " << I1 << std::endl;
-							//std::cout << "ef2: " << ef2 << std::endl;
-						}
+		for (int qi = 0; qi < M[1]; qi++) {
+			for (int pi = 0; pi < M[0]; pi++) {
+				for (int qj = 0; qj < M[1]; qj++) {
+					int indR = int(qi - qj + M[1]) % M[1];
+					std::complex<double> wq = std::complex<double>(WQ[qj]) + dir[1] * k;
+					for (int pj = 0; pj < M[0]; pj++) {
+						int indC = int(pi - pj + M[0]) % M[0];
+						std::complex<double> up = std::complex<double>(UP[pj]) + dir[0] * k;
+						Eigen::VectorXcd ef2 = Volume.NIf[i]((indR + M[1] / 2 ) % M[1] * M[0] + (indC + M[0] / 2 ) % M[0])
+							* (up * J1.row(qj * M[0] + pj) - wq * I1.row(qj * M[0] + pj));
+						Q_check[i].row(2 * MF + qi * M[0] + pi) += std::complex<double>(-1, 0) / k * ef2;
+						ef2 = Volume.NIf[i]((indR + M[1] / 2) % M[1] * M[0] + (indC + M[0] / 2) % M[0])
+							* (up * J2.row(qj * M[0] + pj) - wq * I2.row(qj * M[0] + pj));
+						Q_hat[i].row(2 * MF + qi * M[0] + pi) += std::complex<double>(-1, 0) / k * ef2;
 					}
 				}
 			}
-
-			//std::cout << "Q_even_cols:" << std::endl << Q_even_cols << std::endl;
-			//std::cout << "Q_odd_cols:" << std::endl << Q_odd_cols << std::endl;
-
-			//std::cout << "beta:" << std::endl << Beta[i] << std::endl;
-			//std::cout << "beta_even:" << std::endl << beta_even << std::endl;
-			//std::cout << "beta_odd:" << std::endl << beta_odd << std::endl;
-
-			//std::cout << "Q_check:" << std::endl << Q_check[i] << std::endl;
-			//std::cout << "Q_hat:" << std::endl << Q_hat[i] << std::endl;
-
-			//std::cout << "gamma:" << std::endl << eigenvalues[i] << std::endl;
 		}
 	}
 
+	std::chrono::time_point<std::chrono::system_clock> insideField_end = std::chrono::system_clock::now();
+	elapsed_seconds = insideField_end - insideField_before;
+	proffile << "Solving the inside Field on the boundaries takes:" << elapsed_seconds.count() << "s" << std::endl;
 	tira::planewave<double> zeros(0, 0, k, 0, 0, 0);
 	for (int kk = 0; kk < M[1]; kk++) {
 		for (int j = 0; j < M[0]; j++) {

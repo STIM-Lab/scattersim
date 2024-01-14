@@ -240,26 +240,33 @@ void EigenDecompositionD() {
 	GC.reserve(D.size());
 	for (size_t i = 0; i < D.size(); i++) {
 		if (EIGEN) {
+			std::chrono::time_point<std::chrono::system_clock> s = std::chrono::system_clock::now();
 			Eigen::ComplexEigenSolver<Eigen::MatrixXcd> es(D[i]);
 			eigenvalues_unordered.push_back(es.eigenvalues());
 			eigenvectors_unordered.push_back(es.eigenvectors());
 			Eigen_Sort(eigenvalues_unordered[i], eigenvectors_unordered[i]);
+			std::chrono::time_point<std::chrono::system_clock> e = std::chrono::system_clock::now();
+			elapsed_seconds = e - s;
+			proffile << "						Time for MKL_eigensolve():" << elapsed_seconds.count() << "s" << std::endl;
+			
 		}
 		if (MKL_lapack) {
+			std::chrono::time_point<std::chrono::system_clock> s = std::chrono::system_clock::now();
 			std::complex<double>* A = new std::complex<double>[4 * MF * 4 * MF];
 			Eigen::MatrixXcd::Map(A, D[i].rows(), D[i].cols()) = D[i];
 			//std::cout << "D: " << std::endl << D[i] << std::endl;
 			std::complex<double>* evl = new std::complex<double>[4 * MF];
 			std::complex<double>* evt = new std::complex<double>[4 * MF * 4 * MF];
-			std::chrono::time_point<std::chrono::system_clock> s = std::chrono::system_clock::now();
 			MKL_eigensolve(A, evl, evt, 4 * MF);
-			//const std::vector<long unsigned> shape{ (unsigned long)4 * MF, (unsigned long)4 * MF };
-			//const bool fortran_order{ false };
-			//npy::SaveArrayAsNumpy("A.npy", fortran_order, shape.size(), shape.data(), &D[i](0, 0));
 
 			std::chrono::time_point<std::chrono::system_clock> e = std::chrono::system_clock::now();
 			elapsed_seconds = e - s;
 			proffile << "						Time for MKL_eigensolve():" << elapsed_seconds.count() << "s" << std::endl;
+
+			const std::vector<long unsigned> shape{ (unsigned long)4 * MF, (unsigned long)4 * MF };
+			const bool fortran_order{ false };
+			npy::SaveArrayAsNumpy("A.npy", fortran_order, shape.size(), shape.data(), &D[i](0, 0));
+
 			eigenvalues_unordered.push_back(Eigen::Map<Eigen::VectorXcd>(evl, 4 * MF));
 			eigenvectors_unordered.push_back(Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(evt, 4 * MF, 4 * MF));
 			//std::cout << "eigenvalues_unordered: " << eigenvalues_unordered[i] << std::endl;
@@ -278,6 +285,7 @@ void EigenDecompositionD() {
 	std::complex<double> Di_exp;
 	std::complex<double> Ci_exp;
 	for (size_t i = 0; i < D.size(); i++) {
+		//std::cout << "eigenvalues[i]:" << std::endl << eigenvalues[i] << std::endl;
 		for (size_t j = 0; j < eigenvalues[i].size(); j++) {
 			if (D.size() == 1) {
 				Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(z[ZL - 1] - z[0]));
@@ -509,7 +517,7 @@ int main(int argc, char** argv) {
 		("n", boost::program_options::value<std::vector<double>>(&in_n)->multitoken()->default_value(std::vector<double>{1.0, 1.0}, "1, 1"), "real refractive index (optical path length) of the upper and lower layers")
 		("kappa", boost::program_options::value<std::vector<double> >(&in_kappa)->multitoken()->default_value(std::vector<double>{0}, "0.00"), "absorbance of the lower layer (upper layer is always 0.0)")
 		// The center of the sample along x/y is always 0/0.
-		("size", boost::program_options::value<std::vector<double>>(&in_size)->multitoken()->default_value(std::vector<double>{10, 10, 4}, "10, 10, 4"), "The real size of the single-layer sample")
+		("size", boost::program_options::value<std::vector<double>>(&in_size)->multitoken()->default_value(std::vector<double>{10, 10, 2}, "10, 10, 4"), "The real size of the single-layer sample")
 		("z", boost::program_options::value<double >(&in_z)->multitoken()->default_value(0, "0.0"), "the center of the sample along z-axis")
 		("output", boost::program_options::value<std::string>(&in_outfile)->default_value("c.cw"), "output filename for the coupled wave structure")
 		("coef", boost::program_options::value<std::vector<int> >(&in_coeff)->multitoken(), "number of Fourier coefficients (can be specified in 2 dimensions)")
@@ -824,24 +832,24 @@ int main(int argc, char** argv) {
 		std::chrono::time_point<std::chrono::system_clock> mid3 = std::chrono::system_clock::now();
 		elapsed_seconds = mid3 - mid2;
 		proffile << "mid3 takes:" << elapsed_seconds.count() << "s" << std::endl;
-		//for (int qi = 0; qi < M[1]; qi++) {
-		//	for (int pi = 0; pi < M[0]; pi++) {
-		//		for (int qj = 0; qj < M[1]; qj++) {
-		//			int indR = int(qi - qj + M[1]) % M[1];
-		//			std::complex<double> wq = std::complex<double>(WQ[qj]) + dir[1] * k;
-		//			for (int pj = 0; pj < M[0]; pj++) {
-		//				int indC = int(pi - pj + M[0]) % M[0];
-		//				std::complex<double> up = std::complex<double>(UP[pj]) + dir[0] * k;
-		//				Eigen::VectorXcd ef2 = Volume.NIf[i]((indR + M[1] / 2 ) % M[1] * M[0] + (indC + M[0] / 2 ) % M[0])
-		//					* (up * J1.row(qj * M[0] + pj) - wq * I1.row(qj * M[0] + pj));
-		//				Q_check[i].row(2 * MF + qi * M[0] + pi) += std::complex<double>(-1, 0) / k * ef2;
-		//				ef2 = Volume.NIf[i]((indR + M[1] / 2) % M[1] * M[0] + (indC + M[0] / 2) % M[0])
-		//					* (up * J2.row(qj * M[0] + pj) - wq * I2.row(qj * M[0] + pj));
-		//				Q_hat[i].row(2 * MF + qi * M[0] + pi) += std::complex<double>(-1, 0) / k * ef2;
-		//			}
-		//		}
-		//	}
-		//}
+		for (int qi = 0; qi < M[1]; qi++) {
+			for (int pi = 0; pi < M[0]; pi++) {
+				for (int qj = 0; qj < M[1]; qj++) {
+					int indR = int(qi - qj + M[1]) % M[1];
+					std::complex<double> wq = std::complex<double>(WQ[qj]) + dir[1] * k;
+					for (int pj = 0; pj < M[0]; pj++) {
+						int indC = int(pi - pj + M[0]) % M[0];
+						std::complex<double> up = std::complex<double>(UP[pj]) + dir[0] * k;
+						Eigen::VectorXcd ef2 = Volume.NIf[i]((indR + M[1] / 2 ) % M[1] * M[0] + (indC + M[0] / 2 ) % M[0])
+							* (up * J1.row(qj * M[0] + pj) - wq * I1.row(qj * M[0] + pj));
+						Q_check[i].row(2 * MF + qi * M[0] + pi) += std::complex<double>(-1, 0) / k * ef2;
+						ef2 = Volume.NIf[i]((indR + M[1] / 2) % M[1] * M[0] + (indC + M[0] / 2) % M[0])
+							* (up * J2.row(qj * M[0] + pj) - wq * I2.row(qj * M[0] + pj));
+						Q_hat[i].row(2 * MF + qi * M[0] + pi) += std::complex<double>(-1, 0) / k * ef2;
+					}
+				}
+			}
+		}
 		std::chrono::time_point<std::chrono::system_clock> mid4 = std::chrono::system_clock::now();
 		elapsed_seconds = mid4 - mid3;
 		proffile << "mid4 takes:" << elapsed_seconds.count() << "s" << std::endl;

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 S = 10
 
 # number of samples and layers
-N = 10
+N = 256
 L = N
 
 # radius of the cylinder
@@ -23,6 +23,6 @@ C = np.ones_like(R, dtype=np.complex128)
 C[R <= a] = n
 C = np.expand_dims(C, 0)
 
-np.save("D:\\myGit\\build\\scatter_bld_spring\\C_10_10.npy", C)
+np.save("D:\\myGit\\build\\scatter_bld_spring\\Cylinder_256.npy", C)
 
 

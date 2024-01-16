@@ -91,7 +91,7 @@ Eigen::MatrixXcd Gc_static;					// Temposarily store some Eigen::MatrixXcd
 std::chrono::duration<double> elapsed_seconds;
 int counts = 0;
 bool psf = false;
-
+bool External = false;
 /// Convert a complex vector to a string for display
 template <typename T>
 std::string vec2str(glm::vec<3, std::complex<T> > v, int spacing = 20) {
@@ -522,6 +522,7 @@ int main(int argc, char** argv) {
 		("output", boost::program_options::value<std::string>(&in_outfile)->default_value("c.cw"), "output filename for the coupled wave structure")
 		("coef", boost::program_options::value<std::vector<int> >(&in_coeff)->multitoken(), "number of Fourier coefficients (can be specified in 2 dimensions)")
 		("psf", "generate the point spread function(PSF) for the optic system")
+		("external", "save waves for visualization of external field only")
 		("log", "produce a log file")
 		("prof", "produce a profiling file")
 		// input just for scattervolume 
@@ -554,6 +555,10 @@ int main(int argc, char** argv) {
 
 	if (vm.count("psf")) {
 		psf = true;
+	}
+	
+	if (vm.count("external")) {
+		External = true;
 	}
 
 	// Calculate the number of layers based on input parameters (take the maximum of all layer-specific command-line options)
@@ -878,11 +883,13 @@ int main(int argc, char** argv) {
 						r = P[1].wind(0.0, 0.0, -z[l]);
 						//r = P[1 + l * 2 + 0];
 						cw.Layers[l].Pr.push_back(r);
-						for (int jj = 0; jj < 2 * MF; jj++) {
-							tira::planewave<double> t(Sx(p)* k, Sy(p)* k, eigenvalues[l](2 * jj)* k,
-								Q_check[l](p, jj), Q_check[l](MF + p, jj), Q_check[l](2 * MF + p, jj)
-							);
-							cw.Layers[l].Pt.push_back(t.wind(0.0, 0.0, -z[l]));
+						if (!External) {
+							for (int jj = 0; jj < 2 * MF; jj++) {
+								tira::planewave<double> t(Sx(p) * k, Sy(p) * k, eigenvalues[l](2 * jj) * k,
+									Q_check[l](p, jj), Q_check[l](MF + p, jj), Q_check[l](2 * MF + p, jj)
+								);
+								cw.Layers[l].Pt.push_back(t.wind(0.0, 0.0, -z[l]));
+							}
 						}
 
 
@@ -892,29 +899,32 @@ int main(int argc, char** argv) {
 						//t = P[1 + (l - 1) * 2 + 1];
 						t = P[2].wind(0.0, 0.0, -z[l]);
 						cw.Layers[l].Pt.push_back(t);
-						for (int jj = 0; jj < 2 * MF; jj++) {
-							tira::planewave<double> r(Sx(p)* k, Sy(p)* k, eigenvalues[l - 1](2 * jj + 1) * k,
-								Q_hat[l - 1](p, jj), Q_hat[l - 1](MF + p, jj), Q_hat[l - 1](2 * MF + p, jj)
-							);
-							cw.Layers[l].Pr.push_back(r.wind(0.0, 0.0, -z[l]));
+						if (!External) {
+							for (int jj = 0; jj < 2 * MF; jj++) {
+								tira::planewave<double> r(Sx(p) * k, Sy(p) * k, eigenvalues[l - 1](2 * jj + 1) * k,
+									Q_hat[l - 1](p, jj), Q_hat[l - 1](MF + p, jj), Q_hat[l - 1](2 * MF + p, jj)
+								);
+								cw.Layers[l].Pr.push_back(r.wind(0.0, 0.0, -z[l]));
+							}
 						}
-
 					}
 					else {
-						for (int jj = 0; jj < 2 * MF; jj++) {
-							tira::planewave<double> r(Sx(p)* k, Sy(p)* k, eigenvalues[l - 1](2 * jj + 1) * k,
-								Q_hat[l - 1](p, jj), Q_hat[l - 1](MF + p, jj), Q_hat[l - 1](2 * MF + p, jj)
-							);
-							cw.Layers[l].Pr.push_back(r.wind(0.0, 0.0, -z[l]));
-						}
+						if (!External) {
+							for (int jj = 0; jj < 2 * MF; jj++) {
+								tira::planewave<double> r(Sx(p) * k, Sy(p) * k, eigenvalues[l - 1](2 * jj + 1) * k,
+									Q_hat[l - 1](p, jj), Q_hat[l - 1](MF + p, jj), Q_hat[l - 1](2 * MF + p, jj)
+								);
+								cw.Layers[l].Pr.push_back(r.wind(0.0, 0.0, -z[l]));
+							}
 
-						for (int jj = 0; jj < 2 * MF; jj++) {
-							tira::planewave<double> t(Sx(p) * k, Sy(p) * k, eigenvalues[l](2 * jj) * k,
-								Q_check[l](p, jj), Q_check[l](MF + p, jj), Q_check[l](2 * MF + p, jj)
-							);
-							cw.Layers[l].Pt.push_back(t.wind(0.0, 0.0, -z[l]));
+							for (int jj = 0; jj < 2 * MF; jj++) {
+								tira::planewave<double> t(Sx(p) * k, Sy(p) * k, eigenvalues[l](2 * jj) * k,
+									Q_check[l](p, jj), Q_check[l](MF + p, jj), Q_check[l](2 * MF + p, jj)
+								);
+								cw.Layers[l].Pt.push_back(t.wind(0.0, 0.0, -z[l]));
+							}
+							cw.Layers[l].z = z[l];
 						}
-						cw.Layers[l].z = z[l];
 					}
 					if (logfile) {
 						logfile << "LAYER " << l << "==========================" << std::endl;

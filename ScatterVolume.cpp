@@ -258,14 +258,14 @@ void EigenDecompositionD() {
 			std::complex<double>* evl = new std::complex<double>[4 * MF];
 			std::complex<double>* evt = new std::complex<double>[4 * MF * 4 * MF];
 			MKL_eigensolve(A, evl, evt, 4 * MF);
-
+			delete[] A;
 			std::chrono::time_point<std::chrono::system_clock> e = std::chrono::system_clock::now();
 			elapsed_seconds = e - s;
 			proffile << "						Time for MKL_eigensolve():" << elapsed_seconds.count() << "s" << std::endl;
 
 			const std::vector<long unsigned> shape{ (unsigned long)4 * MF, (unsigned long)4 * MF };
 			const bool fortran_order{ false };
-			npy::SaveArrayAsNumpy("A.npy", fortran_order, shape.size(), shape.data(), &D[i](0, 0));
+			//npy::SaveArrayAsNumpy("A.npy", fortran_order, shape.size(), shape.data(), &D[i](0, 0));
 
 			eigenvalues_unordered.push_back(Eigen::Map<Eigen::VectorXcd>(evl, 4 * MF));
 			eigenvectors_unordered.push_back(Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(evt, 4 * MF, 4 * MF));
@@ -273,6 +273,9 @@ void EigenDecompositionD() {
 			Eigen_Sort(eigenvalues_unordered[i], eigenvectors_unordered[i]);
 			//npy::SaveArrayAsNumpy("evt_unordered.npy", fortran_order, shape.size(), shape.data(), &eigenvectors_unordered[i](0, 0));
 			//npy::SaveArrayAsNumpy("evt.npy", fortran_order, shape.size(), shape.data(), &eigenvectors[i](0, 0));
+
+			delete[] evl;
+			delete[] evt;
 		}
 
 	}

@@ -81,8 +81,6 @@ std::vector<Eigen::MatrixXcd> eigenvectors;			// eigen vectors for current layer
 std::vector<Eigen::VectorXcd> Beta;			// eigen vectors for current layer
 Eigen::MatrixXcd Gc;					// Upward
 Eigen::MatrixXcd Gd;					// Downward
-std::vector<Eigen::VectorXcd > Eigenvalues;			// Dimension: (layers, coeffs)
-std::vector<Eigen::MatrixXcd> Eigenvectors;			// Dimension: (layers, coeffs)
 std::vector<Eigen::MatrixXcd> GD;					// Dimension: (layers, coeffs)
 std::vector<Eigen::MatrixXcd> GC;					// Dimension: (layers, coeffs)
 Eigen::MatrixXcd f1;
@@ -333,6 +331,8 @@ void EigenDecompositionD() {
 			Gc = MKL_multiply(tmp_2, Gc_static, 1);
 			Gc_static = Gc;
 		}
+		Gd.resize(0, 0);
+		Gc.resize(0, 0);
 		//if (logfile) {
 		//	logfile << "----------For the layer---------- " << std::endl;
 		//	logfile << "Property matrix D: " << std::endl;
@@ -374,6 +374,7 @@ void MatTransfer() {
 	f1.block(2 * MF, 2 * MF, MF, MF) = identity.array() * Phase.array() * SY.array();
 	f1.block(3 * MF, 0, MF, MF) = identity.array() * Phase.array() * SZ0.array();
 	f1.block(3 * MF, 2 * MF, MF, MF) = (std::complex<double>(-1, 0)) * identity.array() * Phase.array() * SX.array();
+	Phase.resize(0, 0);
 
 	// second constraint (Equation 9)
 	f2.block(0, 0, MF, MF) = identity.array();
@@ -382,6 +383,7 @@ void MatTransfer() {
 	f2.block(2 * MF, 2 * MF, MF, MF) = SY.array() * identity.array();
 	f2.block(3 * MF, 0, MF, MF) = std::complex<double>(-1, 0) * SZ0.array() * identity.array();
 	f2.block(3 * MF, 2 * MF, MF, MF) = std::complex<double>(-1, 0) * SX.array() * identity.array();
+	SZ0.resize(0, 0);
 
 	// third constraint (Equation 10)	
 	f3.block(0, 0, MF, MF) = -identity.array();
@@ -390,7 +392,10 @@ void MatTransfer() {
 	f3.block(2 * MF, 2 * MF, MF, MF) = -SY.array() * identity.array();
 	f3.block(3 * MF, 0, MF, MF) = -SZ1.array() * identity.array();
 	f3.block(3 * MF, 2 * MF, MF, MF) = SX.array() * identity.array();
-
+	SZ1.resize(0, 0);
+	SX.resize(0, 0);
+	SY.resize(0, 0);
+	identity.resize(0, 0);
 	//if (logfile) {
 	//	logfile << "f1: " << std::endl;
 	//	logfile << f1 << std::endl;
@@ -444,6 +449,7 @@ void SetBoundaryConditions() {
 	//npy::SaveArrayAsNumpy("Gc_static.npy", fortran_order, shape.size(), shape.data(), &Gc_static(0, 0));
 
 	Eigen::MatrixXcd Gc_inv = MKL_inverse(Gc_static);
+	Gc_static.resize(0, 0);
 	std::chrono::time_point<std::chrono::system_clock> inv = std::chrono::system_clock::now();
 	elapsed_seconds = inv - matTransfer;
 	if(LOG)
@@ -451,7 +457,9 @@ void SetBoundaryConditions() {
 
 	A.block(2 * MF, 0, 4 * MF, 3 * MF) = f2;
 	tmp = MKL_multiply(GD[0], Gc_inv, 1);
+	Gc_inv.resize(0, 0);
 	A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = MKL_multiply(tmp, f3, 1);
+	f3.resize(0, 0);
 	std::chrono::time_point<std::chrono::system_clock> mul = std::chrono::system_clock::now();
 	elapsed_seconds = mul - inv;
 	if(LOG)
@@ -586,9 +594,10 @@ int main(int argc, char** argv) {
 	// Define sample volume, reformat, and reorgnize.
 	InitLayer_n();
 	volume < std::complex< double> > Volume(in_sample, ni, in_center, in_size, k.real(), std::complex<double>(in_n_sample, in_kappa_sample));
+	ni.resize(0);
 	num_pixels = Volume.reformat();
 	ZL = num_pixels[0] + 1;
-
+		
 	// store all of the layer positions and refractive indices
 	InitLayer_z();
 
@@ -730,7 +739,8 @@ int main(int argc, char** argv) {
 	//std::cout << "x: " << x << std::endl;
 	if (LOG)
 		logfile << "Linear system solved." << std::endl;
-
+	A.resize(0, 0);
+	b.resize(0);
 	std::chrono::time_point<std::chrono::system_clock> solved = std::chrono::system_clock::now();
 	elapsed_seconds = solved - built;
 	if (LOG)
@@ -747,7 +757,6 @@ int main(int argc, char** argv) {
 		// Calculate beta according to the GD, GC, and Pt/Pr
 		Eigen::MatrixXcd Q_even_cols;
 		Eigen::MatrixXcd Q_odd_cols;
-		Eigen::VectorXcd gamma;
 		Eigen::MatrixXcd beta_even;
 		Eigen::MatrixXcd beta_odd;
 		Eigen::MatrixXcd beta_even_t;
@@ -766,9 +775,10 @@ int main(int argc, char** argv) {
 				tmp = MKL_inverse(GD[i]);
 				tmp_2 = MKL_multiply(tmp, f1, 1);
 				beta = MKL_multiply(tmp_2, EF_mat, 1);
-
 				tmp_2 = MKL_multiply(tmp, f2, 1);
 				beta += MKL_multiply(tmp_2, Pr_0, 1);
+				EF_mat.resize(0, 0);
+				Pr_0.resize(0, 0);
 			}
 			else {
 				tmp = MKL_inverse(GD[i]);
@@ -778,6 +788,13 @@ int main(int argc, char** argv) {
 			}
 			Beta[i] = beta;
 		}
+		beta.resize(0, 0);
+		f1.resize(0, 0);
+		f2.resize(0, 0);
+		tmp.resize(0, 0);
+		tmp_2.resize(0, 0);
+		std::vector<Eigen::MatrixXcd>().swap(GD);
+		std::vector<Eigen::MatrixXcd>().swap(GC);
 		std::chrono::time_point<std::chrono::system_clock> beta_end = std::chrono::system_clock::now();
 		elapsed_seconds = beta_end - beta_before;
 		if (LOG)
@@ -819,7 +836,12 @@ int main(int argc, char** argv) {
 
 			Q1 = MKL_multiply(Q_even_cols, beta_even, 1);		// Q1: 4M*1
 			Q2 = MKL_multiply(Q_odd_cols, beta_odd, 1);			// Q2: 4M*1
-			std::chrono::time_point<std::chrono::system_clock> mid2 = std::chrono::system_clock::now();
+			Q_even_cols.resize(0, 0);
+			Q_odd_cols.resize(0, 0);
+			beta_even_t.resize(0, 0);
+			beta_odd_t.resize(0, 0);
+			beta_even.resize(0, 0);
+			beta_odd.resize(0, 0);
 
 			Q_check[i].resize(3 * MF, 2 * MF);
 			Q_hat[i].resize(3 * MF, 2 * MF);
@@ -864,6 +886,12 @@ int main(int argc, char** argv) {
 					logfile << "		Time to calculate a single Pz:" << elapsed_seconds.count() << "s" << std::endl;
 			}
 		}
+		Q1.resize(0, 0);
+		Q2.resize(0, 0);
+		I1.resize(0, 0);
+		I2.resize(0, 0);	
+		J1.resize(0, 0);
+		J2.resize(0, 0);
 		if (LOG)
 			logfile << "Internal field calculated." << std::endl;
 		std::chrono::time_point<std::chrono::system_clock> internal_end = std::chrono::system_clock::now();

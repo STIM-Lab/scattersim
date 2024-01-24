@@ -29,6 +29,9 @@
 std::vector<double> in_dir;
 double in_lambda;
 
+bool LOG = false;
+std::string logprefix = "";
+
 std::vector<double> in_n;
 std::vector<double> in_kappa;
 std::vector<double> in_ex;
@@ -69,7 +72,7 @@ Eigen::VectorXcd Ex, Ey, Ez;
 int ei = 0;				// The current row for the matrix
 int l;			// The current layer l.
 std::ofstream logfile;
-std::ofstream proffile;
+//std::ofstream proffile;
 std::vector<Eigen::MatrixXcd> D;		// The property matrix
 Eigen::VectorXcd evl;
 Eigen::MatrixXcd evt;
@@ -247,7 +250,8 @@ void EigenDecompositionD() {
 			Eigen_Sort(eigenvalues_unordered[i], eigenvectors_unordered[i]);
 			std::chrono::time_point<std::chrono::system_clock> e = std::chrono::system_clock::now();
 			elapsed_seconds = e - s;
-			proffile << "						Time for MKL_eigensolve():" << elapsed_seconds.count() << "s" << std::endl;
+			if(LOG)
+				logfile << "						Time for MKL_eigensolve():" << elapsed_seconds.count() << "s" << std::endl;
 			
 		}
 		if (MKL_lapack) {
@@ -261,7 +265,8 @@ void EigenDecompositionD() {
 			delete[] A;
 			std::chrono::time_point<std::chrono::system_clock> e = std::chrono::system_clock::now();
 			elapsed_seconds = e - s;
-			proffile << "						Time for MKL_eigensolve():" << elapsed_seconds.count() << "s" << std::endl;
+			if(LOG)
+				logfile << "						Time for MKL_eigensolve():" << elapsed_seconds.count() << "s" << std::endl;
 
 			const std::vector<long unsigned> shape{ (unsigned long)4 * MF, (unsigned long)4 * MF };
 			const bool fortran_order{ false };
@@ -420,17 +425,20 @@ void SetGaussianConstraints() {
 // Force the field within each layer to be equal at the layer boundary
 void SetBoundaryConditions() {
 	std::complex<double> i(0.0, 1.0);
-	proffile << "		Boundary conditions setting starts..." << std::endl;
+	if(LOG)
+		logfile << "		Starting eigendecomposition of D..." << std::endl;
 	std::chrono::time_point<std::chrono::system_clock> eigen1 = std::chrono::system_clock::now();
 	EigenDecompositionD();		// Compute GD and GC
 	std::chrono::time_point<std::chrono::system_clock> eigen2 = std::chrono::system_clock::now();
 	elapsed_seconds = eigen2 - eigen1;
-	proffile << "			Time for EigenDecompositionD(): " << elapsed_seconds.count() << "s" << std::endl;
+	if(LOG)
+		logfile << "			Time for EigenDecompositionD(): " << elapsed_seconds.count() << "s" << std::endl;
 
 	MatTransfer();				// Achieve the connection between the variable vector and the field vector
 	std::chrono::time_point<std::chrono::system_clock> matTransfer = std::chrono::system_clock::now();
 	elapsed_seconds = matTransfer - eigen2;
-	proffile << "			Time for MatTransfer(): " << elapsed_seconds.count() << "s" << std::endl;
+	if(LOG)
+		logfile << "			Time to transform R to P: " << elapsed_seconds.count() << "s" << std::endl;
 
 	//const std::vector<long unsigned> shape{ (unsigned long)4 * MF, (unsigned long)4 * MF };
 	//const bool fortran_order{ false };
@@ -440,29 +448,26 @@ void SetBoundaryConditions() {
 	Eigen::MatrixXcd Gc_inv = MKL_inverse(Gc_static);
 	std::chrono::time_point<std::chrono::system_clock> inv = std::chrono::system_clock::now();
 	elapsed_seconds = inv - matTransfer;
-	proffile << "			Time for MKL_inverse(): " << elapsed_seconds.count() << "s" << std::endl;
+	if(LOG)
+		logfile << "			Time to calculate inverse of ???: " << elapsed_seconds.count() << "s" << std::endl;
 
 	A.block(2 * MF, 0, 4 * MF, 3 * MF) = f2;
 	tmp = MKL_multiply(GD[0], Gc_inv, 1);
-
-	//const std::vector<long unsigned> shape{ (unsigned long)4 * MF, (unsigned long)4 * MF };
-	//const bool fortran_order{ false };
-	//Eigen::MatrixXcd A_block2 = MKL_multiply(tmp, f3, 1);
-	//npy::SaveArrayAsNumpy("GD[0].npy", fortran_order, shape.size(), shape.data(), &GD[0](0, 0));
-	//npy::SaveArrayAsNumpy("Gc_inv.npy", fortran_order, shape.size(), shape.data(), &Gc_inv(0, 0));
-
 	A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = MKL_multiply(tmp, f3, 1);
 	std::chrono::time_point<std::chrono::system_clock> mul = std::chrono::system_clock::now();
 	elapsed_seconds = mul - inv;
-	proffile << "			Time for multiplication once: " << elapsed_seconds.count() / 2 << "s" << std::endl;
+	if(LOG)
+		logfile << "			Time to multiply matrices ???? and ????: " << elapsed_seconds.count() / 2 << "s" << std::endl;
 
 	b.segment(2 * MF, 4 * MF) = std::complex<double>(-1, 0) * f1 * Eigen::Map<Eigen::VectorXcd>(EF.data(), 3 * MF);
 
 	if (logfile) {
-		logfile << "LHS matrix in the linear system:" << std::endl;
+		// RUIJIAO: save to NPY files using logprefix_????.npy
+		/*logfile << "LHS matrix in the linear system:" << std::endl;
 		logfile << A << std::endl << std::endl;
 		logfile << "RHS vector in the linear system:" << std::endl;
 		logfile << b << std::endl << std::endl;
+		*/
 	}
 }
 
@@ -527,7 +532,7 @@ int main(int argc, char** argv) {
 		("psf", "generate the point spread function(PSF) for the optic system")
 		("external", "save waves for visualization of external field only")
 		("log", "produce a log file")
-		("prof", "produce a profiling file")
+//		("prof", "produce a profiling file")
 		// input just for scattervolume 
 		;
 	// I have to do some strange stuff in here to allow negative values in the command line. I just wouldn't change any of it if possible.
@@ -542,18 +547,23 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 
-	if (vm.count("prof")) {									// if a log is requested, begin output
+	/*if (vm.count("prof")) {									// if a log is requested, begin output
 		std::stringstream ss;
 		ss << std::time(0) << "_scattervolume.prof";
 		proffile.open(ss.str());
-	}
+	}*/
 
-	proffile << "Initialization starts..." << std::endl;
+	if(LOG)
+		logfile << "Initialization starts..." << std::endl;
 
-	if (vm.count("log")) {									// if a log is requested, begin output
+	if (vm.count("log"))									// if a log is requested, begin output
+		LOG = true;
+
+	if(LOG){
 		std::stringstream ss;
-		ss << std::time(0) << "_scattervolume.log";
-		logfile.open(ss.str());
+		ss << std::time(0);
+		logprefix = ss.str();
+		logfile.open(logprefix + ".log");
 	}
 
 	if (vm.count("psf")) {
@@ -639,7 +649,8 @@ int main(int argc, char** argv) {
 	D = Volume.CalculateD(M, dir);	// Calculate the property matrix for the sample
 	std::chrono::time_point<std::chrono::system_clock> D_after = std::chrono::system_clock::now();
 	elapsed_seconds = D_after - D_before;
-	proffile << "Time for property matrix D: " << elapsed_seconds.count() << " s. " << std::endl << std::endl;
+	if(logfile)
+		logfile << "Time to create property matrix D ("<<4*MF<<"x"<<4*MF<<"): " << elapsed_seconds.count() << " s" << std::endl << std::endl;
 
 	// Fourier transform for the incident waves
 	E0.push_back(e[0]);
@@ -673,45 +684,56 @@ int main(int argc, char** argv) {
 	//std::cout << "Sz[0]: " << Sz[0] << std::endl;
 	//std::cout << "Sz[1]: " << Sz[1] << std::endl;
 
-	if (logfile) {
-		logfile << "Ex fourier form:" << EF.segment(0, MF) << std::endl;
+	if (LOG) {
+		// RUIJIAO: output numpy files as necessary
+		/*logfile << "Ex fourier form:" << EF.segment(0, MF) << std::endl;
 		logfile << "Ey fourier form:" << EF.segment(MF, MF) << std::endl;
 		logfile << "Ez fourier form:" << EF.segment(2 * MF, MF) << std::endl;
 		logfile << "Sx fourier form:" << Sx << std::endl;
 		logfile << "Sy fourier form:" << Sy << std::endl;
 		logfile << "Sz0 fourier form:" << Sz[0] << std::endl;
 		logfile << "Sz1 fourier form:" << Sz[1] << std::endl;
+		*/
 	}
 
-	proffile << "Initialization finished." << std::endl;
+	if(LOG)
+		logfile << "Input processing and FFT finished." << std::endl;
 	std::chrono::time_point<std::chrono::system_clock> initialized = std::chrono::system_clock::now();
 	elapsed_seconds = initialized - start;
-	proffile << "Time for initialization: " << elapsed_seconds.count() << "s" << std::endl << std::endl;
+	if(LOG)
+		logfile << "Time to process input and perform FFT: " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 
-	proffile << "Linear system starts..." << std::endl;
+	if(LOG)
+		logfile << "Start creating linear system..." << std::endl;
 	// Build linear system
 	InitMatrices();
 	std::chrono::time_point<std::chrono::system_clock> initDone = std::chrono::system_clock::now();
 	elapsed_seconds = initDone - initialized;
-	proffile << "		Time for InitMatrices(): " << elapsed_seconds.count() << "s" << std::endl << std::endl;
+	if(LOG)
+		logfile << "		Time to allocate memory: " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 
 	SetGaussianConstraints();
 	std::chrono::time_point<std::chrono::system_clock> gauss = std::chrono::system_clock::now();
 	elapsed_seconds = gauss - initDone;
-	proffile << "		Time for SetGaussianConstraints(): " << elapsed_seconds.count() << "s" << std::endl << std::endl;
+	if(LOG)
+		logfile << "		Time to calculate Gaussian constraints: " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 
 	SetBoundaryConditions();
 	std::chrono::time_point<std::chrono::system_clock> boundary = std::chrono::system_clock::now();
 	elapsed_seconds = boundary - gauss;
-	proffile << "		Time for SetBoundaryConditions(): " << elapsed_seconds.count() << "s" << std::endl << std::endl;
+	if(LOG)
+		logfile << "		Time to set boundary conditions: " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 
-	proffile << "Linear system built." << std::endl;
+	if(LOG)
+		logfile << "Linear system complete." << std::endl;
 	std::chrono::time_point<std::chrono::system_clock> built = std::chrono::system_clock::now();
 	elapsed_seconds = built - initialized;
-	proffile << "Time for building the system: " << elapsed_seconds.count() << "s" << std::endl << std::endl;
+	if(LOG)
+		logfile << "Time to complete linear system: " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 
 	// MKL solution
-	proffile << "Linear system solving (MKL)..." << std::endl;
+	if(LOG)
+		logfile << "Solving linear system..." << std::endl;
 
 	//const std::vector<long unsigned> shape{ (unsigned long)6 * MF, (unsigned long)6 * MF };
 	//const bool fortran_order{ false };
@@ -720,18 +742,17 @@ int main(int argc, char** argv) {
 	MKL_linearsolve(A, b);
 	Eigen::VectorXcd x = b;
 	//std::cout << "x: " << x << std::endl;
-	proffile << "Linear system solved." << std::endl;
+	if(LOG)
+		logfile << "Linear system solved." << std::endl;
 
 	std::chrono::time_point<std::chrono::system_clock> solved = std::chrono::system_clock::now();
 	elapsed_seconds = solved - built;
-	proffile << "Time for solving the system: " << elapsed_seconds.count() << "s" << std::endl << std::endl;
+	if(LOG)
+		logfile << "Time to solve linear system: " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 
-	proffile << "Field reorganization starts..." << std::endl;
-	if (logfile) {
-		logfile << "x = " << x << std::endl;
-		logfile << "Linear system solved." << std::endl << std::endl << std::endl;
-		logfile << "Field on the boundaries evaluating..." << std::endl;
-	}
+	if(LOG)
+		logfile << "Start calculating Pz from magnetic field..." << std::endl;
+	
 
 	// The data structure that all data goes to
 	CoupledWaveStructure<double> cw;
@@ -775,7 +796,8 @@ int main(int argc, char** argv) {
 	}
 	std::chrono::time_point<std::chrono::system_clock> beta_end = std::chrono::system_clock::now();
 	elapsed_seconds = beta_end - beta_before;
-	proffile << "Solving beta takes:" << elapsed_seconds.count() << "s" << std::endl;
+	if(LOG)
+		logfile << "Solving beta takes:" << elapsed_seconds.count() << "s" << std::endl;
 
 	// Q_hat(~P_hat) and Q_check(~P_check) are known. Gamma(~sz) is known. Beta(multiply by Q) is known. 
 	// Correspondingly:
@@ -806,23 +828,27 @@ int main(int argc, char** argv) {
 		beta_odd = Eigen::MatrixXcd::Map(beta.data(), 8 * MF, 2 * MF).bottomRows(4 * MF);
 		std::chrono::time_point<std::chrono::system_clock> mid_1 = std::chrono::system_clock::now();
 		elapsed_seconds = mid_1 - mid_2;
-		proffile << "mid_1 takes:" << elapsed_seconds.count() << "s" << std::endl;
+		if(LOG)
+			logfile << "mid_1 takes:" << elapsed_seconds.count() << "s" << std::endl;
 		beta_even_t = beta_even.transpose();
 		beta_odd_t = beta_odd.transpose();
 		std::chrono::time_point<std::chrono::system_clock> mid0 = std::chrono::system_clock::now();
 		elapsed_seconds = mid0 - mid_1;
-		proffile << "mid0 takes:" << elapsed_seconds.count() << "s" << std::endl;
+		if(LOG)
+			logfile << "mid0 takes:" << elapsed_seconds.count() << "s" << std::endl;
 		beta_even = Eigen::MatrixXcd::Map(beta_even_t.data(), 4 * MF, 2 * MF).topRows(2 * MF);
 		beta_odd = Eigen::MatrixXcd::Map(beta_odd_t.data(), 4 * MF, 2 * MF).bottomRows(2 * MF);
 		std::chrono::time_point<std::chrono::system_clock> mid1 = std::chrono::system_clock::now();
 		elapsed_seconds = mid1 - mid1;
-		proffile << "mid1 takes:" << elapsed_seconds.count() << "s" << std::endl;
+		if (LOG)
+			logfile << "mid1 takes:" << elapsed_seconds.count() << "s" << std::endl;
 
 		Q1 = MKL_multiply(Q_even_cols, beta_even, 1);		// Q1: 4M*1
 		Q2 = MKL_multiply(Q_odd_cols, beta_odd, 1);			// Q2: 4M*1
 		std::chrono::time_point<std::chrono::system_clock> mid2 = std::chrono::system_clock::now();
 		elapsed_seconds = mid2 - mid1;
-		proffile << "mid2 takes:" << elapsed_seconds.count() << "s" << std::endl;
+		if (LOG)
+			logfile << "mid2 takes:" << elapsed_seconds.count() << "s" << std::endl;
 
 		Q_check[i].resize(3 * MF, 2 * MF);
 		Q_hat[i].resize(3 * MF, 2 * MF);
@@ -839,7 +865,8 @@ int main(int argc, char** argv) {
 		J2 = Q2.block(3 * MF, 0, MF, 2 * MF); // odd; upward Hy
 		std::chrono::time_point<std::chrono::system_clock> mid3 = std::chrono::system_clock::now();
 		elapsed_seconds = mid3 - mid2;
-		proffile << "mid3 takes:" << elapsed_seconds.count() << "s" << std::endl;
+		if (LOG)
+			logfile << "mid3 takes:" << elapsed_seconds.count() << "s" << std::endl;
 		for (int qi = 0; qi < M[1]; qi++) {
 			for (int pi = 0; pi < M[0]; pi++) {
 				for (int qj = 0; qj < M[1]; qj++) {
@@ -860,12 +887,14 @@ int main(int argc, char** argv) {
 		}
 		std::chrono::time_point<std::chrono::system_clock> mid4 = std::chrono::system_clock::now();
 		elapsed_seconds = mid4 - mid3;
-		proffile << "mid4 takes:" << elapsed_seconds.count() << "s" << std::endl;
+		if (LOG)
+			logfile << "mid4 takes:" << elapsed_seconds.count() << "s" << std::endl;
 	}
 
 	std::chrono::time_point<std::chrono::system_clock> insideField_end = std::chrono::system_clock::now();
 	elapsed_seconds = insideField_end - insideField_before;
-	proffile << "Solving the inside Field on the boundaries takes:" << elapsed_seconds.count() << "s" << std::endl;
+	if (LOG)
+		logfile << "Solving the inside Field on the boundaries takes:" << elapsed_seconds.count() << "s" << std::endl;
 	tira::planewave<double> zeros(0, 0, k, 0, 0, 0);
 	for (int kk = 0; kk < M[1]; kk++) {
 		for (int j = 0; j < M[0]; j++) {
@@ -955,7 +984,9 @@ int main(int argc, char** argv) {
 	}
 	std::chrono::time_point<std::chrono::system_clock> save_end = std::chrono::system_clock::now();
 	elapsed_seconds = save_end - save_before;
-	proffile << "Time for saving the field " << elapsed_seconds.count() << "s" << std::endl << std::endl << std::endl;
+	if (LOG)
+		logfile << "Time for saving the field " << elapsed_seconds.count() << "s" << std::endl << std::endl << std::endl;
 	elapsed_seconds = save_end - start;
-	proffile << "Total time:" << elapsed_seconds.count() << "s" << std::endl;
+	if (LOG)
+		logfile << "Total time:" << elapsed_seconds.count() << "s" << std::endl;
 }

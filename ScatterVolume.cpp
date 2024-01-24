@@ -331,8 +331,6 @@ void EigenDecompositionD() {
 			Gc = MKL_multiply(tmp_2, Gc_static, 1);
 			Gc_static = Gc;
 		}
-		Gd.resize(0, 0);
-		Gc.resize(0, 0);
 		//if (logfile) {
 		//	logfile << "----------For the layer---------- " << std::endl;
 		//	logfile << "Property matrix D: " << std::endl;
@@ -347,6 +345,8 @@ void EigenDecompositionD() {
 		//	logfile << Gd.inverse() << std::endl;
 		//}
 	}
+	Gd.resize(0, 0);
+	Gc.resize(0, 0);
 }
 
 void MatTransfer() {

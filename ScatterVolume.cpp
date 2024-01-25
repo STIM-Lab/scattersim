@@ -231,8 +231,8 @@ void Eigen_Sort(Eigen::VectorXcd eigenvalues_unordered, Eigen::MatrixXcd eigenve
 // Sort the eigenvectors and eigenvalues by pairs. 
 // Build matrices Gd and Gc.
 void EigenDecompositionD() {
-	std::vector<Eigen::VectorXcd> eigenvalues_unordered;
-	std::vector<Eigen::MatrixXcd> eigenvectors_unordered;
+	//std::vector<Eigen::VectorXcd> eigenvalues_unordered;
+	//std::vector<Eigen::MatrixXcd> eigenvectors_unordered;
 	bool EIGEN = false;
 	bool MKL_lapack = true;
 	GD.reserve(D.size());
@@ -241,9 +241,9 @@ void EigenDecompositionD() {
 		if (EIGEN) {
 			std::chrono::time_point<std::chrono::system_clock> s = std::chrono::system_clock::now();
 			Eigen::ComplexEigenSolver<Eigen::MatrixXcd> es(D[i]);
-			eigenvalues_unordered.push_back(es.eigenvalues());
-			eigenvectors_unordered.push_back(es.eigenvectors());
-			Eigen_Sort(eigenvalues_unordered[i], eigenvectors_unordered[i]);
+			//eigenvalues_unordered.push_back(es.eigenvalues());
+			//eigenvectors_unordered.push_back(es.eigenvectors());
+			Eigen_Sort(es.eigenvalues(), es.eigenvectors());
 			std::chrono::time_point<std::chrono::system_clock> e = std::chrono::system_clock::now();
 			elapsed_seconds = e - s;
 			if(LOG)
@@ -268,10 +268,10 @@ void EigenDecompositionD() {
 			const bool fortran_order{ false };
 			//npy::SaveArrayAsNumpy("A.npy", fortran_order, shape.size(), shape.data(), &D[i](0, 0));
 
-			eigenvalues_unordered.push_back(Eigen::Map<Eigen::VectorXcd>(evl, 4 * MF));
-			eigenvectors_unordered.push_back(Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(evt, 4 * MF, 4 * MF));
+			//eigenvalues_unordered.push_back(Eigen::Map<Eigen::VectorXcd>(evl, 4 * MF));
+			//eigenvectors_unordered.push_back(Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(evt, 4 * MF, 4 * MF));
 			//std::cout << "eigenvalues_unordered: " << eigenvalues_unordered[i] << std::endl;
-			Eigen_Sort(eigenvalues_unordered[i], eigenvectors_unordered[i]);
+			Eigen_Sort(Eigen::Map<Eigen::VectorXcd>(evl, 4 * MF), Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(evt, 4 * MF, 4 * MF));
 			//npy::SaveArrayAsNumpy("evt_unordered.npy", fortran_order, shape.size(), shape.data(), &eigenvectors_unordered[i](0, 0));
 			//npy::SaveArrayAsNumpy("evt.npy", fortran_order, shape.size(), shape.data(), &eigenvectors[i](0, 0));
 
@@ -374,6 +374,7 @@ void MatTransfer() {
 	f1.block(2 * MF, 2 * MF, MF, MF) = identity.array() * Phase.array() * SY.array();
 	f1.block(3 * MF, 0, MF, MF) = identity.array() * Phase.array() * SZ0.array();
 	f1.block(3 * MF, 2 * MF, MF, MF) = (std::complex<double>(-1, 0)) * identity.array() * Phase.array() * SX.array();
+	phase.resize(0);
 	Phase.resize(0, 0);
 
 	// second constraint (Equation 9)
@@ -453,7 +454,7 @@ void SetBoundaryConditions() {
 	std::chrono::time_point<std::chrono::system_clock> inv = std::chrono::system_clock::now();
 	elapsed_seconds = inv - matTransfer;
 	if(LOG)
-		logfile << "			Time to calculate inverse of ???: " << elapsed_seconds.count() << "s" << std::endl;
+		logfile << "			Time to calculate one inversion: " << elapsed_seconds.count() << "s" << std::endl;
 
 	A.block(2 * MF, 0, 4 * MF, 3 * MF) = f2;
 	tmp = MKL_multiply(GD[0], Gc_inv, 1);
@@ -463,7 +464,7 @@ void SetBoundaryConditions() {
 	std::chrono::time_point<std::chrono::system_clock> mul = std::chrono::system_clock::now();
 	elapsed_seconds = mul - inv;
 	if(LOG)
-		logfile << "			Time to multiply matrices ???? and ????: " << elapsed_seconds.count() / 2 << "s" << std::endl;
+		logfile << "			Time to calculate one multiplication: " << elapsed_seconds.count() / 2 << "s" << std::endl;
 
 	b.segment(2 * MF, 4 * MF) = std::complex<double>(-1, 0) * f1 * Eigen::Map<Eigen::VectorXcd>(EF.data(), 3 * MF);
 
@@ -754,15 +755,6 @@ int main(int argc, char** argv) {
 		// The data structure that all data goes to
 		size_t MF4 = MF * 4;								// MF4 is the length of beta/gamma/gg
 
-		// Calculate beta according to the GD, GC, and Pt/Pr
-		Eigen::MatrixXcd Q_even_cols;
-		Eigen::MatrixXcd Q_odd_cols;
-		Eigen::MatrixXcd beta_even;
-		Eigen::MatrixXcd beta_odd;
-		Eigen::MatrixXcd beta_even_t;
-		Eigen::MatrixXcd beta_odd_t;
-
-
 		// Solve for beta
 		std::chrono::time_point<std::chrono::system_clock> beta_before = std::chrono::system_clock::now();
 		Eigen::MatrixXcd EF_mat;
@@ -819,6 +811,14 @@ int main(int argc, char** argv) {
 		q_series.setLinSpaced(M[1], -double(M[1] / 2), double((M[1] - 1) / 2));
 		Eigen::VectorXd WQ = 2.0 * q_series * M_PI / in_size[1];
 		Eigen::VectorXd UP = 2.0 * p_series * M_PI / in_size[0];
+
+		// Calculate beta according to the GD, GC, and Pt/Pr
+		Eigen::MatrixXcd Q_even_cols;
+		Eigen::MatrixXcd Q_odd_cols;
+		Eigen::MatrixXcd beta_even;
+		Eigen::MatrixXcd beta_odd;
+		Eigen::MatrixXcd beta_even_t;
+		Eigen::MatrixXcd beta_odd_t;
 		for (int i = 0; i < ZL - 1; i++) {
 			Eigen::MatrixXcd beta = Beta[i].asDiagonal();
 			//std::cout << "beta: " << beta << std::endl;

@@ -647,6 +647,14 @@ int main(int argc, char** argv) {
 			}
 		}
 	}
+	if (M[0] > num_pixels[2]) {
+		M[0] = num_pixels[2];
+		std::cout << "M[0] is corrected as " << num_pixels[2] << ", since input is larger than its pixel numbers" << std::endl;
+	}
+	if (M[1] > num_pixels[1]) {
+		std::cout << "M[1] is corrected as " << num_pixels[1] <<", since input is larger than its pixel numbers" << std::endl;
+		M[1] = num_pixels[1];
+	}
 	MF = M[0] * M[1];
 
 	std::chrono::time_point<std::chrono::system_clock> D_before = std::chrono::system_clock::now();

@@ -74,13 +74,10 @@ int ei = 0;				// The current row for the matrix
 int l;			// The current layer l.
 std::ofstream logfile;
 std::vector<Eigen::MatrixXcd> D;		// The property matrix
-Eigen::VectorXcd evl;
-Eigen::MatrixXcd evt;
+
 std::vector<Eigen::VectorXcd> eigenvalues;			// eigen values for current layer
 std::vector<Eigen::MatrixXcd> eigenvectors;			// eigen vectors for current layer
 std::vector<Eigen::VectorXcd> Beta;			// eigen vectors for current layer
-Eigen::MatrixXcd Gc;					// Upward
-Eigen::MatrixXcd Gd;					// Downward
 std::vector<Eigen::MatrixXcd> GD;					// Dimension: (layers, coeffs)
 std::vector<Eigen::MatrixXcd> GC;					// Dimension: (layers, coeffs)
 Eigen::MatrixXcd f1;
@@ -88,11 +85,12 @@ Eigen::MatrixXcd f2;
 Eigen::MatrixXcd f3;
 Eigen::MatrixXcd tmp;					// Temposarily store some Eigen::MatrixXcd
 Eigen::MatrixXcd tmp_2;					// Temposarily store additional Eigen::MatrixXcd
-Eigen::MatrixXcd Gc_static;					// Temposarily store some Eigen::MatrixXcd
+Eigen::MatrixXcd Gd_static;					
+Eigen::MatrixXcd Gc_static;					
 std::chrono::duration<double> elapsed_seconds;
 int counts = 0;
 bool psf = false;
-bool External = false;
+bool EXTERNAL = false;
 /// Convert a complex vector to a string for display
 template <typename T>
 std::string vec2str(glm::vec<3, std::complex<T> > v, int spacing = 20) {
@@ -197,6 +195,8 @@ void Eigen_Sort(Eigen::VectorXcd eigenvalues_unordered, Eigen::MatrixXcd eigenve
 	}
 	std::sort(eiV.begin(), eiV.end(), &sorter);
 
+	Eigen::VectorXcd evl;
+	Eigen::MatrixXcd evt;
 	evl.resize(len);
 	evt.resize(len, len);
 
@@ -235,68 +235,69 @@ void EigenDecompositionD() {
 	//std::vector<Eigen::MatrixXcd> eigenvectors_unordered;
 	bool EIGEN = false;
 	bool MKL_lapack = true;
-	GD.reserve(D.size());
-	GC.reserve(D.size());
-	for (size_t i = 0; i < D.size(); i++) {
+
+	for (size_t i = 0; i < num_pixels[0]; i++) {
 		if (EIGEN) {
 			std::chrono::time_point<std::chrono::system_clock> s = std::chrono::system_clock::now();
-			Eigen::ComplexEigenSolver<Eigen::MatrixXcd> es(D[i]);
-			//eigenvalues_unordered.push_back(es.eigenvalues());
-			//eigenvectors_unordered.push_back(es.eigenvectors());
+			Eigen::ComplexEigenSolver<Eigen::MatrixXcd> es(D[0]);
+			D.erase(D.begin());
 			Eigen_Sort(es.eigenvalues(), es.eigenvectors());
 			std::chrono::time_point<std::chrono::system_clock> e = std::chrono::system_clock::now();
 			elapsed_seconds = e - s;
-			if(LOG)
-				logfile << "				Time for a single MKL_eigensolve():" << elapsed_seconds.count() << "s" << std::endl;
-			
+			if (LOG)
+				logfile << "				Time for EIGEN eigendecomposition (layer " << i << "):" << elapsed_seconds.count() << "s" << std::endl;
+
 		}
 		if (MKL_lapack) {
-			std::chrono::time_point<std::chrono::system_clock> s = std::chrono::system_clock::now();
-			std::complex<double>* A = new std::complex<double>[4 * MF * 4 * MF];
-			Eigen::MatrixXcd::Map(A, D[i].rows(), D[i].cols()) = D[i];
-			//std::cout << "D: " << std::endl << D[i] << std::endl;
-			std::complex<double>* evl = new std::complex<double>[4 * MF];
-			std::complex<double>* evt = new std::complex<double>[4 * MF * 4 * MF];
-			MKL_eigensolve(A, evl, evt, 4 * MF);
-			delete[] A;
+			std::chrono::time_point<std::chrono::system_clock> s = std::chrono::system_clock::now();		// set a timer
+			std::complex<double>* A = new std::complex<double>[4 * MF * 4 * MF];							// allocate space for the array that will be sent to MKL
+			Eigen::MatrixXcd::Map(A, D[0].rows(), D[0].cols()) = D[0];										// copy values from D(l) to the array
+			D.erase(D.begin());
+			// RUIJIAO: you should be able to de-allocate D here (since you have it in A and don't need it later)
+
+			std::complex<double>* evl = new std::complex<double>[4 * MF];									// allocate space for the eigenvalues
+			std::complex<double>* evt = new std::complex<double>[4 * MF * 4 * MF];							// allocate space for the eigenvectors
+			MKL_eigensolve(A, evl, evt, 4 * MF);															// perform the eigendecomposition
+			delete[] A;																						// delete the matrix
 			std::chrono::time_point<std::chrono::system_clock> e = std::chrono::system_clock::now();
 			elapsed_seconds = e - s;
-			if(LOG)
-				logfile << "						Time for MKL_eigensolve():" << elapsed_seconds.count() << "s" << std::endl;
+			if (LOG)
+				logfile << "				Time for Intel MKL eigendecomposition (layer " << i << "):" << elapsed_seconds.count() << "s" << std::endl;
 
-			const std::vector<long unsigned> shape{ (unsigned long)4 * MF, (unsigned long)4 * MF };
-			const bool fortran_order{ false };
-			//npy::SaveArrayAsNumpy("A.npy", fortran_order, shape.size(), shape.data(), &D[i](0, 0));
+			//const std::vector<long unsigned> shape{ (unsigned long)4 * MF, (unsigned long)4 * MF };
+			//const bool fortran_order{ false };
 
-			//eigenvalues_unordered.push_back(Eigen::Map<Eigen::VectorXcd>(evl, 4 * MF));
-			//eigenvectors_unordered.push_back(Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(evt, 4 * MF, 4 * MF));
-			//std::cout << "eigenvalues_unordered: " << eigenvalues_unordered[i] << std::endl;
+			// sort eigenvalues and eigenvectors based on the imaginary component of the eigenvalue
 			Eigen_Sort(Eigen::Map<Eigen::VectorXcd>(evl, 4 * MF), Eigen::Map < Eigen::MatrixXcd, Eigen::ColMajor >(evt, 4 * MF, 4 * MF));
-			//npy::SaveArrayAsNumpy("evt_unordered.npy", fortran_order, shape.size(), shape.data(), &eigenvectors_unordered[i](0, 0));
-			//npy::SaveArrayAsNumpy("evt.npy", fortran_order, shape.size(), shape.data(), &eigenvectors[i](0, 0));
 
 			delete[] evl;
 			delete[] evt;
 		}
 
 	}
-
-	Gd.resize(4 * MF, 4 * MF);
-	Gc.resize(4 * MF, 4 * MF);
+	if (LOG)
+		logfile << "				Starting calculation for connection matrix Q..." << std::endl;
+	Eigen::MatrixXcd Gc;					// Upward
+	Eigen::MatrixXcd Gd;					// Downward
+	Gd.resize(4 * MF, 4 * MF);																		// allocate space for \check{Q}
+	Gc.resize(4 * MF, 4 * MF);																		// allocate space for \hat{Q}
 	std::complex<double> Di;
 	std::complex<double> Ci;
 	Beta.resize(num_pixels[0]);
 	std::complex<double> Di_exp;
 	std::complex<double> Ci_exp;
-	for (size_t i = 0; i < D.size(); i++) {
-		//std::cout << "eigenvalues[i]:" << std::endl << eigenvalues[i] << std::endl;
-		for (size_t j = 0; j < eigenvalues[i].size(); j++) {
-			if (D.size() == 1) {
+
+	// process the property matrix for each layer
+	for (size_t i = 0; i < num_pixels[0]; i++) {													// for each layer
+		if (LOG)
+			logfile << "				     Calculating Q for layer " << i << std::endl;
+
+		for (size_t j = 0; j < eigenvalues[i].size(); j++) {								// for each eigenvalue
+			if (num_pixels[0] == 1) {
 				Ci = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(z[ZL - 1] - z[0]));
 				Di = std::exp(std::complex<double>(0, 1) * k * eigenvalues[i](j) * (std::complex<double>)(z[0] - z[ZL - 1]));
 			}
 			else {
-				//std::cout << "eigenvalues[i](j): " << eigenvalues[i](j) << std::endl;
 				Ci_exp = std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (z[i + 1] - z[i]));
 				Di_exp = std::complex<double>(0, 1) * k * eigenvalues[i](j) * ((std::complex<double>) (z[i] - z[i + 1]));
 				Ci = std::exp(Ci_exp);
@@ -316,37 +317,21 @@ void EigenDecompositionD() {
 					std::cout << "Debug the eigen sorter again! Ci" << std::endl;
 			}
 		}
-		//const std::vector<long unsigned> shape{ (unsigned long) 4 * MF, (unsigned long)4 * MF };
-		//const bool fortran_order{ false };
-		//npy::SaveArrayAsNumpy("Gd.npy", fortran_order, shape.size(), shape.data(), &Gd(0, 0));      
-		//npy::SaveArrayAsNumpy("Gc.npy", fortran_order, shape.size(), shape.data(), &Gc(0, 0));
-		//npy::SaveArrayAsNumpy("eigenvectors.npy", fortran_order, shape.size(), shape.data(), &eigenvectors[0](0, 0));
-		GD.push_back(Gd);
-		GC.push_back(Gc);
-		if (i == 0)
+		if (!EXTERNAL) {
+			GD.push_back(Gd);
+			GC.push_back(Gc);
+		}
+		if (i == 0) {
+			Gd_static = Gd;
 			Gc_static = Gc;
+		}
 		else {
 			tmp = MKL_inverse(Gd);
 			tmp_2 = MKL_multiply(Gc, tmp, 1);
 			Gc = MKL_multiply(tmp_2, Gc_static, 1);
 			Gc_static = Gc;
 		}
-		//if (logfile) {
-		//	logfile << "----------For the layer---------- " << std::endl;
-		//	logfile << "Property matrix D: " << std::endl;
-		//	logfile << D[i] << std::endl;
-		//	logfile << "GD: " << std::endl;
-		//	logfile << GD[i] << std::endl;
-		//	logfile << "GD inversese: " << std::endl;
-		//	logfile << Gd.inverse() << std::endl;
-		//	logfile << "GC: " << std::endl;
-		//	logfile << GC[i] << std::endl;
-		//	logfile << "GC inversese: " << std::endl;
-		//	logfile << Gd.inverse() << std::endl;
-		//}
 	}
-	Gd.resize(0, 0);
-	Gc.resize(0, 0);
 }
 
 void MatTransfer() {
@@ -429,19 +414,19 @@ void SetGaussianConstraints() {
 // Force the field within each layer to be equal at the layer boundary
 void SetBoundaryConditions() {
 	std::complex<double> i(0.0, 1.0);
-	if(LOG)
-		logfile << "		Starting eigendecomposition of D..." << std::endl;
+	if (LOG)
+		logfile << "		Starting eigendecomposition of D (all layers)..." << std::endl;
 	std::chrono::time_point<std::chrono::system_clock> eigen1 = std::chrono::system_clock::now();
 	EigenDecompositionD();		// Compute GD and GC
 	std::chrono::time_point<std::chrono::system_clock> eigen2 = std::chrono::system_clock::now();
 	elapsed_seconds = eigen2 - eigen1;
-	if(LOG)
-		logfile << "			Time for EigenDecompositionD(): " << elapsed_seconds.count() << "s" << std::endl;
+	if (LOG)
+		logfile << "			Time for EigenDecompositionD() (all layers): " << elapsed_seconds.count() << "s" << std::endl;
 
 	MatTransfer();				// Achieve the connection between the variable vector and the field vector
 	std::chrono::time_point<std::chrono::system_clock> matTransfer = std::chrono::system_clock::now();
 	elapsed_seconds = matTransfer - eigen2;
-	if(LOG)
+	if (LOG)
 		logfile << "			Time to transform R to P: " << elapsed_seconds.count() << "s" << std::endl;
 
 	//const std::vector<long unsigned> shape{ (unsigned long)4 * MF, (unsigned long)4 * MF };
@@ -453,17 +438,17 @@ void SetBoundaryConditions() {
 	Gc_static.resize(0, 0);
 	std::chrono::time_point<std::chrono::system_clock> inv = std::chrono::system_clock::now();
 	elapsed_seconds = inv - matTransfer;
-	if(LOG)
+	if (LOG)
 		logfile << "			Time to calculate one inversion: " << elapsed_seconds.count() << "s" << std::endl;
 
 	A.block(2 * MF, 0, 4 * MF, 3 * MF) = f2;
-	tmp = MKL_multiply(GD[0], Gc_inv, 1);
+	tmp = MKL_multiply(Gd_static, Gc_inv, 1);
 	Gc_inv.resize(0, 0);
 	A.block(2 * MF, 3 * MF, 4 * MF, 3 * MF) = MKL_multiply(tmp, f3, 1);
 	f3.resize(0, 0);
 	std::chrono::time_point<std::chrono::system_clock> mul = std::chrono::system_clock::now();
 	elapsed_seconds = mul - inv;
-	if(LOG)
+	if (LOG)
 		logfile << "			Time to calculate one multiplication: " << elapsed_seconds.count() / 2 << "s" << std::endl;
 
 	b.segment(2 * MF, 4 * MF) = std::complex<double>(-1, 0) * f1 * Eigen::Map<Eigen::VectorXcd>(EF.data(), 3 * MF);
@@ -539,7 +524,7 @@ int main(int argc, char** argv) {
 		("psf", "generate the point spread function(PSF) for the optic system")
 		("external", "save waves for visualization of external field only")
 		("log", "produce a log file")
-		("DropPz", "calculate Px and Py only since Pz is computationally intensive and almost zero when incident wave is y-polarized.")
+		("npz", "calculate Px and Py only since Pz is computationally intensive and almost zero when incident wave is y-polarized.")
 		;
 	// I have to do some strange stuff in here to allow negative values in the command line. I just wouldn't change any of it if possible.
 	boost::program_options::variables_map vm;
@@ -556,7 +541,7 @@ int main(int argc, char** argv) {
 	if (vm.count("log"))									// if a log is requested, begin output
 		LOG = true;
 
-	if (vm.count("DropPz"))									// if a log is requested, begin output
+	if (vm.count("npz"))									// if a log is requested, begin output
 		Pz = false;
 
 	if (LOG) {									// if a log is requested, begin output
@@ -574,7 +559,7 @@ int main(int argc, char** argv) {
 	}
 
 	if (vm.count("external")) {
-		External = true;
+		EXTERNAL = true;
 	}
 
 	// Calculate the number of layers based on input parameters (take the maximum of all layer-specific command-line options)
@@ -598,7 +583,7 @@ int main(int argc, char** argv) {
 	ni.resize(0);
 	num_pixels = Volume.reformat();
 	ZL = num_pixels[0] + 1;
-		
+
 	// store all of the layer positions and refractive indices
 	InitLayer_z();
 
@@ -652,7 +637,7 @@ int main(int argc, char** argv) {
 		std::cout << "M[0] is corrected as " << num_pixels[2] << ", since input is larger than its pixel numbers" << std::endl;
 	}
 	if (M[1] > num_pixels[1]) {
-		std::cout << "M[1] is corrected as " << num_pixels[1] <<", since input is larger than its pixel numbers" << std::endl;
+		std::cout << "M[1] is corrected as " << num_pixels[1] << ", since input is larger than its pixel numbers" << std::endl;
 		M[1] = num_pixels[1];
 	}
 	MF = M[0] * M[1];
@@ -757,7 +742,7 @@ int main(int argc, char** argv) {
 
 	std::vector<Eigen::MatrixXcd> Q_check(ZL - 1);		// Q_check and Q_hat are for the inside sample only.
 	std::vector<Eigen::MatrixXcd> Q_hat(ZL - 1);
-	if (!External) {
+	if (!EXTERNAL) {
 		if (LOG)
 			logfile << "Start calculating Beta for internal field..." << std::endl;
 		// The data structure that all data goes to
@@ -897,7 +882,7 @@ int main(int argc, char** argv) {
 		Q1.resize(0, 0);
 		Q2.resize(0, 0);
 		I1.resize(0, 0);
-		I2.resize(0, 0);	
+		I2.resize(0, 0);
 		J1.resize(0, 0);
 		J2.resize(0, 0);
 		if (LOG)
@@ -907,7 +892,7 @@ int main(int argc, char** argv) {
 		if (LOG)
 			logfile << "Time to solve the inside Field on boundaries:" << elapsed_seconds.count() << "s" << std::endl << std::endl;
 	}
-	
+
 	if (LOG)
 		logfile << "Start to build class CoupledWaveStructure:" << elapsed_seconds.count() << "s" << std::endl;
 	std::chrono::time_point<std::chrono::system_clock> cw_before = std::chrono::system_clock::now();
@@ -932,7 +917,7 @@ int main(int argc, char** argv) {
 					r = P[1].wind(0.0, 0.0, -z[l]);
 					//r = P[1 + l * 2 + 0];
 					cw.Layers[l].Pr.push_back(r);
-					if (!External) {
+					if (!EXTERNAL) {
 						for (int jj = 0; jj < 2 * MF; jj++) {
 							tira::planewave<double> t(Sx(p) * k, Sy(p) * k, eigenvalues[l](2 * jj) * k,
 								Q_check[l](p, jj), Q_check[l](MF + p, jj), Q_check[l](2 * MF + p, jj)
@@ -948,7 +933,7 @@ int main(int argc, char** argv) {
 					//t = P[1 + (l - 1) * 2 + 1];
 					t = P[2].wind(0.0, 0.0, -z[l]);
 					cw.Layers[l].Pt.push_back(t);
-					if (!External) {
+					if (!EXTERNAL) {
 						for (int jj = 0; jj < 2 * MF; jj++) {
 							tira::planewave<double> r(Sx(p) * k, Sy(p) * k, eigenvalues[l - 1](2 * jj + 1) * k,
 								Q_hat[l - 1](p, jj), Q_hat[l - 1](MF + p, jj), Q_hat[l - 1](2 * MF + p, jj)
@@ -958,7 +943,7 @@ int main(int argc, char** argv) {
 					}
 				}
 				else {
-					if (!External) {
+					if (!EXTERNAL) {
 						for (int jj = 0; jj < 2 * MF; jj++) {
 							tira::planewave<double> r(Sx(p) * k, Sy(p) * k, eigenvalues[l - 1](2 * jj + 1) * k,
 								Q_hat[l - 1](p, jj), Q_hat[l - 1](MF + p, jj), Q_hat[l - 1](2 * MF + p, jj)
@@ -1019,7 +1004,7 @@ int main(int argc, char** argv) {
 	std::chrono::time_point<std::chrono::system_clock> save_end = std::chrono::system_clock::now();
 	elapsed_seconds = save_end - save_before;
 	if (LOG)
-		logfile << "Time to save the field " << elapsed_seconds.count() << "s" << std::endl <<std::endl;
+		logfile << "Time to save the field " << elapsed_seconds.count() << "s" << std::endl << std::endl;
 	elapsed_seconds = save_end - start;
 	if (LOG)
 		logfile << "Total time:" << elapsed_seconds.count() << "s" << std::endl;

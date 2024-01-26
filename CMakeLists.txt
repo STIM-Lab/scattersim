@@ -77,11 +77,6 @@ add_executable(scatterlayer
 					CoupledWaveStructure.h
 					ScatterLayer.cpp)
 
-add_executable(scatterthinvolume
-					CoupledWaveStructure.h
-					FourierWave.h
-					ScatterThinVolume.cpp
-					third_Lapack.h)
 add_executable(scattervolume
 					CoupledWaveStructure.h
 					FourierWave.h
@@ -133,14 +128,6 @@ target_link_libraries(scatterlayer
 			Eigen3::Eigen
 )
 
-target_link_libraries(scatterthinvolume
-			ZLIB::ZLIB
-			glm::glm
-			Boost::program_options
-			Eigen3::Eigen
-			FFTW3::fftw3
-			MKL::MKL
-)
 
 target_link_libraries(scattervolume
 			ZLIB::ZLIB

@@ -33,6 +33,8 @@ bool LOG = false;
 bool Pz = true;				// Calculate Pz by default
 std::string logprefix = "";
 
+volume < std::complex<double> >* Volume;
+
 std::vector<double> in_n;
 std::vector<double> in_kappa;
 std::vector<double> in_ex;
@@ -73,7 +75,7 @@ Eigen::VectorXcd Ex, Ey, Ez;
 int ei = 0;				// The current row for the matrix
 int l;			// The current layer l.
 std::ofstream logfile;
-std::vector<Eigen::MatrixXcd> D;		// The property matrix
+//std::vector<Eigen::MatrixXcd> D;		// The property matrix
 
 std::vector<Eigen::VectorXcd> eigenvalues;			// eigen values for current layer
 std::vector<Eigen::MatrixXcd> eigenvectors;			// eigen vectors for current layer
@@ -239,8 +241,8 @@ void EigenDecompositionD() {
 	for (size_t i = 0; i < num_pixels[0]; i++) {
 		if (EIGEN) {
 			std::chrono::time_point<std::chrono::system_clock> s = std::chrono::system_clock::now();
-			Eigen::ComplexEigenSolver<Eigen::MatrixXcd> es(D[0]);
-			D.erase(D.begin());
+			Eigen::ComplexEigenSolver<Eigen::MatrixXcd> es(Volume->_Phi[0]);
+			Volume->_Phi.erase(Volume->_Phi.begin());
 			Eigen_Sort(es.eigenvalues(), es.eigenvectors());
 			std::chrono::time_point<std::chrono::system_clock> e = std::chrono::system_clock::now();
 			elapsed_seconds = e - s;
@@ -251,8 +253,8 @@ void EigenDecompositionD() {
 		if (MKL_lapack) {
 			std::chrono::time_point<std::chrono::system_clock> s = std::chrono::system_clock::now();		// set a timer
 			std::complex<double>* A = new std::complex<double>[4 * MF * 4 * MF];							// allocate space for the array that will be sent to MKL
-			Eigen::MatrixXcd::Map(A, D[0].rows(), D[0].cols()) = D[0];										// copy values from D(l) to the array
-			D.erase(D.begin());
+			Eigen::MatrixXcd::Map(A, Volume->_Phi[0].rows(), Volume->_Phi[0].cols()) = Volume->_Phi[0];										// copy values from D(l) to the array
+			Volume->_Phi.erase(Volume->_Phi.begin());
 			// RUIJIAO: you should be able to de-allocate D here (since you have it in A and don't need it later)
 
 			std::complex<double>* evl = new std::complex<double>[4 * MF];									// allocate space for the eigenvalues
@@ -585,9 +587,9 @@ int main(int argc, char** argv) {
 
 	// Define sample volume, reformat, and reorgnize.
 	InitLayer_n();
-	volume < std::complex< double> > Volume(in_sample, ni, in_center, in_size, k.real(), std::complex<double>(in_n_sample, in_kappa_sample));
+	Volume = new volume< std::complex<double> >(in_sample, ni, in_center, in_size, k.real(), std::complex<double>(in_n_sample, in_kappa_sample));
 	ni.resize(0);
-	num_pixels = Volume.reformat();
+	num_pixels = Volume->reformat();
 	ZL = num_pixels[0] + 1;
 
 	// store all of the layer positions and refractive indices
@@ -649,7 +651,7 @@ int main(int argc, char** argv) {
 	MF = M[0] * M[1];
 
 	std::chrono::time_point<std::chrono::system_clock> D_before = std::chrono::system_clock::now();
-	D = Volume.CalculateD(M, dir);	// Calculate the property matrix for the sample
+	Volume->CalculateD(M, dir);	// Calculate the property matrix for the sample
 	std::chrono::time_point<std::chrono::system_clock> D_after = std::chrono::system_clock::now();
 	elapsed_seconds = D_after - D_before;
 	if (LOG)
@@ -677,10 +679,10 @@ int main(int argc, char** argv) {
 	EF.segment(2 * MF, MF) = Eigen::Map<Eigen::VectorXcd>(Ef[2].data(), MF);
 
 	// Sync the Fourier transform of direction propagation with Volume
-	Sx = Eigen::Map<Eigen::RowVectorXcd>(Volume._meshS0.data(), MF);
-	Sy = Eigen::Map<Eigen::RowVectorXcd>(Volume._meshS1.data(), MF);
-	Sz[0] = Eigen::Map<Eigen::RowVectorXcd>(Volume._Sz[0].data(), MF);
-	Sz[1] = Eigen::Map<Eigen::RowVectorXcd>(Volume._Sz[1].data(), MF);
+	Sx = Eigen::Map<Eigen::RowVectorXcd>(Volume->_meshS0.data(), MF);
+	Sy = Eigen::Map<Eigen::RowVectorXcd>(Volume->_meshS1.data(), MF);
+	Sz[0] = Eigen::Map<Eigen::RowVectorXcd>(Volume->_Sz[0].data(), MF);
+	Sz[1] = Eigen::Map<Eigen::RowVectorXcd>(Volume->_Sz[1].data(), MF);
 
 	//std::cout << "Sx: " << Sx << std::endl;
 	//std::cout << "sy: " << Sy << std::endl;
@@ -867,10 +869,10 @@ int main(int argc, char** argv) {
 							for (int pj = 0; pj < M[0]; pj++) {
 								int indC = int(pi - pj + M[0]) % M[0];
 								std::complex<double> up = std::complex<double>(UP[pj]) + dir[0] * k;
-								Eigen::VectorXcd ef2 = Volume.NIf[i]((indR + M[1] / 2) % M[1] * M[0] + (indC + M[0] / 2) % M[0])
+								Eigen::VectorXcd ef2 = Volume->NIf[i]((indR + M[1] / 2) % M[1] * M[0] + (indC + M[0] / 2) % M[0])
 									* (up * J1.row(qj * M[0] + pj) - wq * I1.row(qj * M[0] + pj));
 								Q_check[i].row(2 * MF + qi * M[0] + pi) += std::complex<double>(-1, 0) / k * ef2;
-								ef2 = Volume.NIf[i]((indR + M[1] / 2) % M[1] * M[0] + (indC + M[0] / 2) % M[0])
+								ef2 = Volume->NIf[i]((indR + M[1] / 2) % M[1] * M[0] + (indC + M[0] / 2) % M[0])
 									* (up * J2.row(qj * M[0] + pj) - wq * I2.row(qj * M[0] + pj));
 								Q_hat[i].row(2 * MF + qi * M[0] + pi) += std::complex<double>(-1, 0) / k * ef2;
 							}

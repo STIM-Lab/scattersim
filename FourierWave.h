@@ -300,7 +300,7 @@ public:
 		return  _shape;
 	}
 
-	std::vector<Eigen::MatrixXcd> CalculateD(int* M, Eigen::VectorXd dir) {
+	void CalculateD(int* M, Eigen::VectorXd dir) {
 		_M = M;
 		_dir = dir;
 		//std::cout << "		The property matrix D starts forming..." << std::endl;
@@ -308,9 +308,10 @@ public:
 		for (size_t i = 0; i < _shape[0]; i++) {
 			//std::cout << "_Sample[i]: " << _Sample[i] << std::endl;
 			_Phi.push_back(phi(_Sample[i]));
+			if (LOG)
+				logfile << "        Finished pushing D[i] the property matrix array (layer " << i << ")." << std::endl;
 		}
 		clock_t Phi2 = clock();
-		return _Phi;
 	}
 
 private:

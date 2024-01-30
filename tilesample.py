@@ -61,18 +61,19 @@ def SaveStack(image, filemask):
         ski.io.imsave(filename, (image[:, :, zi] * 255).astype(np.uint8))
 
 
-spacing = 0.04
+spacing = 0.1
 
 N = 64
-F = 5
-Z = 10
+F = 2
+Z = 20
 
-UPSCALE = 16
+UPSCALE = 4
 
 Nu = N * UPSCALE
 Zu = Z * UPSCALE
 
-gaussian_sigma = 5
+fiber_sigma = 4
+sphere_sigma = 5
 
 IMAGE = np.zeros((Nu, Nu, Zu))
 
@@ -88,23 +89,33 @@ batch_1_step = batch_0_step
 batch_1_curve = np.array([0.0, -0.1, -0.7])
 IMAGE = GenerateCenterlines(F, batch_1_start, batch_1_direction, batch_1_step, batch_1_curve, spacing, IMAGE)
 
-RESULT = ski.filters.gaussian(IMAGE, sigma=(gaussian_sigma, gaussian_sigma, 0), mode="wrap")
-RESULT = ski.filters.gaussian(RESULT, sigma=(0, 0, gaussian_sigma), mode="constant")
-RESULT = RESULT / np.max(RESULT)
+FIBERS = ski.filters.gaussian(IMAGE, sigma=(fiber_sigma, fiber_sigma, 0), mode="wrap")
+FIBERS = ski.filters.gaussian(FIBERS, sigma=(0, 0, fiber_sigma), mode="constant")
+FIBERS = FIBERS / np.max(FIBERS)
 
-RESULT = AddSphere((0.6, 0.1, int(RESULT.shape[2]/2)), RESULT)
-RESULT = AddSphere((0.7, 0.3, int(RESULT.shape[2]/2)), RESULT)
-RESULT = AddSphere((0.6, 0.5, int(RESULT.shape[2]/2)), RESULT)
-RESULT = AddSphere((0.7, 0.7, int(RESULT.shape[2]/2)), RESULT)
-RESULT = AddSphere((0.6, 0.9, int(RESULT.shape[2]/2)), RESULT)
+SPHERES = np.zeros(FIBERS.shape)
+SPHERES = AddSphere((0.6, 0.3, int(SPHERES.shape[2]/2)), SPHERES)
+#RESULT = AddSphere((0.7, 0.3, int(RESULT.shape[2]/2)), RESULT)
+#RESULT = AddSphere((0.6, 0.5, int(RESULT.shape[2]/2)), RESULT)
+#RESULT = AddSphere((0.7, 0.7, int(RESULT.shape[2]/2)), RESULT)
+#RESULT = AddSphere((0.6, 0.9, int(RESULT.shape[2]/2)), RESULT)
 
-RESULT = AddSphere((0.8, 0.1, int(RESULT.shape[2]/2)), RESULT)
-RESULT = AddSphere((0.9, 0.3, int(RESULT.shape[2]/2)), RESULT)
-RESULT = AddSphere((0.8, 0.5, int(RESULT.shape[2]/2)), RESULT)
-RESULT = AddSphere((0.9, 0.7, int(RESULT.shape[2]/2)), RESULT)
-RESULT = AddSphere((0.8, 0.9, int(RESULT.shape[2]/2)), RESULT)
+#RESULT = AddSphere((0.8, 0.1, int(RESULT.shape[2]/2)), RESULT)
+#RESULT = AddSphere((0.9, 0.3, int(RESULT.shape[2]/2)), RESULT)
+SPHERES = AddSphere((0.8, 0.7, int(SPHERES.shape[2]/2)), SPHERES)
+#RESULT = AddSphere((0.9, 0.7, int(RESULT.shape[2]/2)), RESULT)
+#RESULT = AddSphere((0.8, 0.9, int(RESULT.shape[2]/2)), RESULT)
 
-DOWN = ski.transform.downscale_local_mean(RESULT, UPSCALE)
+SPHERES = ski.filters.gaussian(SPHERES, sigma=(sphere_sigma, sphere_sigma, 0), mode="wrap")
+SPHERES = ski.filters.gaussian(SPHERES, sigma=(0, 0, sphere_sigma), mode="constant")
+SPHERES = SPHERES / np.max(SPHERES)
+
+DOWN = ski.transform.downscale_local_mean(np.fmax(FIBERS, SPHERES), UPSCALE)
     
 #plt.imshow(TEST[:, :, 5])
 SaveStack(DOWN, "test")
+
+SAMPLE = DOWN * (0.4 + .05j) + 1
+SAMPLE = np.swapaxes(SAMPLE, 0, 2)
+SAMPLE = np.swapaxes(SAMPLE, 1, 2)
+np.save("tilesample.npy", SAMPLE)

@@ -550,6 +550,12 @@ int main(int argc, char** argv) {
 		logfile.open(ss.str());
 	}
 
+	if (LOG) {
+		for (int c = 0; c < argc; c++)
+			logfile << argv[c] << " ";
+		logfile << std::endl;
+	}
+
 	if (LOG)
 		logfile << "Initialization starts..." << std::endl;
 
